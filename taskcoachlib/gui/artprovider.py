@@ -24,53 +24,39 @@ from . import icons
 
 
 class ArtProvider(wx.ArtProvider):
-    def CreateBitmap(self, artId, artClient, size):
-        if "+" in artId:
-            w, h = size
-            main, overlay = artId.split("+")
+    def CreateBitmap(self, id, client, size):
+        if "+" not in id:
+            return self._CreateBitmap(id, client, size)
 
-            overlayImage = self._CreateBitmap(
-                overlay, artClient, size
-            ).ConvertToImage()  # type: wx.Image
-            overlayImage.Rescale(int(w / 2), int(h / 2), wx.IMAGE_QUALITY_HIGH)
+        width, height = size
+        main, overlay = id.split("+")
 
-            overlayAlpha = overlayImage.GetAlphaBuffer()
-            overlayBitmap = overlayImage.ConvertToBitmap()
+        # Create overlay image
+        overlay_image = self._CreateBitmap(
+            overlay, client, size
+        ).ConvertToImage()
+        overlay_image.Rescale(width // 2, height // 2, wx.IMAGE_QUALITY_HIGH)
 
-            mainImage = self._CreateBitmap(
-                main, artClient, size
-            ).ConvertToImage()  # type: wx.Image
-            mainAlpha = wxhelper.getAlphaDataFromImage(mainImage)
-            wxhelper.clearAlphaDataOfImage(mainImage, 255)
-            mainBitmap = mainImage.ConvertToBitmap()
+        # Create main image
+        main_image = self._CreateBitmap(main, client, size).ConvertToImage()
 
-            dstDC = wx.MemoryDC()
-            dstDC.SelectObject(mainBitmap)
-            try:
-                dstDC.DrawBitmap(
-                    overlayBitmap, w - (w // 2), h - (h // 2), True
-                )
-            finally:
-                dstDC.SelectObject(wx.NullBitmap)
-            mainImage = mainBitmap.ConvertToImage()
+        # Clear main image alpha and draw overlay image
+        wxhelper.clearAlphaDataOfImage(main_image, 255)
+        main_bitmap = main_image.ConvertToBitmap()
 
-            # Just drawing works fine on OS X but clips to the destination bitmap on
-            # other platforms. There doesn't seem to be anything better than this.
-            resultAlpha = list()
-            for y in range(h):
-                for x in range(w):
-                    alpha = mainAlpha[y * w + x]
-                    if x >= w // 2 and y >= h // 2:
-                        alpha = max(
-                            alpha,
-                            overlayAlpha[(y - h // 2) * w // 2 + x - w // 2],
-                        )
-                    resultAlpha.append(alpha)
-            wxhelper.setAlphaDataToImage(mainImage, resultAlpha)
+        # Draw overlay image
+        with wx.MemoryDC(main_bitmap) as dc:
+            dc.DrawBitmap(
+                overlay_image.ConvertToBitmap(), width // 2, height // 2, True
+            )
 
-            return mainImage.ConvertToBitmap()
-        else:
-            return self._CreateBitmap(artId, artClient, size)
+        # Merge alpha channels
+        main_image = main_bitmap.ConvertToImage()
+        result_image = wxhelper.mergeImagesWithAlpha(
+            main_image, overlay_image, (width // 2, height // 2)
+        )
+
+        return result_image.ConvertToBitmap()
 
     def _CreateBitmap(self, artId, artClient, size) -> wx.Bitmap:
         if not artId:

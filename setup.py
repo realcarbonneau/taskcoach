@@ -60,6 +60,7 @@ install_requires = [
     "lxml",
     "pyxdg",
     "keyring",
+    "numpy",
     # FIXME: It's been replaced by new library "fasteners"
     "lockfile>=0.12.2",
     "gntp>=1.0.3",
