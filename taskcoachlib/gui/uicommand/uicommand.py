@@ -1566,6 +1566,24 @@ class TaskNewFromTemplateButton(
     TaskListCommand,
     settings_uicommand.SettingsCommand,
 ):
+    def doCommand(self, event):
+        # Check if templates exist before showing menu
+        path = self.settings.pathToTemplatesDir()
+        if len(persistence.TemplateList(path).names()) == 0:
+            # No templates - show helpful message
+            wx.MessageBox(
+                _("No templates are currently configured.\n\n"
+                  "To create a template:\n"
+                  "1. Select a task\n"
+                  "2. Go to File → Save selected task as template"),
+                _("No Templates"),
+                wx.OK | wx.ICON_INFORMATION,
+                self.mainWindow()
+            )
+        else:
+            # Show the menu with templates
+            super().doCommand(event)
+
     def createPopupMenu(self):
         from taskcoachlib.gui import menu
 
@@ -1578,23 +1596,6 @@ class TaskNewFromTemplateButton(
 
     def getHelpText(self):
         return _("Create a new task from a template")
-
-
-class NoTemplatesPlaceholder(base_uicommand.UICommand):
-    """Placeholder menu item shown when no templates are configured"""
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            menuText=_("(No templates configured)"),
-            helpText=_("Create templates via File -> Save selected task as template"),
-            *args,
-            **kwargs
-        )
-
-    def enabled(self, event):
-        return False  # Always disabled
-
-    def doCommand(self, event):
-        pass  # Does nothing
 
 
 class NewTaskWithSelectedCategories(TaskNew, ViewerCommand):
