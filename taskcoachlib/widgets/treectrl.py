@@ -347,7 +347,9 @@ class TreeListCtrl(
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            self.SetItemBackgroundColour(item, bg_color)
+            # Set background color for ALL columns to achieve full-row highlighting
+            for column_index in range(self.GetColumnCount()):
+                self.SetItemBackgroundColour(item, bg_color, column_index)
             bg_changed = True
         fg_color = (
             domain_object.foregroundColor(recursive=True) or wx.NullColour
