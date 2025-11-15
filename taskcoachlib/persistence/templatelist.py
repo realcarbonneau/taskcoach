@@ -37,7 +37,7 @@ class TemplateList(object):
 
     def _readTemplate(self, filename, TemplateReader, openFile):
         try:
-            fd = openFile(os.path.join(self._path, filename), "rb")
+            fd = openFile(os.path.join(self._path, filename), "r")
         except IOError:
             return
         try:
@@ -87,7 +87,7 @@ class TemplateList(object):
         writer = TemplateXMLWriter(templateFile)
         writer.write(task.copy())
         templateFile.close()
-        theTask = TemplateXMLReader(open(filename, "rb")).read()
+        theTask = TemplateXMLReader(open(filename, "r")).read()
         self._templates.append((theTask, os.path.split(filename)[-1]))
         return theTask
 
