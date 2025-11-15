@@ -34,12 +34,17 @@ def get_git_info():
     """Get git commit count and hash for version identification."""
     import subprocess, os
     try:
+        # Find the git repository root - go up from this file's directory
+        # This file is in taskcoachlib/meta/data.py, so go up 3 levels to reach repo root
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.dirname(os.path.dirname(module_dir))
+
         commit_count = subprocess.check_output(['git', 'rev-list', '--count', 'HEAD'],
                                                stderr=subprocess.DEVNULL,
-                                               cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))).decode().strip()
+                                               cwd=repo_root).decode().strip()
         commit_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
                                               stderr=subprocess.DEVNULL,
-                                              cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))).decode().strip()
+                                              cwd=repo_root).decode().strip()
         return commit_count, commit_hash
     except Exception:
         return None, None
