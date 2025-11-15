@@ -37,9 +37,13 @@ def convertToTimedelta(toks):
         "second": timedelta(0, 1),
     }[unit]
     if toks.qty:
-        td *= int(toks.qty)
+        # In Python 3, pyparsing may return ParseResults - extract value
+        qty_val = toks.qty[0] if hasattr(toks.qty, '__getitem__') else toks.qty
+        td *= int(qty_val)
     if toks.dir:
-        td *= toks.dir
+        # dir may also be ParseResults - extract value
+        dir_val = toks.dir[0] if hasattr(toks.dir, '__getitem__') else toks.dir
+        td *= dir_val
     toks["timeOffset"] = td
 
 
@@ -48,7 +52,9 @@ def convertToDay(toks):
     if "wkdayRef" in toks:
         todaynum = now.weekday()
         nameddaynum = daynames.index(toks.wkdayRef.day.lower())
-        if toks.wkdayRef.dir > 0:
+        # In Python 3, pyparsing may return ParseResults - extract value
+        dir_val = toks.wkdayRef.dir[0] if hasattr(toks.wkdayRef.dir, '__getitem__') else toks.wkdayRef.dir
+        if dir_val > 0:
             daydiff = (nameddaynum + 7 - todaynum) % 7
         else:
             daydiff = -((todaynum + 7 - nameddaynum) % 7)
