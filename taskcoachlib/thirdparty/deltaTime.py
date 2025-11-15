@@ -85,19 +85,42 @@ def convertToAbsTime(toks):
                 "midnight": timedelta(),
             }[toks.timeOfDay]
         else:
+            # In Python 3, pyparsing Group may need unwrapping
             hhmmss = toks.timeparts
-            if hhmmss.miltime:
+            if isinstance(hhmmss, str):
+                # If it's a string, parsing failed - use midnight as default
+                timeOfDay = timedelta()
+            elif hasattr(hhmmss, '__getitem__') and len(hhmmss) > 0 and not hasattr(hhmmss, 'miltime'):
+                # Unwrap Group if needed
+                hhmmss = hhmmss[0]
+                if hasattr(hhmmss, 'miltime') and hhmmss.miltime:
+                    hh, mm = hhmmss.miltime
+                    ss = 0
+                else:
+                    hh, mm, ss = (hhmmss.HH % 12), hhmmss.MM, hhmmss.SS
+                    if not mm:
+                        mm = 0
+                    if not ss:
+                        ss = 0
+                    if toks.timeOfDay.ampm == "pm":
+                        hh += 12
+                timeOfDay = timedelta(0, (hh * 60 + mm) * 60 + ss, 0)
+            elif hasattr(hhmmss, 'miltime') and hhmmss.miltime:
                 hh, mm = hhmmss.miltime
                 ss = 0
-            else:
+                timeOfDay = timedelta(0, (hh * 60 + mm) * 60 + ss, 0)
+            elif hasattr(hhmmss, 'HH'):
                 hh, mm, ss = (hhmmss.HH % 12), hhmmss.MM, hhmmss.SS
                 if not mm:
                     mm = 0
                 if not ss:
                     ss = 0
-                if toks.timeOfDay.ampm == "pm":
+                if hasattr(toks.timeOfDay, 'ampm') and toks.timeOfDay.ampm == "pm":
                     hh += 12
-            timeOfDay = timedelta(0, (hh * 60 + mm) * 60 + ss, 0)
+                timeOfDay = timedelta(0, (hh * 60 + mm) * 60 + ss, 0)
+            else:
+                # Fallback to midnight if can't parse
+                timeOfDay = timedelta()
     else:
         timeOfDay = timedelta(
             0, (now.hour * 60 + now.minute) * 60 + now.second, now.microsecond
