@@ -352,17 +352,25 @@ class TreeListCtrl(
         if not check or (
             check and wx_bg_color != self.GetItemBackgroundColour(item)
         ):
-            # For full-row highlighting to work, we need to set the item's
-            # attribute background color, not per-column backgrounds
+            # For full-row highlighting to work with TR_FULL_ROW_HIGHLIGHT,
+            # we need to set the item's attribute background color
             attr = item.Attr()
             attr.SetBackgroundColour(wx_bg_color)
+
+            # Also set per-column backgrounds to ensure colors show in all columns
+            for column_index in range(self.GetColumnCount()):
+                self.SetItemBackgroundColour(item, wx_bg_color, column_index)
             bg_changed = True
 
-        fg_color = (
-            domain_object.foregroundColor(recursive=True) or wx.NullColour
-        )
-        if not check or (check and fg_color != self.GetItemTextColour(item)):
-            self.SetItemTextColour(item, fg_color)
+        fg_color = domain_object.foregroundColor(recursive=True)
+        # Convert foreground color tuple to wx.Colour
+        if fg_color:
+            wx_fg_color = wx.Colour(*fg_color) if isinstance(fg_color, tuple) else fg_color
+        else:
+            wx_fg_color = wx.NullColour
+
+        if not check or (check and wx_fg_color != self.GetItemTextColour(item)):
+            self.SetItemTextColour(item, wx_fg_color)
         # Refresh the line to ensure full-row background color is painted
         if bg_changed:
             self.GetMainWindow().RefreshLine(item)

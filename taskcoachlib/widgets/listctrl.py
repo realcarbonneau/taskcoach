@@ -115,9 +115,11 @@ class VirtualListCtrl(
         # from being garbage collected too soon:
         self.__item_attribute = wx.ItemAttr()  # pylint: disable=W0201
         if foreground_color:
-            self.__item_attribute.SetTextColour(foreground_color)
+            wx_fg_color = wx.Colour(*foreground_color) if isinstance(foreground_color, tuple) else foreground_color
+            self.__item_attribute.SetTextColour(wx_fg_color)
         if background_color:
-            self.__item_attribute.SetBackgroundColour(background_color)
+            wx_bg_color = wx.Colour(*background_color) if isinstance(background_color, tuple) else background_color
+            self.__item_attribute.SetBackgroundColour(wx_bg_color)
         if font:
             self.__item_attribute.SetFont(font)
         return self.__item_attribute
