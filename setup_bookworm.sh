@@ -199,7 +199,7 @@ echo
 
 # Test 1: Import taskcoachlib
 echo -n "Testing taskcoachlib import... "
-if VERSION=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import taskcoachlib; print(taskcoachlib.meta.version)" 2>/dev/null); then
+if VERSION=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import taskcoachlib.meta.data as meta; print(meta.version)" 2>/dev/null); then
     echo -e "${GREEN}✓ (version $VERSION)${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"

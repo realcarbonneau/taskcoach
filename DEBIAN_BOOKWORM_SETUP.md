@@ -112,7 +112,7 @@ python3 taskcoach.py
 
 ### Quick Test
 ```bash
-python3 -c "import taskcoachlib; print('TaskCoach version:', taskcoachlib.meta.version)"
+python3 -c "import taskcoachlib.meta.data as meta; print('TaskCoach version:', meta.version)"
 ```
 
 Expected output: `TaskCoach version: 1.5.0`
