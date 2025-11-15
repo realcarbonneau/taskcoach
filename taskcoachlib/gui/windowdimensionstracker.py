@@ -100,9 +100,13 @@ class WindowSizeAndPositionTracker(_Tracker):
         else:
             min_width, min_height = 600, 400
 
-        # Ensure window size meets minimum requirements
+        # Ensure window size meets minimum requirements and is always positive
         width = max(width, min_width)
         height = max(height, min_height)
+
+        # Sanity check: ensure we never have zero or negative dimensions
+        if width <= 0 or height <= 0:
+            width, height = min_width, min_height
 
         # Set minimum size constraint on the window to prevent user from resizing too small
         self._window.SetMinSize((min_width, min_height))
