@@ -24,7 +24,7 @@ OPTION 1: Automated Setup (Recommended)
    - Create a virtual environment at .venv (in the project directory)
    - Install remaining packages (desktop3, lockfile, gntp, distro, pypubsub)
    - Generate required resources (icons, templates)
-   - Create a launch script (taskcoach-run.sh)
+   - Verify launch script is ready
    - Test the installation
 
 3. Start TaskCoach:
