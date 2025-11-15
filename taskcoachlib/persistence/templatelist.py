@@ -93,7 +93,7 @@ class TemplateList(object):
             )
 
         for task, name in self._templates:
-            templateFile = open(os.path.join(self._path, name), "w")
+            templateFile = open(os.path.join(self._path, name), "wb")
             writer = TemplateXMLWriter(templateFile)
             writer.write(task)
             templateFile.close()
@@ -106,7 +106,7 @@ class TemplateList(object):
     def addTemplate(self, task):
         handle, filename = tempfile.mkstemp(".tsktmpl", dir=self._path)
         os.close(handle)
-        templateFile = open(filename, "w")
+        templateFile = open(filename, "wb")
         writer = TemplateXMLWriter(templateFile)
         writer.write(task.copy())
         templateFile.close()
