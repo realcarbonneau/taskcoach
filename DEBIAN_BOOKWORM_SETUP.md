@@ -49,8 +49,7 @@ sudo apt-get install -y \
     python3-keyring \
     python3-pyparsing \
     python3-pyxdg \
-    python3-venv \
-    xvfb
+    python3-venv
 ```
 
 #### Step 2: Create Virtual Environment
@@ -79,10 +78,10 @@ TaskCoach needs to generate icons and templates before first run:
 cd /path/to/taskcoach
 
 # Generate icons
-xvfb-run -a python3 icons.in/make.py
+python3 icons.in/make.py
 
 # Generate templates
-xvfb-run -a python3 templates.in/make.py
+python3 templates.in/make.py
 ```
 
 #### Step 4: Create Launch Script
@@ -163,7 +162,27 @@ This runs 14+ tests to verify everything works.
 ./taskcoach-run.sh --language=fr
 ```
 
-## Running Headless (SSH/No Display)
+## Advanced: Headless/Automated Testing
+
+**Note**: This section is only for running TaskCoach without a display (SSH sessions, automated testing, CI/CD). Normal desktop users can skip this.
+
+### Install xvfb (headless only)
+
+```bash
+sudo apt-get install -y xvfb
+```
+
+### Generate resources headless
+
+```bash
+# Generate icons
+xvfb-run -a python3 icons.in/make.py
+
+# Generate templates
+xvfb-run -a python3 templates.in/make.py
+```
+
+### Run TaskCoach headless
 
 ```bash
 xvfb-run -a ./taskcoach-run.sh
@@ -189,6 +208,11 @@ sudo apt-get install python3-wxgtk4.0
 
 **Solution**: Generate the icons file:
 ```bash
+python3 icons.in/make.py
+```
+
+If running headless/over SSH without a display, add `xvfb-run -a`:
+```bash
 xvfb-run -a python3 icons.in/make.py
 ```
 
@@ -196,6 +220,11 @@ xvfb-run -a python3 icons.in/make.py
 **Symptom**: `ModuleNotFoundError: No module named 'taskcoachlib.persistence.xml.templates'`
 
 **Solution**: Generate the templates file:
+```bash
+python3 templates.in/make.py
+```
+
+If running headless/over SSH without a display, add `xvfb-run -a`:
 ```bash
 xvfb-run -a python3 templates.in/make.py
 ```

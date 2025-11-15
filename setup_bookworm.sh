@@ -51,7 +51,7 @@ echo -e "${BLUE}[2/7] Installing system dependencies...${NC}"
 echo "This will install system packages from Debian repos."
 echo "Packages: python3-wxgtk4.0, python3-twisted, python3-lxml, python3-numpy,"
 echo "          python3-six, python3-dateutil, python3-chardet, python3-keyring,"
-echo "          python3-pyparsing, python3-pyxdg, python3-venv, xvfb"
+echo "          python3-pyparsing, python3-pyxdg, python3-venv"
 echo "Requires sudo privileges."
 
 if command -v sudo &> /dev/null; then
@@ -67,8 +67,7 @@ if command -v sudo &> /dev/null; then
         python3-keyring \
         python3-pyparsing \
         python3-pyxdg \
-        python3-venv \
-        xvfb
+        python3-venv
     echo -e "${GREEN}✓ System packages installed${NC}"
 else
     echo -e "${YELLOW}⚠ sudo not available, please install packages manually${NC}"
@@ -114,8 +113,25 @@ cd "$SCRIPT_DIR"
 if [ ! -f "taskcoachlib/gui/icons.py" ]; then
     if [ -d "icons.in" ]; then
         echo "Generating icons (this may take a minute)..."
-        xvfb-run -a python3 icons.in/make.py 2>&1 | tail -5
-        echo -e "${GREEN}✓ Icons generated${NC}"
+
+        # Try without xvfb first (normal desktop)
+        if python3 icons.in/make.py 2>&1 | tail -5; then
+            echo -e "${GREEN}✓ Icons generated${NC}"
+        else
+            # If that fails, check if we need xvfb (headless)
+            if [ -z "$DISPLAY" ]; then
+                echo -e "${YELLOW}No display detected, trying with xvfb...${NC}"
+                if ! command -v xvfb-run &> /dev/null; then
+                    echo -e "${YELLOW}Installing xvfb for headless operation...${NC}"
+                    sudo apt-get install -y xvfb
+                fi
+                xvfb-run -a python3 icons.in/make.py 2>&1 | tail -5
+                echo -e "${GREEN}✓ Icons generated (headless)${NC}"
+            else
+                echo -e "${RED}✗ Failed to generate icons${NC}"
+                exit 1
+            fi
+        fi
     else
         echo -e "${YELLOW}⚠ icons.in directory not found${NC}"
     fi
@@ -129,8 +145,25 @@ echo -e "${BLUE}[6/7] Generating template resources...${NC}"
 if [ ! -f "taskcoachlib/persistence/xml/templates.py" ]; then
     if [ -d "templates.in" ]; then
         echo "Generating templates..."
-        xvfb-run -a python3 templates.in/make.py 2>&1 | tail -5
-        echo -e "${GREEN}✓ Templates generated${NC}"
+
+        # Try without xvfb first (normal desktop)
+        if python3 templates.in/make.py 2>&1 | tail -5; then
+            echo -e "${GREEN}✓ Templates generated${NC}"
+        else
+            # If that fails, check if we need xvfb (headless)
+            if [ -z "$DISPLAY" ]; then
+                echo -e "${YELLOW}No display detected, trying with xvfb...${NC}"
+                if ! command -v xvfb-run &> /dev/null; then
+                    echo -e "${YELLOW}Installing xvfb for headless operation...${NC}"
+                    sudo apt-get install -y xvfb
+                fi
+                xvfb-run -a python3 templates.in/make.py 2>&1 | tail -5
+                echo -e "${GREEN}✓ Templates generated (headless)${NC}"
+            else
+                echo -e "${RED}✗ Failed to generate templates${NC}"
+                exit 1
+            fi
+        fi
     else
         echo -e "${YELLOW}⚠ templates.in directory not found${NC}"
     fi
@@ -207,12 +240,16 @@ else
     exit 1
 fi
 
-# Test 5: Quick GUI test
-echo -n "Testing GUI initialization... "
-if timeout 3 xvfb-run -a "$SCRIPT_DIR/taskcoach-run.sh" 2>&1 | grep -q "TaskCoach\|wx" || [ $? -eq 124 ]; then
-    echo -e "${GREEN}✓${NC}"
+# Test 5: Quick GUI test (skip if no display)
+if [ -n "$DISPLAY" ]; then
+    echo -n "Testing GUI initialization... "
+    if timeout 3 "$SCRIPT_DIR/taskcoach-run.sh" 2>&1 | grep -q "TaskCoach\|wx" || [ $? -eq 124 ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${YELLOW}⚠ Could not fully test (this is OK)${NC}"
+    fi
 else
-    echo -e "${YELLOW}⚠ Could not fully test (this is OK)${NC}"
+    echo "Skipping GUI test (no display available)"
 fi
 
 echo
@@ -227,9 +264,6 @@ echo "  • Additional packages in venv (desktop3, lockfile, gntp, distro, pypub
 echo
 echo "You can now run TaskCoach with:"
 echo -e "  ${BLUE}./taskcoach-run.sh${NC}"
-echo
-echo "Or with a virtual display (for headless/SSH):"
-echo -e "  ${BLUE}xvfb-run -a ./taskcoach-run.sh${NC}"
 echo
 echo "To see all options:"
 echo -e "  ${BLUE}./taskcoach-run.sh --help${NC}"

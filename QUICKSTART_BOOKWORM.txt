@@ -40,7 +40,7 @@ OPTION 2: Manual Setup
    sudo apt-get update
    sudo apt-get install -y python3-wxgtk4.0 python3-six python3-twisted \
        python3-lxml python3-numpy python3-dateutil python3-chardet \
-       python3-keyring python3-pyparsing python3-pyxdg python3-venv xvfb
+       python3-keyring python3-pyparsing python3-pyxdg python3-venv
 
 2. Create virtual environment:
 
@@ -51,8 +51,8 @@ OPTION 2: Manual Setup
 
 3. Generate resources:
 
-   xvfb-run -a python3 icons.in/make.py
-   xvfb-run -a python3 templates.in/make.py
+   python3 icons.in/make.py
+   python3 templates.in/make.py
 
 4. Create launch script:
 
@@ -103,14 +103,25 @@ Common Usage
 ./taskcoach-run.sh --help
 
 
-Running Headless (SSH/No Display)
-----------------------------------
+Advanced: Headless Testing (Optional)
+--------------------------------------
 
-If you're connected via SSH or have no display:
+NOTE: Skip this section if you're running on a normal desktop!
 
+This is ONLY for:
+  • Automated testing / CI/CD
+  • Running over SSH without X11 forwarding
+  • Headless servers
+
+1. Install xvfb:
+   sudo apt-get install -y xvfb
+
+2. Generate resources with xvfb:
+   xvfb-run -a python3 icons.in/make.py
+   xvfb-run -a python3 templates.in/make.py
+
+3. Run TaskCoach headless:
    xvfb-run -a ./taskcoach-run.sh
-
-Xvfb (X Virtual Framebuffer) provides a virtual display.
 
 
 Understanding the Setup
@@ -154,13 +165,16 @@ Error: "No module named 'wx'"
 → Install: sudo apt-get install python3-wxgtk4.0
 
 Error: "couldn't import icons.py"
-→ Run: xvfb-run -a python3 icons.in/make.py
+→ Run: python3 icons.in/make.py
+→ If headless: xvfb-run -a python3 icons.in/make.py
 
 Error: "No module named 'taskcoachlib.persistence.xml.templates'"
-→ Run: xvfb-run -a python3 templates.in/make.py
+→ Run: python3 templates.in/make.py
+→ If headless: xvfb-run -a python3 templates.in/make.py
 
 Error: "Unable to access the X Display"
-→ Use: xvfb-run -a ./taskcoach-run.sh
+→ You're either running over SSH or headless
+→ See "Advanced: Headless Testing" section
 
 Error: "Virtual environment not found"
 → Run: ./setup_bookworm.sh
