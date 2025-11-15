@@ -230,6 +230,7 @@ class Application(object, metaclass=patterns.Singleton):
         """Copy default templates that don't exist yet in the user's
         template directory."""
         from taskcoachlib.persistence import getDefaultTemplates
+        import pickle
 
         template_dir = self.settings.pathToTemplatesDir()
         if (
@@ -242,10 +243,18 @@ class Application(object, metaclass=patterns.Singleton):
             )
             == 0
         ):
+            template_names = []
             for name, template in getDefaultTemplates():
                 filename = os.path.join(template_dir, name + ".tsktmpl")
                 if not os.path.exists(filename):
                     open(filename, "wb").write(template)
+                    template_names.append(name + ".tsktmpl")
+
+            # Create list.pickle so templates are discovered
+            if template_names:
+                pickle_file = os.path.join(template_dir, "list.pickle")
+                with open(pickle_file, "wb") as f:
+                    pickle.dump(template_names, f)
 
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
