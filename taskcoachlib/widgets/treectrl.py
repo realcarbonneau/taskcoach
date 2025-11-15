@@ -351,7 +351,6 @@ class TreeListCtrl(
             # This sets the attribute that controls the full row background
             attr = item.Attr()
             attr.SetBackgroundColour(bg_color)
-            self.GetMainWindow().RefreshLine(item)
         fg_color = (
             domain_object.foregroundColor(recursive=True) or wx.NullColour
         )
