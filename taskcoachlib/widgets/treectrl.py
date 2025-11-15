@@ -347,7 +347,11 @@ class TreeListCtrl(
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            self.SetItemBackgroundColour(item, bg_color)
+            # Set the ITEM background color (row-level), not column-level
+            # This sets the attribute that controls the full row background
+            attr = item.Attr()
+            attr.SetBackgroundColour(bg_color)
+            self.RefreshLine(item)
         fg_color = (
             domain_object.foregroundColor(recursive=True) or wx.NullColour
         )
@@ -483,7 +487,7 @@ class TreeListCtrl(
             | wx.TR_MULTIPLE
             | wx.TR_EDIT_LABELS
             | wx.TR_HAS_BUTTONS
-            | wx.TR_FULL_ROW_HIGHLIGHT
+            | wx.TR_FULL_ROW_HIGHLIGHT  # This makes row backgrounds span the full row
             | customtree.TR_HAS_VARIABLE_ROW_HEIGHT
         )
         if operating_system.isMac():
