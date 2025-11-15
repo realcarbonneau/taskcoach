@@ -59,7 +59,13 @@ class TemplateList(object):
         listName = os.path.join(self._path, "list.pickle")
         if os.path.exists(listName):
             try:
-                filenames = pickle.load(open(listName, "rb"))
+                pickle_filenames = pickle.load(open(listName, "rb"))
+                # Only use pickle list if it's not empty and files exist
+                if pickle_filenames and all(
+                    os.path.exists(os.path.join(self._path, name))
+                    for name in pickle_filenames
+                ):
+                    filenames = pickle_filenames
             except:
                 pass
         return filenames
