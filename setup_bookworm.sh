@@ -107,8 +107,34 @@ deactivate
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
 echo
 
+# Apply wxPython patch for background coloring fix
+echo -e "${BLUE}[5/7] Applying wxPython patch to venv...${NC}"
+echo "Installing patched hypertreelist.py for full-row background coloring"
+
+PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+TARGET_DIR="$VENV_PATH/lib/python${PYTHON_VERSION}/site-packages/wx/lib/agw"
+SOURCE_FILE="$SCRIPT_DIR/patches/wxpython/hypertreelist.py"
+
+if [ -f "$SOURCE_FILE" ]; then
+    mkdir -p "$TARGET_DIR"
+    cp "$SOURCE_FILE" "$TARGET_DIR/hypertreelist.py"
+
+    # Verify the patch was applied
+    if grep -q "itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)" "$TARGET_DIR/hypertreelist.py"; then
+        echo -e "${GREEN}✓ wxPython patch applied successfully${NC}"
+        echo "  This fixes full-row background coloring (wxPython PR #2088)"
+    else
+        echo -e "${YELLOW}⚠ Patch file copied but verification failed${NC}"
+    fi
+else
+    echo -e "${RED}✗ Patch file not found: $SOURCE_FILE${NC}"
+    echo -e "${YELLOW}⚠ Background coloring may not work optimally${NC}"
+    echo "  (Right-aligned date columns will only show text background)"
+fi
+echo
+
 # Check launch script
-echo -e "${BLUE}[5/5] Checking launch script...${NC}"
+echo -e "${BLUE}[6/7] Checking launch script...${NC}"
 if [ -f "$SCRIPT_DIR/taskcoach-run.sh" ]; then
     chmod +x "$SCRIPT_DIR/taskcoach-run.sh"
     echo -e "${GREEN}✓ Launch script is ready: taskcoach-run.sh${NC}"
@@ -120,7 +146,7 @@ fi
 echo
 
 # Test installation
-echo -e "${BLUE}Testing installation...${NC}"
+echo -e "${BLUE}[7/7] Testing installation...${NC}"
 echo "===================="
 echo
 
@@ -141,6 +167,15 @@ else
     echo -e "${RED}✗ Failed${NC}"
     echo "Please check python3-wxgtk4.0 installation"
     exit 1
+fi
+
+# Test 2b: Verify wxPython patch in venv
+echo -n "Testing wxPython patch... "
+PATCH_FILE="$VENV_PATH/lib/python${PYTHON_VERSION}/site-packages/wx/lib/agw/hypertreelist.py"
+if [ -f "$PATCH_FILE" ] && grep -q "itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)" "$PATCH_FILE"; then
+    echo -e "${GREEN}✓ (patch applied)${NC}"
+else
+    echo -e "${YELLOW}⚠ (using system version)${NC}"
 fi
 
 # Test 3: Test venv packages individually
@@ -220,6 +255,7 @@ echo "TaskCoach has been set up with:"
 echo "  • System packages from Debian repos (wxPython, numpy, lxml, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
 echo "  • Additional packages in venv (desktop3, lockfile, gntp, distro, pypubsub)"
+echo "  • wxPython patch applied (full-row background coloring fix)"
 echo
 echo "You can now run TaskCoach with:"
 echo -e "  ${BLUE}./taskcoach-run.sh${NC}"
