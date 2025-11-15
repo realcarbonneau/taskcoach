@@ -69,7 +69,13 @@ class PIParser(ET.XMLParser):
     """See http://effbot.org/zone/element-pi.htm"""
 
     def __init__(self):
-        super().__init__()
+        # Security: Disable external entity resolution and network access
+        # to prevent XXE (XML External Entity) attacks
+        super().__init__(
+            resolve_entities=False,  # Don't resolve external entities
+            no_network=True,         # Disable network access
+            remove_blank_text=False
+        )
 
         # FIXME: The codes below no longer works with lastest python
         #
