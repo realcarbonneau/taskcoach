@@ -8,6 +8,63 @@ This guide explains how to test TaskCoach on Debian 12 (Bookworm).
 - **Python**: 3.11 (default in Bookworm)
 - **wxPython**: 4.2.0 (available in Bookworm repos)
 
+## Getting the Code
+
+Choose one of these methods to download TaskCoach:
+
+### Option 1: Shallow Git Clone (Recommended)
+
+Fast download (~70MB), includes git for easy updates:
+
+```bash
+cd ~/Downloads
+git clone --depth 1 --branch claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo \
+  https://github.com/realcarbonneau/taskcoach.git taskcoach
+cd taskcoach
+```
+
+**To update later:**
+```bash
+cd ~/Downloads/taskcoach
+git pull
+```
+
+### Option 2: Full Git Clone
+
+Complete repository with full history (~400MB):
+
+```bash
+cd ~/Downloads
+git clone --branch claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo \
+  https://github.com/realcarbonneau/taskcoach.git taskcoach
+cd taskcoach
+```
+
+### Option 3: Download as ZIP
+
+Smallest download (~50MB), no git required:
+
+```bash
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/archive/refs/heads/claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo.zip -O taskcoach.zip
+unzip taskcoach.zip
+mv taskcoach-claude-taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo taskcoach
+rm taskcoach.zip
+cd taskcoach
+```
+
+**Or with curl:**
+```bash
+cd ~/Downloads
+curl -L https://github.com/realcarbonneau/taskcoach/archive/refs/heads/claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo.zip -o taskcoach.zip
+unzip taskcoach.zip
+mv taskcoach-claude-taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo taskcoach
+rm taskcoach.zip
+cd taskcoach
+```
+
+**Note**: With ZIP download, you need to re-download the entire file to get updates (no `git pull`).
+
 ## Important Note About PEP 668
 
 Debian Bookworm implements PEP 668, which prevents `pip install --user` from modifying the system Python environment. This is a **good security feature**. We'll use system packages where possible and a virtual environment for the rest.
@@ -24,7 +81,6 @@ Debian Bookworm implements PEP 668, which prevents `pip install --user` from mod
 # - Install system packages
 # - Create a virtual environment
 # - Install remaining dependencies
-# - Generate icons and templates
 ```
 
 ### Option 2: Manual Setup
@@ -57,11 +113,16 @@ sudo apt-get install -y \
 For packages not available in Debian repos (desktop3, lockfile, gntp, distro, pypubsub):
 
 ```bash
-# Create virtual environment
-python3 -m venv ~/.taskcoach-venv
+# Set your TaskCoach directory (change this to your actual path)
+TASKCOACH_HOME=/path/to/taskcoach
+
+cd "$TASKCOACH_HOME"
+
+# Create virtual environment with access to system packages
+python3 -m venv --system-site-packages .venv
 
 # Activate it
-source ~/.taskcoach-venv/bin/activate
+source .venv/bin/activate
 
 # Install remaining dependencies
 pip install desktop3 lockfile gntp distro pypubsub
@@ -70,78 +131,34 @@ pip install desktop3 lockfile gntp distro pypubsub
 deactivate
 ```
 
-#### Step 3: Generate Required Files
+**Note**: The `--system-site-packages` flag allows the virtual environment to access system-installed packages (like wxPython, twisted, lxml) while keeping pip-installed packages isolated. This is the recommended approach for TaskCoach.
 
-TaskCoach needs to generate icons and templates before first run:
-
-```bash
-cd /path/to/taskcoach
-
-# Generate icons
-python3 icons.in/make.py
-
-# Generate templates
-python3 templates.in/make.py
-```
-
-#### Step 4: Create Launch Script
-
-Create a script to run TaskCoach with the virtual environment:
-
-```bash
-cat > taskcoach-run.sh << 'EOF'
-#!/bin/bash
-# Activate virtual environment and run TaskCoach
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source ~/.taskcoach-venv/bin/activate
-cd "$SCRIPT_DIR"
-python3 taskcoach.py "$@"
-EOF
-
-chmod +x taskcoach-run.sh
-```
-
-#### Step 5: Run TaskCoach
+#### Step 3: Run TaskCoach
 
 ```bash
 # Using the launch script:
 ./taskcoach-run.sh
 
 # Or manually:
-source ~/.taskcoach-venv/bin/activate
+source .venv/bin/activate
 python3 taskcoach.py
 ```
-
-## Alternative: Using --break-system-packages (Not Recommended)
-
-If you really want to use `pip install --user` without a venv:
-
-```bash
-# NOT RECOMMENDED - can break system Python
-pip3 install --user --break-system-packages \
-    desktop3 lockfile gntp distro pypubsub
-
-# Then run normally:
-python3 taskcoach.py
-```
-
-**Warning**: This can conflict with system packages and break system tools that depend on Python.
 
 ## Testing the Installation
 
 ### Quick Test
 ```bash
-python3 -c "import taskcoachlib; print('TaskCoach version:', taskcoachlib.meta.version)"
+python3 -c "import taskcoachlib.meta.data as meta; print('TaskCoach version:', meta.version)"
 ```
 
-Expected output: `TaskCoach version: 1.5.0`
+Expected output: `TaskCoach version: 1.5.1`
 
 ### Comprehensive Test
 ```bash
 ./test_taskcoach.sh
 ```
 
-This runs 14+ tests to verify everything works.
+This runs 12 tests to verify all dependencies and prerequisites.
 
 ## Usage Examples
 
@@ -172,16 +189,6 @@ This runs 14+ tests to verify everything works.
 sudo apt-get install -y xvfb
 ```
 
-### Generate resources headless
-
-```bash
-# Generate icons
-xvfb-run -a python3 icons.in/make.py
-
-# Generate templates
-xvfb-run -a python3 templates.in/make.py
-```
-
 ### Run TaskCoach headless
 
 ```bash
@@ -203,17 +210,12 @@ xvfb-run -a ./taskcoach-run.sh
 sudo apt-get install python3-wxgtk4.0
 ```
 
-### Issue 3: Missing Icons
-**Symptom**: Error message "couldn't import icons.py"
-
-**Solution**: Generate the icons file:
+If running headless/over SSH without a display:
 ```bash
-python3 icons.in/make.py
-```
-
-If running headless/over SSH without a display, add `xvfb-run -a`:
-```bash
-xvfb-run -a python3 icons.in/make.py
+TASKCOACH_HOME=/path/to/taskcoach  # Change to your path
+cd "$TASKCOACH_HOME/icons.in"
+xvfb-run -a python3 make.py
+cd "$TASKCOACH_HOME"
 ```
 
 ### Issue 4: Missing Templates
@@ -221,12 +223,18 @@ xvfb-run -a python3 icons.in/make.py
 
 **Solution**: Generate the templates file:
 ```bash
-python3 templates.in/make.py
+TASKCOACH_HOME=~/Downloads/taskcoach-master  # Change to your path
+cd "$TASKCOACH_HOME/templates.in"
+python3 make.py
+cd "$TASKCOACH_HOME"
 ```
 
-If running headless/over SSH without a display, add `xvfb-run -a`:
+If running headless/over SSH without a display:
 ```bash
-xvfb-run -a python3 templates.in/make.py
+TASKCOACH_HOME=~/Downloads/taskcoach-master  # Change to your path
+cd "$TASKCOACH_HOME/templates.in"
+xvfb-run -a python3 make.py
+cd "$TASKCOACH_HOME"
 ```
 
 ## Package Sources in Bookworm
@@ -270,7 +278,9 @@ python3 --version  # Should be 3.11.x
 
 ### Check Virtual Environment
 ```bash
-source ~/.taskcoach-venv/bin/activate
+TASKCOACH_HOME=~/Downloads/taskcoach-master  # Change to your path
+cd "$TASKCOACH_HOME"
+source .venv/bin/activate
 pip list | grep -E "(desktop3|lockfile|gntp|distro|pypubsub)"
 deactivate
 ```
@@ -291,14 +301,14 @@ apt list --installed | grep python3-twisted
 To remove TaskCoach:
 
 ```bash
-# Remove virtual environment
-rm -rf ~/.taskcoach-venv
+# Set your TaskCoach directory
+TASKCOACH_HOME=/path/to/taskcoach
+
+# Remove TaskCoach directory (includes the venv)
+rm -rf "$TASKCOACH_HOME"
 
 # Remove system packages (optional)
 sudo apt-get remove python3-wxgtk4.0
-
-# Remove TaskCoach directory
-rm -rf /path/to/taskcoach
 ```
 
 ## Support

@@ -92,6 +92,50 @@ class WindowSizeAndPositionTracker(_Tracker):
         """Set the window position and size based on the settings."""
         x, y = self.get_setting("position")  # pylint: disable=C0103
         width, height = self.get_setting("size")
+
+        # Enforce minimum window size to prevent GTK warnings and usability issues
+        # Different minimums for dialogs vs main windows
+        if isinstance(self._window, wx.Dialog):
+            min_width, min_height = 400, 300
+        else:
+            min_width, min_height = 600, 400
+
+        # Ensure window size meets minimum requirements and is always positive
+        width = max(width, min_width)
+        height = max(height, min_height)
+
+        # Sanity check: ensure we never have zero or negative dimensions
+        if width <= 0 or height <= 0:
+            width, height = min_width, min_height
+
+        # Set minimum size constraint on the window to prevent user from resizing too small
+        self._window.SetMinSize((min_width, min_height))
+
+        # For dialogs, center on the same display as parent window
+        # This ensures dialogs appear on the correct screen in multi-monitor setups
+        if isinstance(self._window, wx.Dialog):
+            parent = self._window.GetParent()
+            if parent:
+                # Find which display the parent is on
+                parent_display_index = wx.Display.GetFromWindow(parent)
+                if parent_display_index != wx.NOT_FOUND:
+                    # Center dialog on parent's display
+                    display = wx.Display(parent_display_index)
+                    display_rect = display.GetGeometry()
+                    x = display_rect.x + (display_rect.width - width) // 2
+                    y = display_rect.y + (display_rect.height - height) // 2
+                else:
+                    # Parent not on any display, use safe default
+                    x, y = 50, 50
+            elif x == -1 and y == -1:
+                # No parent, use safe default
+                x, y = 50, 50
+            # else: use saved position (x, y) for dialogs without parent
+        elif x == -1 and y == -1:
+            # For main window with no saved position, use safe default
+            # Not (0, 0) because on some systems this might hide title bar
+            x, y = 50, 50
+
         if operating_system.isMac():
             # Under MacOS 10.5 and 10.4, when setting the size, the actual
             # window height is increased by 40 pixels. Dunno why, but it's
@@ -104,11 +148,37 @@ class WindowSizeAndPositionTracker(_Tracker):
         if self.get_setting("maximized"):
             self._window.Maximize()
         # Check that the window is on a valid display and move if necessary:
-        if wx.Display.GetFromWindow(self._window) == wx.NOT_FOUND:
+        display_index = wx.Display.GetFromWindow(self._window)
+        if display_index == wx.NOT_FOUND:
+            # Window is completely off-screen, use safe default position
             # Not (0, 0) because on OSX this hides the window bar...
             self._window.SetSize(50, 50, width, height)
             if operating_system.isMac():
                 self._window.SetClientSize((width, height))
+        else:
+            # Window is on a display, but check if position is reasonable
+            # Ensure the window is sufficiently visible (not just barely on screen)
+            display = wx.Display(display_index)
+            display_rect = display.GetGeometry()
+            window_rect = self._window.GetRect()
+
+            # Check if window position is too close to display edges (less than 50px visible)
+            visible_left = max(window_rect.x, display_rect.x)
+            visible_top = max(window_rect.y, display_rect.y)
+            visible_right = min(window_rect.x + window_rect.width, display_rect.x + display_rect.width)
+            visible_bottom = min(window_rect.y + window_rect.height, display_rect.y + display_rect.height)
+
+            visible_width = visible_right - visible_left
+            visible_height = visible_bottom - visible_top
+
+            # If less than 50px visible in either dimension, center on current display
+            if visible_width < 50 or visible_height < 50:
+                # Center the window on the display it's currently on
+                center_x = display_rect.x + (display_rect.width - width) // 2
+                center_y = display_rect.y + (display_rect.height - height) // 2
+                self._window.SetSize(center_x, center_y, width, height)
+                if operating_system.isMac():
+                    self._window.SetClientSize((width, height))
 
 
 class WindowDimensionsTracker(WindowSizeAndPositionTracker):

@@ -77,7 +77,7 @@ echo
 
 # Create virtual environment for packages not in Debian repos
 echo -e "${BLUE}[3/7] Creating virtual environment...${NC}"
-VENV_PATH="$HOME/.taskcoach-venv"
+VENV_PATH="$SCRIPT_DIR/.venv"
 
 if [ -d "$VENV_PATH" ]; then
     echo -e "${YELLOW}Virtual environment already exists at $VENV_PATH${NC}"
@@ -85,14 +85,14 @@ if [ -d "$VENV_PATH" ]; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf "$VENV_PATH"
-        python3 -m venv "$VENV_PATH"
+        python3 -m venv --system-site-packages "$VENV_PATH"
         echo -e "${GREEN}✓ Virtual environment recreated${NC}"
     else
         echo -e "${GREEN}✓ Using existing virtual environment${NC}"
     fi
 else
-    python3 -m venv "$VENV_PATH"
-    echo -e "${GREEN}✓ Virtual environment created at $VENV_PATH${NC}"
+    python3 -m venv --system-site-packages "$VENV_PATH"
+    echo -e "${GREEN}✓ Virtual environment created in project directory${NC}"
 fi
 echo
 
@@ -107,92 +107,16 @@ deactivate
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
 echo
 
-# Generate icons
-echo -e "${BLUE}[5/7] Generating icon resources...${NC}"
-cd "$SCRIPT_DIR"
-if [ ! -f "taskcoachlib/gui/icons.py" ]; then
-    if [ -d "icons.in" ]; then
-        echo "Generating icons (this may take a minute)..."
-
-        # Try without xvfb first (normal desktop)
-        if python3 icons.in/make.py 2>&1 | tail -5; then
-            echo -e "${GREEN}✓ Icons generated${NC}"
-        else
-            # If that fails, check if we need xvfb (headless)
-            if [ -z "$DISPLAY" ]; then
-                echo -e "${YELLOW}No display detected, trying with xvfb...${NC}"
-                if ! command -v xvfb-run &> /dev/null; then
-                    echo -e "${YELLOW}Installing xvfb for headless operation...${NC}"
-                    sudo apt-get install -y xvfb
-                fi
-                xvfb-run -a python3 icons.in/make.py 2>&1 | tail -5
-                echo -e "${GREEN}✓ Icons generated (headless)${NC}"
-            else
-                echo -e "${RED}✗ Failed to generate icons${NC}"
-                exit 1
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠ icons.in directory not found${NC}"
-    fi
+# Check launch script
+echo -e "${BLUE}[5/5] Checking launch script...${NC}"
+if [ -f "$SCRIPT_DIR/taskcoach-run.sh" ]; then
+    chmod +x "$SCRIPT_DIR/taskcoach-run.sh"
+    echo -e "${GREEN}✓ Launch script is ready: taskcoach-run.sh${NC}"
 else
-    echo -e "${GREEN}✓ Icons already exist${NC}"
-fi
-echo
-
-# Generate templates
-echo -e "${BLUE}[6/7] Generating template resources...${NC}"
-if [ ! -f "taskcoachlib/persistence/xml/templates.py" ]; then
-    if [ -d "templates.in" ]; then
-        echo "Generating templates..."
-
-        # Try without xvfb first (normal desktop)
-        if python3 templates.in/make.py 2>&1 | tail -5; then
-            echo -e "${GREEN}✓ Templates generated${NC}"
-        else
-            # If that fails, check if we need xvfb (headless)
-            if [ -z "$DISPLAY" ]; then
-                echo -e "${YELLOW}No display detected, trying with xvfb...${NC}"
-                if ! command -v xvfb-run &> /dev/null; then
-                    echo -e "${YELLOW}Installing xvfb for headless operation...${NC}"
-                    sudo apt-get install -y xvfb
-                fi
-                xvfb-run -a python3 templates.in/make.py 2>&1 | tail -5
-                echo -e "${GREEN}✓ Templates generated (headless)${NC}"
-            else
-                echo -e "${RED}✗ Failed to generate templates${NC}"
-                exit 1
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠ templates.in directory not found${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ Templates already exist${NC}"
-fi
-echo
-
-# Create launch script
-echo -e "${BLUE}[7/7] Creating launch script...${NC}"
-cat > "$SCRIPT_DIR/taskcoach-run.sh" << 'EOFLAUNCH'
-#!/bin/bash
-# TaskCoach launcher with virtual environment
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_PATH="$HOME/.taskcoach-venv"
-
-if [ ! -d "$VENV_PATH" ]; then
-    echo "Error: Virtual environment not found at $VENV_PATH"
-    echo "Please run setup_bookworm.sh first"
+    echo -e "${RED}✗ Launch script not found${NC}"
+    echo "taskcoach-run.sh should be included in the repository"
     exit 1
 fi
-
-source "$VENV_PATH/bin/activate"
-cd "$SCRIPT_DIR"
-python3 taskcoach.py "$@"
-EOFLAUNCH
-
-chmod +x "$SCRIPT_DIR/taskcoach-run.sh"
-echo -e "${GREEN}✓ Launch script created: taskcoach-run.sh${NC}"
 echo
 
 # Test installation
@@ -202,7 +126,7 @@ echo
 
 # Test 1: Import taskcoachlib
 echo -n "Testing taskcoachlib import... "
-if VERSION=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import taskcoachlib; print(taskcoachlib.meta.version)" 2>/dev/null); then
+if VERSION=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import taskcoachlib.meta.data as meta; print(meta.version)" 2>/dev/null); then
     echo -e "${GREEN}✓ (version $VERSION)${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
@@ -219,17 +143,52 @@ else
     exit 1
 fi
 
-# Test 3: Test venv packages
-echo -n "Testing virtual environment packages... "
+# Test 3: Test venv packages individually
+echo "Testing virtual environment packages..."
 source "$VENV_PATH/bin/activate"
-if python3 -c "import desktop3, lockfile, gntp, distro; from pubsub import pub" 2>/dev/null; then
+
+VENV_FAILED=0
+
+# desktop3 package provides 'desktop' module
+echo -n "  - desktop3... "
+if python3 -c "import desktop" 2>/dev/null; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
-    deactivate
+    VENV_FAILED=1
+fi
+
+# Test other packages
+for pkg in "lockfile" "gntp" "distro"; do
+    echo -n "  - $pkg... "
+    if python3 -c "import $pkg" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗ Failed${NC}"
+        VENV_FAILED=1
+    fi
+done
+
+# pypubsub package provides 'pubsub' module
+echo -n "  - pypubsub... "
+if python3 -c "from pubsub import pub" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC}"
+else
+    echo -e "${RED}✗ Failed${NC}"
+    VENV_FAILED=1
+fi
+
+deactivate
+
+if [ $VENV_FAILED -eq 1 ]; then
+    echo -e "${RED}✗ Some packages failed to import${NC}"
+    echo "Try recreating the virtual environment:"
+    echo "  rm -rf $VENV_PATH"
+    echo "  python3 -m venv --system-site-packages $VENV_PATH"
+    echo "  source $VENV_PATH/bin/activate"
+    echo "  pip install desktop3 lockfile gntp distro pypubsub"
     exit 1
 fi
-deactivate
 
 # Test 4: Run help
 echo -n "Testing application help... "
@@ -259,7 +218,7 @@ echo -e "${GREEN}========================================${NC}"
 echo
 echo "TaskCoach has been set up with:"
 echo "  • System packages from Debian repos (wxPython, numpy, lxml, etc.)"
-echo "  • Virtual environment at: $VENV_PATH"
+echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
 echo "  • Additional packages in venv (desktop3, lockfile, gntp, distro, pypubsub)"
 echo
 echo "You can now run TaskCoach with:"

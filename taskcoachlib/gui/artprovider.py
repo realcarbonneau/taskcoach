@@ -20,7 +20,24 @@ from taskcoachlib import patterns, operating_system
 from taskcoachlib.i18n import _
 from taskcoachlib.tools import wxhelper
 import wx
-from . import icons
+import os
+import sys
+
+
+def get_resource_path(relative_path):
+    """Get absolute path to resource - works for development and frozen apps."""
+    if getattr(sys, 'frozen', False):
+        # Running as frozen executable (PyInstaller, py2exe, etc.)
+        if hasattr(sys, '_MEIPASS'):
+            # PyInstaller
+            base_path = sys._MEIPASS
+        else:
+            # py2exe
+            base_path = os.path.dirname(sys.executable)
+    else:
+        # Running in normal Python (development)
+        base_path = os.path.dirname(__file__)
+    return os.path.join(base_path, relative_path)
 
 
 class ArtProvider(wx.ArtProvider):
@@ -61,9 +78,16 @@ class ArtProvider(wx.ArtProvider):
     def _CreateBitmap(self, artId, artClient, size) -> wx.Bitmap:
         if not artId:
             return wx.Bitmap(*size)
-        catalogKey = "%s%dx%d" % (artId, size[0], size[1])
-        if catalogKey in list(icons.catalog.keys()):
-            bitmap = icons.catalog[catalogKey].GetBitmap()
+
+        # Construct icon filename: "copy" + "16x16" -> "copy16x16.png"
+        icon_filename = "%s%dx%d.png" % (artId, size[0], size[1])
+        icon_path = get_resource_path(os.path.join('icons', icon_filename))
+
+        if os.path.exists(icon_path):
+            image = wx.Image(icon_path)
+            if not image.IsOk():
+                return wx.NullBitmap
+            bitmap = image.ConvertToBitmap()
             if artClient == wx.ART_FRAME_ICON:
                 bitmap = self.convertAlphaToMask(bitmap)
             return bitmap

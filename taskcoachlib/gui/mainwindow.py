@@ -70,6 +70,10 @@ class MainWindow(
         self, iocontroller, taskFile, settings: Settings, *args, **kwargs
     ):
         self.__splash = kwargs.pop("splash", None)
+        # Initialize with valid default size to prevent GTK warnings
+        # The WindowDimensionsTracker will set the actual saved size/position
+        if 'size' not in kwargs:
+            kwargs['size'] = (800, 600)
         super().__init__(None, -1, "", *args, **kwargs)
         # This prevents the viewers from flickering on Windows 7 when refreshed:
         if operating_system.isWindows7_OrNewer():

@@ -22,31 +22,39 @@ import wx
 # FIXME: Adding duplicate animation handler for '1' type
 # FIXME: Adding duplicate animation handler for '2' type
 import wx.adv
+import os
+import sys
 from taskcoachlib import i18n
-from wx.lib.embeddedimage import PyEmbeddedImage
 
-try:
-    from . import icons
-except ImportError:  # pragma: no cover
-    print("ERROR: couldn't import icons.py.")
-    print("You need to generate the icons file.")
-    print('Run "make prepare" in the Task Coach root folder.')
-    import sys
 
-    sys.exit(1)
+def get_resource_path(relative_path):
+    """Get absolute path to resource - works for development and frozen apps."""
+    if getattr(sys, 'frozen', False):
+        # Running as frozen executable
+        if hasattr(sys, '_MEIPASS'):
+            base_path = sys._MEIPASS  # PyInstaller
+        else:
+            base_path = os.path.dirname(sys.executable)  # py2exe
+    else:
+        # Running in normal Python (development)
+        base_path = os.path.dirname(__file__)
+    return os.path.join(base_path, relative_path)
 
 
 class SplashScreen(wx.adv.SplashScreen):
     def __init__(self):
-        splash = icons.catalog["splash"]  # type: PyEmbeddedImage
+        # Load splash.png from icons directory
+        splash_path = get_resource_path(os.path.join('icons', 'splash.png'))
+        image = wx.Image(splash_path)
+
         if i18n.currentLanguageIsRightToLeft():
             # RTL languages cause the bitmap to be mirrored too, but because
             # the splash image is not internationalized, we have to mirror it
             # (back). Unfortunately using SetLayoutDirection() on the
             # SplashWindow doesn't work.
-            bitmap = wx.BitmapFromImage(splash.GetBitmap().Mirror())
+            bitmap = image.Mirror().ConvertToBitmap()
         else:
-            bitmap = splash.GetBitmap()
+            bitmap = image.ConvertToBitmap()
         super().__init__(
             bitmap,
             wx.adv.SPLASH_CENTRE_ON_SCREEN | wx.adv.SPLASH_TIMEOUT,
