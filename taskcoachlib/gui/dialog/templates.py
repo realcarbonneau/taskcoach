@@ -159,7 +159,7 @@ class TemplatesDialog(sized_controls.SizedDialog):
             ctrl.Enable(enable)
 
     def appendTemplate(self, parentItem, task):
-        item = self._templateList.Append(parentItem, task.subject(), data=task)
+        item = self._templateList.AppendItem(parentItem, task.subject(), data=task)
         for child in task.children():
             self.appendTemplate(item, child)
         return item
