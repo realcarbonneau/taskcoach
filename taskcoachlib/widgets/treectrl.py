@@ -347,11 +347,7 @@ class TreeListCtrl(
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            # SetItemBackgroundColour for column 0 ALSO sets item.Attr().SetBackgroundColour()
-            # which is required for TR_FILL_WHOLE_COLUMN_BACKGROUND to work properly.
-            # So we must call it for ALL columns including column 0.
-            for column_index in range(self.GetColumnCount()):
-                self.SetItemBackgroundColour(item, bg_color, column_index)
+            self.SetItemBackgroundColour(item, bg_color)
         fg_color = (
             domain_object.foregroundColor(recursive=True) or wx.NullColour
         )
@@ -489,13 +485,10 @@ class TreeListCtrl(
             | wx.TR_HAS_BUTTONS
             | wx.TR_FULL_ROW_HIGHLIGHT
             | customtree.TR_HAS_VARIABLE_ROW_HEIGHT
-            | hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND  # Fix for full-width backgrounds
         )
         if operating_system.isMac():
             agw_style |= wx.TR_NO_LINES
         agw_style &= ~hypertreelist.TR_NO_HEADER
-        # Disable column lines to prevent white gaps between colored columns
-        agw_style &= ~hypertreelist.TR_COLUMN_LINES
         return agw_style
 
     # pylint: disable=W0221
