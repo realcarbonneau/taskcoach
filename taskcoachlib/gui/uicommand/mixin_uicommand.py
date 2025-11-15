@@ -211,24 +211,16 @@ class PopupButtonMixin(object):
         if not self.toolbar:
             return (0, 0)
 
-        # Get the button's rectangle in the toolbar
+        # Get the button's position
         tool_rect = self.toolbar.GetToolRect(self.id)
+        toolbar_pos = self.toolbar.GetScreenPosition()
 
-        if tool_rect and not tool_rect.IsEmpty():
-            # Convert toolbar rect to screen coordinates
-            toolbar_screen_pos = self.toolbar.GetScreenPosition()
-            button_screen_x = toolbar_screen_pos[0] + tool_rect.x
-            button_screen_y = toolbar_screen_pos[1] + tool_rect.y + tool_rect.height
+        # Calculate screen position: button's left edge, toolbar's bottom edge
+        screen_x = toolbar_pos[0] + tool_rect.x
+        screen_y = toolbar_pos[1] + self.toolbar.GetSize()[1]
 
-            # Convert screen coordinates to main window client coordinates
-            main_window_pos = self.mainWindow().GetScreenPosition()
-            client_x = button_screen_x - main_window_pos[0]
-            client_y = button_screen_y - main_window_pos[1]
-
-            return (client_x, client_y)
-        else:
-            # Fallback to old behavior if GetToolRect fails
-            return self.mainWindow().ScreenToClient((self.menuX(), self.menuY()))
+        # Convert to main window client coordinates
+        return self.mainWindow().ScreenToClient((screen_x, screen_y))
 
     def menuX(self):
         buttonWidth = self.toolbar.GetToolSize()[0]
