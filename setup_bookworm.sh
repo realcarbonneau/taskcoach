@@ -148,7 +148,18 @@ echo "Testing virtual environment packages..."
 source "$VENV_PATH/bin/activate"
 
 VENV_FAILED=0
-for pkg in "desktop3" "lockfile" "gntp" "distro"; do
+
+# desktop3 package provides 'desktop' module
+echo -n "  - desktop3... "
+if python3 -c "import desktop" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC}"
+else
+    echo -e "${RED}✗ Failed${NC}"
+    VENV_FAILED=1
+fi
+
+# Test other packages
+for pkg in "lockfile" "gntp" "distro"; do
     echo -n "  - $pkg... "
     if python3 -c "import $pkg" 2>/dev/null; then
         echo -e "${GREEN}✓${NC}"
@@ -158,7 +169,7 @@ for pkg in "desktop3" "lockfile" "gntp" "distro"; do
     fi
 done
 
-# pypubsub is imported differently
+# pypubsub package provides 'pubsub' module
 echo -n "  - pypubsub... "
 if python3 -c "from pubsub import pub" 2>/dev/null; then
     echo -e "${GREEN}✓${NC}"
