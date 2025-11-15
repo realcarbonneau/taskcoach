@@ -66,13 +66,18 @@ agw_style &= ~hypertreelist.TR_COLUMN_LINES
 agw_style |= hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND
 ```
 
-**Current State with wxPython 4.2.1** (code-level workarounds):
+**Fixed with wxPython Patch** (applied to venv):
 - ✓ Left-aligned columns (Subject, etc.): Full cell background coloring
+- ✓ Right-aligned columns (date fields): Full cell background coloring ✓ FIXED!
 - ✓ No white gaps between columns
-- ⚠️ Right-aligned columns (date columns): Only text background colored
-  - This is a limitation of wxPython 4.2.1 (bug #1898)
-  - Fixed in wxPython 4.2.4 but we do NOT patch/modify system files
-  - The code workarounds provide the best possible results with 4.2.1
+- ✓ Background colors span complete window width
+
+**How the fix works**:
+- Patched `hypertreelist.py` file stored in `patches/wxpython/` directory in the repo
+- Applied to venv via `./apply-wxpython-patch.sh` script (part of setup)
+- Venv with `--system-site-packages` uses patched venv file instead of system file
+- No system files are modified - only venv is patched
+- Patch includes fix from wxPython PR #2088 (backported from wxPython 4.2.4 to 4.2.1)
 
 **Files Modified**:
 - `taskcoachlib/widgets/treectrl.py` (lines 342-370, 477-492)

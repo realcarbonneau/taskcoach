@@ -133,7 +133,24 @@ deactivate
 
 **Note**: The `--system-site-packages` flag allows the virtual environment to access system-installed packages (like wxPython, twisted, lxml) while keeping pip-installed packages isolated. This is the recommended approach for TaskCoach.
 
-#### Step 3: Run TaskCoach
+#### Step 3: Apply wxPython Patch
+
+Apply the patched wxPython file to fix background coloring issues:
+
+```bash
+./apply-wxpython-patch.sh
+```
+
+This copies a patched version of `hypertreelist.py` to your venv, overriding the system version. The patch includes the fix from wxPython PR #2088 for full-row background coloring.
+
+**What this fixes**:
+- Full-row background colors (not just text backgrounds)
+- Right-aligned columns (date fields) now fully colored
+- Background colors span complete window width
+
+See `patches/wxpython/README.md` for details about the patch.
+
+#### Step 4: Run TaskCoach
 
 ```bash
 # Using the launch script:
