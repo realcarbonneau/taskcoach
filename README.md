@@ -24,17 +24,33 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-## Clone the repository
+## Getting the Code
 
-If you clone the sources from GitHub, you will notice that it might
-take a long time more than you expect (Hundreds MB!!).
+### For Debian Users
 
-So you have better just checkout a few versions (500?) like this:
+See [DEBIAN_BOOKWORM_SETUP.md](DEBIAN_BOOKWORM_SETUP.md) for detailed Debian-specific installation instructions including shallow clone and ZIP download options.
 
-    git clone --depth=500 https://github.com/taskcoach/taskcoach.git
+### General Instructions
 
-It's more faster than clone the whole history (There lots archives 
-inside the history tree)
+If you clone the sources from GitHub, the full repository is ~400MB due to the complete history. Choose the method that best fits your needs:
+
+**Shallow clone (recommended, ~70MB):**
+```bash
+git clone --depth 1 https://github.com/taskcoach/taskcoach.git
+```
+
+**Full clone (~400MB):**
+```bash
+git clone https://github.com/taskcoach/taskcoach.git
+```
+
+**Download as ZIP (~50MB, no git):**
+```bash
+wget https://github.com/taskcoach/taskcoach/archive/refs/heads/master.zip
+unzip master.zip
+```
+
+The large size is due to historical binary assets (icon archives, translations, DLLs) stored in the git history.
 
 ## Prerequisites
 

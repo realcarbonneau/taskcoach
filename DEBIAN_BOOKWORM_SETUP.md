@@ -8,6 +8,63 @@ This guide explains how to test TaskCoach on Debian 12 (Bookworm).
 - **Python**: 3.11 (default in Bookworm)
 - **wxPython**: 4.2.0 (available in Bookworm repos)
 
+## Getting the Code
+
+Choose one of these methods to download TaskCoach:
+
+### Option 1: Shallow Git Clone (Recommended)
+
+Fast download (~70MB), includes git for easy updates:
+
+```bash
+cd ~/Downloads
+git clone --depth 1 --branch claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo \
+  https://github.com/realcarbonneau/taskcoach.git taskcoach
+cd taskcoach
+```
+
+**To update later:**
+```bash
+cd ~/Downloads/taskcoach
+git pull
+```
+
+### Option 2: Full Git Clone
+
+Complete repository with full history (~400MB):
+
+```bash
+cd ~/Downloads
+git clone --branch claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo \
+  https://github.com/realcarbonneau/taskcoach.git taskcoach
+cd taskcoach
+```
+
+### Option 3: Download as ZIP
+
+Smallest download (~50MB), no git required:
+
+```bash
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/archive/refs/heads/claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo.zip -O taskcoach.zip
+unzip taskcoach.zip
+mv taskcoach-claude-taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo taskcoach
+rm taskcoach.zip
+cd taskcoach
+```
+
+**Or with curl:**
+```bash
+cd ~/Downloads
+curl -L https://github.com/realcarbonneau/taskcoach/archive/refs/heads/claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo.zip -o taskcoach.zip
+unzip taskcoach.zip
+mv taskcoach-claude-taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo taskcoach
+rm taskcoach.zip
+cd taskcoach
+```
+
+**Note**: With ZIP download, you need to re-download the entire file to get updates (no `git pull`).
+
 ## Important Note About PEP 668
 
 Debian Bookworm implements PEP 668, which prevents `pip install --user` from modifying the system Python environment. This is a **good security feature**. We'll use system packages where possible and a virtual environment for the rest.
@@ -94,7 +151,7 @@ python3 taskcoach.py
 python3 -c "import taskcoachlib.meta.data as meta; print('TaskCoach version:', meta.version)"
 ```
 
-Expected output: `TaskCoach version: 1.5.0`
+Expected output: `TaskCoach version: 1.5.1`
 
 ### Comprehensive Test
 ```bash
