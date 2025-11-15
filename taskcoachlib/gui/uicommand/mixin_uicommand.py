@@ -207,21 +207,28 @@ class PopupButtonMixin(object):
         self.mainWindow().PopupMenu(*args)  # pylint: disable=W0142
 
     def menuXY(self):
-        """Location to pop up the menu."""
-        # Get screen coordinates
-        screen_x = self.menuX()
-        screen_y = self.menuY()
-        # Convert to main window client coordinates
-        # Use the toolbar's position if available for better accuracy
-        if self.toolbar:
-            toolbar_pos = self.toolbar.GetScreenPosition()
+        """Location to pop up the menu - directly below the toolbar button."""
+        if not self.toolbar:
+            return (0, 0)
+
+        # Get the button's rectangle in the toolbar
+        tool_rect = self.toolbar.GetToolRect(self.id)
+
+        if tool_rect and not tool_rect.IsEmpty():
+            # Convert toolbar rect to screen coordinates
+            toolbar_screen_pos = self.toolbar.GetScreenPosition()
+            button_screen_x = toolbar_screen_pos[0] + tool_rect.x
+            button_screen_y = toolbar_screen_pos[1] + tool_rect.y + tool_rect.height
+
+            # Convert screen coordinates to main window client coordinates
             main_window_pos = self.mainWindow().GetScreenPosition()
-            # Calculate relative position
-            client_x = screen_x - main_window_pos[0]
-            client_y = screen_y - main_window_pos[1]
+            client_x = button_screen_x - main_window_pos[0]
+            client_y = button_screen_y - main_window_pos[1]
+
             return (client_x, client_y)
         else:
-            return self.mainWindow().ScreenToClient((screen_x, screen_y))
+            # Fallback to old behavior if GetToolRect fails
+            return self.mainWindow().ScreenToClient((self.menuX(), self.menuY()))
 
     def menuX(self):
         buttonWidth = self.toolbar.GetToolSize()[0]
