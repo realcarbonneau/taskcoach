@@ -111,19 +111,26 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Set minimum size constraint on the window to prevent user from resizing too small
         self._window.SetMinSize((min_width, min_height))
 
-        # For dialogs, always center on parent to ensure they open on the same
-        # screen as the parent window (important for multi-monitor setups)
+        # For dialogs, center on the same display as parent window
+        # This ensures dialogs appear on the correct screen in multi-monitor setups
         if isinstance(self._window, wx.Dialog):
             parent = self._window.GetParent()
-            if parent and parent.IsShown():
-                # Center on parent window
-                parent_rect = parent.GetScreenRect()
-                x = parent_rect.x + (parent_rect.width - width) // 2
-                y = parent_rect.y + (parent_rect.height - height) // 2
+            if parent:
+                # Find which display the parent is on
+                parent_display_index = wx.Display.GetFromWindow(parent)
+                if parent_display_index != wx.NOT_FOUND:
+                    # Center dialog on parent's display
+                    display = wx.Display(parent_display_index)
+                    display_rect = display.GetGeometry()
+                    x = display_rect.x + (display_rect.width - width) // 2
+                    y = display_rect.y + (display_rect.height - height) // 2
+                else:
+                    # Parent not on any display, use safe default
+                    x, y = 50, 50
             elif x == -1 and y == -1:
-                # No parent or parent not shown yet, use safe default
+                # No parent, use safe default
                 x, y = 50, 50
-            # else: use saved position (x, y)
+            # else: use saved position (x, y) for dialogs without parent
         elif x == -1 and y == -1:
             # For main window with no saved position, use safe default
             # Not (0, 0) because on some systems this might hide title bar
