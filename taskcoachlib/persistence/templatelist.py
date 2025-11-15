@@ -97,9 +97,10 @@ class TemplateList(object):
         del self._templates[idx]
 
     def copyTemplate(self, filename):
-        shutil.copyfile(
-            filename, os.path.join(self._path, os.path.split(filename)[-1])
-        )
+        dest = os.path.join(self._path, os.path.split(filename)[-1])
+        # Don't copy if source and destination are the same file
+        if os.path.abspath(filename) != os.path.abspath(dest):
+            shutil.copyfile(filename, dest)
         pub.sendMessage("templates.saved")
 
     def swapTemplates(self, i, j):
