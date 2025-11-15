@@ -340,22 +340,24 @@ class TreeListCtrl(
                 item.SetImage(column_index, image, which)
 
     def _refreshColors(self, item, domain_object, check=False):
-        bg_color = (
-            domain_object.backgroundColor(recursive=True) or wx.NullColour
-        )
+        bg_color = domain_object.backgroundColor(recursive=True)
+
+        # Convert to wx.Colour if we have a color tuple, otherwise use NullColour
+        if bg_color:
+            wx_bg_color = wx.Colour(*bg_color) if isinstance(bg_color, tuple) else bg_color
+        else:
+            wx_bg_color = wx.NullColour
+
         bg_changed = False
         if not check or (
-            check and bg_color != self.GetItemBackgroundColour(item)
+            check and wx_bg_color != self.GetItemBackgroundColour(item)
         ):
             # For full-row highlighting to work, we need to set the item's
             # attribute background color, not per-column backgrounds
             attr = item.Attr()
-            if bg_color and bg_color != wx.NullColour:
-                attr.SetBackgroundColour(bg_color)
-            else:
-                # Clear the background if no color set
-                attr.SetBackgroundColour(wx.NullColour)
+            attr.SetBackgroundColour(wx_bg_color)
             bg_changed = True
+
         fg_color = (
             domain_object.foregroundColor(recursive=True) or wx.NullColour
         )
