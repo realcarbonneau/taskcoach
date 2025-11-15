@@ -87,15 +87,36 @@ class TemplateList(object):
         self._toDelete = []
         pub.sendMessage("templates.saved")
 
+    def _makeFilename(self, subject):
+        """Create a safe filename from task subject"""
+        import re
+        # Remove/replace unsafe characters
+        safe_name = re.sub(r'[^\w\s-]', '', subject)
+        safe_name = re.sub(r'[-\s]+', '-', safe_name)
+        safe_name = safe_name.strip('-')[:50]  # Limit length
+
+        if not safe_name:
+            safe_name = "template"
+
+        # Handle duplicates by adding number suffix
+        base_filename = safe_name + ".tsktmpl"
+        filename = base_filename
+        counter = 1
+        while os.path.exists(os.path.join(self._path, filename)):
+            filename = f"{safe_name}-{counter}.tsktmpl"
+            counter += 1
+
+        return filename
+
     def addTemplate(self, task):
-        handle, filename = tempfile.mkstemp(".tsktmpl", dir=self._path)
-        os.close(handle)
-        templateFile = open(filename, "wb")
+        filename = self._makeFilename(task.subject())
+        full_path = os.path.join(self._path, filename)
+        templateFile = open(full_path, "wb")
         writer = TemplateXMLWriter(templateFile)
         writer.write(task.copy())
         templateFile.close()
-        theTask = TemplateXMLReader(open(filename, "r")).read()
-        self._templates.append((theTask, os.path.split(filename)[-1]))
+        theTask = TemplateXMLReader(open(full_path, "r")).read()
+        self._templates.append((theTask, filename))
         return theTask
 
     def deleteTemplate(self, idx):
