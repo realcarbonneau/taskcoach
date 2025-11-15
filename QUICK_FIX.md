@@ -12,7 +12,9 @@ After migrating to Python 3 and wxPython Phoenix, category and task background c
 
 **Time:** Less than 1 minute
 
-**Command:**
+**Status:** ✓ Already applied to this development environment
+
+**For other systems using venv with --system-site-packages:**
 ```bash
 sudo python3 patch-wxpython-simple.py
 ```

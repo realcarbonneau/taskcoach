@@ -13,17 +13,25 @@ Instead of upgrading to wxPython 4.2.4 (which requires compiling from source), y
 
 ## Automatic Patch Application
 
+**Note**: If you're using a venv with `--system-site-packages`, the patch needs to be applied to the system's wxPython installation, which requires sudo.
+
 Run the provided patch script:
 
 ```bash
+# If using venv with --system-site-packages (requires sudo):
+sudo python3 patch-wxpython-simple.py
+
+# Or using bash script:
 sudo ./patch-wxpython.sh
 ```
 
 This will:
-1. Locate your wxPython installation
+1. Locate your wxPython installation (system or venv)
 2. Backup the original file
 3. Apply the patch
 4. Verify the patch was applied successfully
+
+**Already Applied**: The patch has already been applied to this development environment's wxPython installation.
 
 ## Manual Patch Application
 

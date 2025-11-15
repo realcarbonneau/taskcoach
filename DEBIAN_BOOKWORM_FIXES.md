@@ -74,7 +74,8 @@ agw_style |= hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND
 **Final Fix Available**: Patch wxPython or upgrade to version 4.2.4
 - **Option 1 (Recommended)**: Patch the installed wxPython library (see `WXPYTHON_PATCH.md`)
   - Quick: Takes less than 1 minute
-  - Simple: Run `sudo python3 patch-wxpython-simple.py`
+  - Status: ✓ Already applied to this development environment
+  - For deployment: Run `sudo python3 patch-wxpython-simple.py` (sudo needed for venv with --system-site-packages)
   - Safe: Creates automatic backup before patching
 - **Option 2 (Alternative)**: Upgrade to wxPython 4.2.4 (see `WXPYTHON_UPGRADE.md`)
   - Requires compiling from source (15-30 minutes)
@@ -168,19 +169,27 @@ a81d4a6 Use SetItemBackgroundColour with explicit wx.Colour conversion
 
 ## Next Steps
 
-1. **Apply wxPython patch** (see `WXPYTHON_PATCH.md`) - **RECOMMENDED**
-   - Quick and simple: `sudo python3 patch-wxpython-simple.py`
-   - Alternatively: `sudo ./patch-wxpython.sh`
-   - This patches your installed wxPython library with the fix from PR #2088
+1. **wxPython Patch Status**
+   - ✓ **Already applied** to this development environment
+   - Background coloring should now work correctly on all columns
+
+   For deployment to other systems:
+   - **Apply wxPython patch** (see `WXPYTHON_PATCH.md`) - **RECOMMENDED**
+     - Quick and simple: `sudo python3 patch-wxpython-simple.py`
+     - Alternatively: `sudo ./patch-wxpython.sh`
+     - Note: sudo required for venvs using --system-site-packages
+     - This patches your installed wxPython library with the fix from PR #2088
 
    **OR**
 
-   **Upgrade wxPython to 4.2.4** (see `WXPYTHON_UPGRADE.md`) - **ALTERNATIVE**
-   - Option A: Run `./upgrade-wxpython.sh`
-   - Option B: Manual upgrade with instructions in documentation
-   - Note: Requires compiling from source (15-30 minutes)
+   - **Upgrade wxPython to 4.2.4** (see `WXPYTHON_UPGRADE.md`) - **ALTERNATIVE**
+     - Option A: Run `./upgrade-wxpython.sh`
+     - Option B: Manual upgrade with instructions in documentation
+     - Note: Requires compiling from source (15-30 minutes)
 
-2. **Test background coloring** after patch/upgrade to verify all columns work correctly
+2. **Test background coloring** to verify all columns work correctly
+   - Create categories with background colors
+   - Verify date columns (right-aligned) show full cell backgrounds
 
 3. **Keep workarounds in code** for compatibility
    - The column loop workaround ensures compatibility with unpatched installations
