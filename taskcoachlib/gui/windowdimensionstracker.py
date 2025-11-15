@@ -104,11 +104,37 @@ class WindowSizeAndPositionTracker(_Tracker):
         if self.get_setting("maximized"):
             self._window.Maximize()
         # Check that the window is on a valid display and move if necessary:
-        if wx.Display.GetFromWindow(self._window) == wx.NOT_FOUND:
+        display_index = wx.Display.GetFromWindow(self._window)
+        if display_index == wx.NOT_FOUND:
+            # Window is completely off-screen, use safe default position
             # Not (0, 0) because on OSX this hides the window bar...
             self._window.SetSize(50, 50, width, height)
             if operating_system.isMac():
                 self._window.SetClientSize((width, height))
+        else:
+            # Window is on a display, but check if position is reasonable
+            # Ensure the window is sufficiently visible (not just barely on screen)
+            display = wx.Display(display_index)
+            display_rect = display.GetGeometry()
+            window_rect = self._window.GetRect()
+
+            # Check if window position is too close to display edges (less than 50px visible)
+            visible_left = max(window_rect.x, display_rect.x)
+            visible_top = max(window_rect.y, display_rect.y)
+            visible_right = min(window_rect.x + window_rect.width, display_rect.x + display_rect.width)
+            visible_bottom = min(window_rect.y + window_rect.height, display_rect.y + display_rect.height)
+
+            visible_width = visible_right - visible_left
+            visible_height = visible_bottom - visible_top
+
+            # If less than 50px visible in either dimension, center on current display
+            if visible_width < 50 or visible_height < 50:
+                # Center the window on the display it's currently on
+                center_x = display_rect.x + (display_rect.width - width) // 2
+                center_y = display_rect.y + (display_rect.height - height) // 2
+                self._window.SetSize(center_x, center_y, width, height)
+                if operating_system.isMac():
+                    self._window.SetClientSize((width, height))
 
 
 class WindowDimensionsTracker(WindowSizeAndPositionTracker):
