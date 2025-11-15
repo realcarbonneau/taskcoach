@@ -71,9 +71,15 @@ agw_style |= hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND
 - ✓ No white gaps between columns
 - ✗ Right-aligned columns (date columns): Only text background colored
 
-**Final Fix Required**: Upgrade to wxPython 4.2.4
-- Bug fixes for TR_FILL_WHOLE_COLUMN_BACKGROUND with right-aligned columns (PR #2088)
-- See `WXPYTHON_UPGRADE.md` for detailed instructions
+**Final Fix Available**: Patch wxPython or upgrade to version 4.2.4
+- **Option 1 (Recommended)**: Patch the installed wxPython library (see `WXPYTHON_PATCH.md`)
+  - Quick: Takes less than 1 minute
+  - Simple: Run `sudo python3 patch-wxpython-simple.py`
+  - Safe: Creates automatic backup before patching
+- **Option 2 (Alternative)**: Upgrade to wxPython 4.2.4 (see `WXPYTHON_UPGRADE.md`)
+  - Requires compiling from source (15-30 minutes)
+  - Requires GTK development libraries
+  - Provides official fix from PR #2088
 
 **Files Modified**:
 - `taskcoachlib/widgets/treectrl.py` (lines 342-370, 477-492)
@@ -162,15 +168,24 @@ a81d4a6 Use SetItemBackgroundColour with explicit wx.Colour conversion
 
 ## Next Steps
 
-1. **Upgrade wxPython to 4.2.4** (see `WXPYTHON_UPGRADE.md`)
-   - Option 1: Run `./upgrade-wxpython.sh`
-   - Option 2: Manual upgrade with instructions in documentation
+1. **Apply wxPython patch** (see `WXPYTHON_PATCH.md`) - **RECOMMENDED**
+   - Quick and simple: `sudo python3 patch-wxpython-simple.py`
+   - Alternatively: `sudo ./patch-wxpython.sh`
+   - This patches your installed wxPython library with the fix from PR #2088
 
-2. **Test background coloring** after upgrade to verify all columns work correctly
+   **OR**
 
-3. **Remove workarounds** (optional) if they're no longer needed after upgrade
-   - The column loop workaround may still be beneficial for compatibility
-   - Document whether to keep or remove based on testing results
+   **Upgrade wxPython to 4.2.4** (see `WXPYTHON_UPGRADE.md`) - **ALTERNATIVE**
+   - Option A: Run `./upgrade-wxpython.sh`
+   - Option B: Manual upgrade with instructions in documentation
+   - Note: Requires compiling from source (15-30 minutes)
+
+2. **Test background coloring** after patch/upgrade to verify all columns work correctly
+
+3. **Keep workarounds in code** for compatibility
+   - The column loop workaround ensures compatibility with unpatched installations
+   - The explicit wx.Colour conversion is required for Python 3/Phoenix compatibility
+   - These workarounds do not interfere with the patch/upgrade
 
 ## References
 
