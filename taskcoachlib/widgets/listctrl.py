@@ -104,20 +104,22 @@ class VirtualListCtrl(
         item = self.getItemWithIndex(rowIndex)
         foreground_color = item.foregroundColor(recursive=True)
         background_color = item.backgroundColor(recursive=True)
-        item_attribute_arguments = [foreground_color, background_color]
         font = item.font(recursive=True)
         if font is None:
             # FIXME: Is the right way to get the font here?
             # wxItemAttr required a font for initialization, so we give one
             font = self.GetFont()
 
-        item_attribute_arguments.append(font)
-
+        # Create ItemAttr and set attributes explicitly for wxPython 4 compatibility
         # We need to keep a reference to the item attribute to prevent it
         # from being garbage collected too soon:
-        self.__item_attribute = wx.ItemAttr(
-            *item_attribute_arguments
-        )  # pylint: disable=W0142,W0201
+        self.__item_attribute = wx.ItemAttr()  # pylint: disable=W0201
+        if foreground_color:
+            self.__item_attribute.SetTextColour(foreground_color)
+        if background_color:
+            self.__item_attribute.SetBackgroundColour(background_color)
+        if font:
+            self.__item_attribute.SetFont(font)
         return self.__item_attribute
 
     def onSelect(self, event):

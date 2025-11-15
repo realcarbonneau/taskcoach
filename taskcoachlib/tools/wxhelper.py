@@ -70,12 +70,11 @@ def clearAlphaDataOfImage(image: wx.Image, value: int):
     if not image.HasAlpha():
         image.InitAlpha()
 
-    # width = image.GetWidth()
-    # height = image.GetHeight()
+    width = image.GetWidth()
+    height = image.GetHeight()
 
-    alpha_data = image.GetAlpha()
-    alpha_array = np.frombuffer(alpha_data, dtype=np.uint8)
-    alpha_array.fill(value)
+    # Create a writable array filled with the value
+    alpha_array = np.full(width * height, value, dtype=np.uint8)
     image.SetAlpha(alpha_array.tobytes())
 
 

@@ -343,15 +343,20 @@ class TreeListCtrl(
         bg_color = (
             domain_object.backgroundColor(recursive=True) or wx.NullColour
         )
+        bg_changed = False
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
             self.SetItemBackgroundColour(item, bg_color)
+            bg_changed = True
         fg_color = (
             domain_object.foregroundColor(recursive=True) or wx.NullColour
         )
         if not check or (check and fg_color != self.GetItemTextColour(item)):
             self.SetItemTextColour(item, fg_color)
+        # Refresh the line to ensure full-row background color is painted
+        if bg_changed:
+            self.GetMainWindow().RefreshLine(item)
 
     def _refreshFont(self, item, domain_object, check=False):
         font = domain_object.font(recursive=True) or self.__default_font
