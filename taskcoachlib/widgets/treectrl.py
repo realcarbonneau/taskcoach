@@ -351,10 +351,10 @@ class TreeListCtrl(
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            # SetItemBackgroundColour must be called for EACH column to color all cells
-            # Pattern: tree.SetItemBackgroundColour(item, wx.Colour(255, 200, 200), column_index)
-            for column_index in range(self.GetColumnCount()):
-                self.SetItemBackgroundColour(item, bg_color, column_index)
+            # With TR_FULL_ROW_HIGHLIGHT, setting the item attribute background
+            # should make the color span the full row width
+            # Use SetItemBackgroundColour with column=0 which also sets item.Attr()
+            self.SetItemBackgroundColour(item, bg_color, 0)
 
         fg_color_tuple = domain_object.foregroundColor(recursive=True)
 
