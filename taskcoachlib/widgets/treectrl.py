@@ -340,37 +340,21 @@ class TreeListCtrl(
                 item.SetImage(column_index, image, which)
 
     def _refreshColors(self, item, domain_object, check=False):
-        bg_color = domain_object.backgroundColor(recursive=True)
-
-        # Convert to wx.Colour if we have a color tuple, otherwise use NullColour
-        if bg_color:
-            wx_bg_color = wx.Colour(*bg_color) if isinstance(bg_color, tuple) else bg_color
-        else:
-            wx_bg_color = wx.NullColour
-
-        bg_changed = False
+        # wxPython automatically converts color tuples to wx.Colour
+        bg_color = (
+            domain_object.backgroundColor(recursive=True) or wx.NullColour
+        )
         if not check or (
-            check and wx_bg_color != self.GetItemBackgroundColour(item)
+            check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            # For full-row highlighting to work with TR_FULL_ROW_HIGHLIGHT,
-            # ONLY set the item's attribute background color.
-            # DO NOT set per-column backgrounds as they paint over the full-row background.
-            attr = item.Attr()
-            attr.SetBackgroundColour(wx_bg_color)
-            bg_changed = True
-
-        fg_color = domain_object.foregroundColor(recursive=True)
-        # Convert foreground color tuple to wx.Colour
-        if fg_color:
-            wx_fg_color = wx.Colour(*fg_color) if isinstance(fg_color, tuple) else fg_color
-        else:
-            wx_fg_color = wx.NullColour
-
-        if not check or (check and wx_fg_color != self.GetItemTextColour(item)):
-            self.SetItemTextColour(item, wx_fg_color)
-        # Refresh the line to ensure full-row background color is painted
-        if bg_changed:
-            self.GetMainWindow().RefreshLine(item)
+            # SetItemBackgroundColour sets both the item attribute and per-column background
+            # With TR_FILL_WHOLE_COLUMN_BACKGROUND flag, this fills the entire row
+            self.SetItemBackgroundColour(item, bg_color)
+        fg_color = (
+            domain_object.foregroundColor(recursive=True) or wx.NullColour
+        )
+        if not check or (check and fg_color != self.GetItemTextColour(item)):
+            self.SetItemTextColour(item, fg_color)
 
     def _refreshFont(self, item, domain_object, check=False):
         font = domain_object.font(recursive=True) or self.__default_font
@@ -503,6 +487,7 @@ class TreeListCtrl(
             | wx.TR_HAS_BUTTONS
             | wx.TR_FULL_ROW_HIGHLIGHT
             | customtree.TR_HAS_VARIABLE_ROW_HEIGHT
+            | hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND  # Fix for full-width backgrounds
         )
         if operating_system.isMac():
             agw_style |= wx.TR_NO_LINES

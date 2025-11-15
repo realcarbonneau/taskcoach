@@ -110,16 +110,15 @@ class VirtualListCtrl(
             # wxItemAttr required a font for initialization, so we give one
             font = self.GetFont()
 
+        # wxPython automatically converts color tuples to wx.Colour
         # Create ItemAttr and set attributes explicitly for wxPython 4 compatibility
         # We need to keep a reference to the item attribute to prevent it
         # from being garbage collected too soon:
         self.__item_attribute = wx.ItemAttr()  # pylint: disable=W0201
         if foreground_color:
-            wx_fg_color = wx.Colour(*foreground_color) if isinstance(foreground_color, tuple) else foreground_color
-            self.__item_attribute.SetTextColour(wx_fg_color)
+            self.__item_attribute.SetTextColour(foreground_color)
         if background_color:
-            wx_bg_color = wx.Colour(*background_color) if isinstance(background_color, tuple) else background_color
-            self.__item_attribute.SetBackgroundColour(wx_bg_color)
+            self.__item_attribute.SetBackgroundColour(background_color)
         if font:
             self.__item_attribute.SetFont(font)
         return self.__item_attribute
