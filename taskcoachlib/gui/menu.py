@@ -406,6 +406,9 @@ class TaskTemplateMenu(DynamicMenu):
             )
             for name in persistence.TemplateList(path).names()
         ]
+        # Add placeholder if no templates exist
+        if not commands:
+            commands = [uicommand.NoTemplatesPlaceholder()]
         return commands
 
 

@@ -208,7 +208,20 @@ class PopupButtonMixin(object):
 
     def menuXY(self):
         """Location to pop up the menu."""
-        return self.mainWindow().ScreenToClient((self.menuX(), self.menuY()))
+        # Get screen coordinates
+        screen_x = self.menuX()
+        screen_y = self.menuY()
+        # Convert to main window client coordinates
+        # Use the toolbar's position if available for better accuracy
+        if self.toolbar:
+            toolbar_pos = self.toolbar.GetScreenPosition()
+            main_window_pos = self.mainWindow().GetScreenPosition()
+            # Calculate relative position
+            client_x = screen_x - main_window_pos[0]
+            client_y = screen_y - main_window_pos[1]
+            return (client_x, client_y)
+        else:
+            return self.mainWindow().ScreenToClient((screen_x, screen_y))
 
     def menuX(self):
         buttonWidth = self.toolbar.GetToolSize()[0]

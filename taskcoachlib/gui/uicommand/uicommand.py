@@ -1580,6 +1580,23 @@ class TaskNewFromTemplateButton(
         return _("Create a new task from a template")
 
 
+class NoTemplatesPlaceholder(UICommand):
+    """Placeholder menu item shown when no templates are configured"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            menuText=_("(No templates configured)"),
+            helpText=_("Create templates via File -> Save selected task as template"),
+            *args,
+            **kwargs
+        )
+
+    def enabled(self, event):
+        return False  # Always disabled
+
+    def doCommand(self, event):
+        pass  # Does nothing
+
+
 class NewTaskWithSelectedCategories(TaskNew, ViewerCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(
