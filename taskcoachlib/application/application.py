@@ -220,7 +220,6 @@ class Application(object, metaclass=patterns.Singleton):
                 self.settings
             )
             self.__message_checker.start()
-        self.__copy_default_templates()
         self.mainwindow.Show()
         from twisted.internet import reactor
 
@@ -261,6 +260,7 @@ class Application(object, metaclass=patterns.Singleton):
         Application.start()."""
         self.__init_config(loadSettings)
         self.__init_language()
+        self.__copy_default_templates()  # Copy templates before GUI is created
         self.__init_domain_objects()
         self.__init_application()
         from taskcoachlib import gui, persistence
