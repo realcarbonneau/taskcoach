@@ -32,16 +32,15 @@ fi
 
 # Check Python version
 echo -e "${BLUE}[1/7] Checking Python version...${NC}"
-PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
-PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
-PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-echo "Found Python $PYTHON_VERSION"
-
-if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 11 ]; then
-    echo -e "${GREEN}✓ Python version is compatible${NC}"
+# Check for Python 3.12 (required for system wxPython package compatibility)
+if command -v python3.12 &> /dev/null; then
+    PYTHON_VERSION=$(python3.12 --version 2>&1 | awk '{print $2}')
+    echo "Found Python $PYTHON_VERSION"
+    echo -e "${GREEN}✓ Python 3.12 is available${NC}"
 else
-    echo -e "${RED}✗ Python 3.11+ required, found $PYTHON_VERSION${NC}"
+    echo -e "${RED}✗ Python 3.12 required (for wxPython compatibility)${NC}"
+    echo "The system wxPython package (python3-wxgtk4.0) is compiled for Python 3.12"
     exit 1
 fi
 echo
@@ -79,20 +78,28 @@ echo
 echo -e "${BLUE}[3/7] Creating virtual environment...${NC}"
 VENV_PATH="$SCRIPT_DIR/.venv"
 
+# Use Python 3.12 to match the system wxPython package
+PYTHON_CMD="python3.12"
+if ! command -v $PYTHON_CMD &> /dev/null; then
+    echo -e "${RED}✗ Python 3.12 not found${NC}"
+    echo "The system wxPython package requires Python 3.12"
+    exit 1
+fi
+
 if [ -d "$VENV_PATH" ]; then
     echo -e "${YELLOW}Virtual environment already exists at $VENV_PATH${NC}"
     read -p "Recreate it? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf "$VENV_PATH"
-        python3 -m venv --system-site-packages "$VENV_PATH"
-        echo -e "${GREEN}✓ Virtual environment recreated${NC}"
+        $PYTHON_CMD -m venv --system-site-packages "$VENV_PATH"
+        echo -e "${GREEN}✓ Virtual environment recreated with Python 3.12${NC}"
     else
         echo -e "${GREEN}✓ Using existing virtual environment${NC}"
     fi
 else
-    python3 -m venv --system-site-packages "$VENV_PATH"
-    echo -e "${GREEN}✓ Virtual environment created in project directory${NC}"
+    $PYTHON_CMD -m venv --system-site-packages "$VENV_PATH"
+    echo -e "${GREEN}✓ Virtual environment created with Python 3.12${NC}"
 fi
 echo
 

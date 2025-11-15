@@ -47,6 +47,51 @@ else
     exit 1
 fi
 
+# Create usercustomize.py to enable the import hook
+USERCUSTOMIZE_FILE=".venv/lib/python${PYTHON_VERSION}/site-packages/usercustomize.py"
+echo "Creating import hook: $USERCUSTOMIZE_FILE"
+
+cat > "$USERCUSTOMIZE_FILE" << 'EOF'
+"""
+Custom site configuration to inject patched wxPython hypertreelist module.
+
+This file is automatically executed by Python on startup when running in this venv.
+It replaces the system wx.lib.agw.hypertreelist module with our patched version
+that fixes full-row background coloring issues.
+"""
+
+import sys
+import os
+from importlib.abc import MetaPathFinder
+from importlib.util import spec_from_file_location
+
+
+class WxPatchFinder(MetaPathFinder):
+    """Import hook to replace wx.lib.agw.hypertreelist with patched version."""
+
+    def find_spec(self, fullname, path, target=None):
+        if fullname == 'wx.lib.agw.hypertreelist':
+            # Path to our patched file
+            venv_path = sys.prefix
+            patched_file = os.path.join(
+                venv_path, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}',
+                'site-packages', 'wx', 'lib', 'agw', 'hypertreelist.py'
+            )
+
+            if os.path.exists(patched_file):
+                return spec_from_file_location(fullname, patched_file)
+
+        return None
+
+
+# Install the import hook at the VERY BEGINNING of sys.meta_path
+# This ensures it's checked before the standard import machinery
+if not any(isinstance(finder, WxPatchFinder) for finder in sys.meta_path):
+    sys.meta_path.insert(0, WxPatchFinder())
+EOF
+
+echo "✓ Import hook installed!"
+
 echo ""
 echo "=========================================="
 echo "Patch Applied Successfully!"
