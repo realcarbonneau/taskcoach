@@ -351,10 +351,12 @@ class TreeListCtrl(
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            # With TR_FULL_ROW_HIGHLIGHT, setting the item attribute background
-            # should make the color span the full row width
-            # Use SetItemBackgroundColour with column=0 which also sets item.Attr()
-            self.SetItemBackgroundColour(item, bg_color, 0)
+            # WORKAROUND: TR_FULL_ROW_HIGHLIGHT is broken in wxPython Phoenix 4.x
+            # GitHub issue #2081 - it only colors text, not full row
+            # Solution: Loop through all columns and set background for each
+            # Combined with TR_FILL_WHOLE_COLUMN_BACKGROUND to fill full column width
+            for column_index in range(self.GetColumnCount()):
+                self.SetItemBackgroundColour(item, bg_color, column_index)
 
         fg_color_tuple = domain_object.foregroundColor(recursive=True)
 
