@@ -498,6 +498,7 @@ class TreeListCtrl(
             | wx.TR_HAS_BUTTONS
             | wx.TR_FULL_ROW_HIGHLIGHT  # This makes row backgrounds span the full row
             | customtree.TR_HAS_VARIABLE_ROW_HEIGHT
+            | hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND  # Fill full column width, not just text
         )
         if operating_system.isMac():
             agw_style |= wx.TR_NO_LINES
