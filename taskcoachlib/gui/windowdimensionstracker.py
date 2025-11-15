@@ -147,7 +147,13 @@ class WindowSizeAndPositionTracker(_Tracker):
             self._window.SetClientSize((width, height))
         if self.get_setting("maximized"):
             self._window.Maximize()
-        # Check that the window is on a valid display and move if necessary:
+
+        # For dialogs, we've already positioned them on the parent's display
+        # so skip the visibility check that might move them to a different screen
+        if isinstance(self._window, wx.Dialog):
+            return
+
+        # For main windows, check that the window is on a valid display and move if necessary:
         display_index = wx.Display.GetFromWindow(self._window)
         if display_index == wx.NOT_FOUND:
             # Window is completely off-screen, use safe default position
