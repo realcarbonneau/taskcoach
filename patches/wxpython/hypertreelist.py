@@ -3119,7 +3119,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                     elif drawItemBackground:
 
                         if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
-                            itemrect = wx.Rect(text_x-2, item.GetY() + off_h, col_w-2*_MARGIN, total_h - off_h)
+                            itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
                         else:
                             itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
                         dc.SetBrush(wx.Brush(colBg))
@@ -3132,7 +3132,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                 else:
 
                     if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
-                        itemrect = wx.Rect(text_x-2, item.GetY() + off_h, col_w-2*_MARGIN, total_h - off_h)
+                        itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
                     else:
                         itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
                     colBgX = item.GetBackgroundColour(i)
@@ -3149,7 +3149,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                 if not item.IsSelected():
 
                     if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
-                        itemrect = wx.Rect(text_x-2, item.GetY() + off_h, col_w-2*_MARGIN, total_h - off_h)
+                        itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
                     else:
                         itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
                     colBgX = item.GetBackgroundColour(i)
