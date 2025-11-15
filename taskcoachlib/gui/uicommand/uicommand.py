@@ -1580,7 +1580,7 @@ class TaskNewFromTemplateButton(
         return _("Create a new task from a template")
 
 
-class NoTemplatesPlaceholder(UICommand):
+class NoTemplatesPlaceholder(base_uicommand.UICommand):
     """Placeholder menu item shown when no templates are configured"""
     def __init__(self, *args, **kwargs):
         super().__init__(
