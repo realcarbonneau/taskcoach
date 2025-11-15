@@ -3009,15 +3009,22 @@ class TreeListMainWindow(CustomTreeCtrl):
             # don't allow backgrounds to be customized. Not drawing the background,
             # except for custom item backgrounds, works for both kinds of theme.
             elif drawItemBackground:
-                itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)
-                dc.SetBrush(wx.Brush(colBg, wx.SOLID))
-                dc.DrawRectangle(itemrect)
-                dc.SetTextForeground(colText)
+
+                pass
+                # We have to colour the item background for each column separately
+                # So it is better to move this functionality in the subsequent for loop.
+
             else:
                 dc.SetTextForeground(colText)
 
+        elif drawItemBackground and self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
+            # Draw full row background BEFORE column loop to avoid clipping issues
+            itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)
+            dc.SetBrush(wx.Brush(colBg, wx.SOLID))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(itemrect)
+            dc.SetTextForeground(colText)
         else:
-
             dc.SetTextForeground(colText)
 
         text_extraH = (total_h > text_h and [(total_h - text_h)//2] or [0])[0]
@@ -3118,29 +3125,29 @@ class TreeListMainWindow(CustomTreeCtrl):
                     # except for custom item backgrounds, works for both kinds of theme.
                     elif drawItemBackground:
 
-                        if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
-                            itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
-                        else:
+                        if not self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
+                            # Only draw per-column background if not filling whole columns
+                            # (full row background was already drawn before column loop)
                             itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
-                        dc.SetBrush(wx.Brush(colBg))
-                        dc.SetPen(wx.TRANSPARENT_PEN)
-                        dc.DrawRectangle(itemrect)
+                            dc.SetBrush(wx.Brush(colBg))
+                            dc.SetPen(wx.TRANSPARENT_PEN)
+                            dc.DrawRectangle(itemrect)
 
                     else:
                         dc.SetTextForeground(colText)
 
                 else:
 
-                    if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
-                        itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
-                    else:
+                    if not self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
+                        # Only draw per-column background if not filling whole columns
+                        # (full row background was already drawn before column loop)
                         itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
-                    colBgX = item.GetBackgroundColour(i)
+                        colBgX = item.GetBackgroundColour(i)
 
-                    if colBgX is not None and i != 0:
-                        dc.SetBrush(wx.Brush(colBgX, wx.SOLID))
-                        dc.SetPen(wx.TRANSPARENT_PEN)
-                        dc.DrawRectangle(itemrect)
+                        if colBgX is not None and i != 0:
+                            dc.SetBrush(wx.Brush(colBgX, wx.SOLID))
+                            dc.SetPen(wx.TRANSPARENT_PEN)
+                            dc.DrawRectangle(itemrect)
 
                     dc.SetTextForeground(colText)
 
@@ -3148,16 +3155,16 @@ class TreeListMainWindow(CustomTreeCtrl):
 
                 if not item.IsSelected():
 
-                    if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
-                        itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
-                    else:
+                    if not self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
+                        # Only draw per-column background if not filling whole columns
+                        # (full row background was already drawn before column loop)
                         itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
-                    colBgX = item.GetBackgroundColour(i)
+                        colBgX = item.GetBackgroundColour(i)
 
-                    if colBgX is not None:
-                        dc.SetBrush(wx.Brush(colBgX, wx.SOLID))
-                        dc.SetPen(wx.TRANSPARENT_PEN)
-                        dc.DrawRectangle(itemrect)
+                        if colBgX is not None:
+                            dc.SetBrush(wx.Brush(colBgX, wx.SOLID))
+                            dc.SetPen(wx.TRANSPARENT_PEN)
+                            dc.DrawRectangle(itemrect)
 
 
             if self.HasAGWFlag(TR_COLUMN_LINES):  # vertical lines between columns
