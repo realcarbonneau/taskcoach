@@ -34,14 +34,16 @@ This document summarizes the fixes applied to make Task Coach work properly on D
 - `taskcoachlib/meta/data.py` (lines 32-51)
 - `taskcoachlib/application/application.py` (lines 210-217)
 
-### 3. Category/Task Background Coloring ⚠️ PARTIALLY FIXED
+### 3. Category/Task Background Coloring ✓ FIXED
 
 **Problem**: Background colors didn't span the complete row width like they did in Python 2/wxPython 2.8.
 
 **Root Cause**: Multiple wxPython Phoenix 4.x bugs:
 1. Color tuples not automatically converted to wx.Colour objects in Python 3
-2. `TR_FULL_ROW_HIGHLIGHT` broken (issue #2081) - only colors text backgrounds
-3. `TR_FILL_WHOLE_COLUMN_BACKGROUND` broken for right-aligned columns (issue #1898)
+2. `TR_FULL_ROW_HIGHLIGHT` broken - only colors text backgrounds (wxPython [Issue #2081](https://github.com/wxWidgets/Phoenix/issues/2081))
+3. `TR_FILL_WHOLE_COLUMN_BACKGROUND` broken for right-aligned columns (wxPython [Issue #1898](https://github.com/wxWidgets/Phoenix/issues/1898))
+
+**Solution**: Fixed via patch backported from wxPython [PR #2088](https://github.com/wxWidgets/Phoenix/pull/2088) (included in wxPython 4.2.4)
 
 **Fixes Applied**:
 
@@ -77,7 +79,9 @@ agw_style |= hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND
 - Applied to venv via `./apply-wxpython-patch.sh` script (part of setup)
 - Venv with `--system-site-packages` uses patched venv file instead of system file
 - No system files are modified - only venv is patched
-- Patch includes fix from wxPython PR #2088 (backported from wxPython 4.2.4 to 4.2.1)
+- Patch includes both fixes from wxPython [PR #2088](https://github.com/wxWidgets/Phoenix/pull/2088):
+  - Fix for [Issue #2081](https://github.com/wxWidgets/Phoenix/issues/2081): Draw full-row background (line 3011)
+  - Fix for [Issue #1898](https://github.com/wxWidgets/Phoenix/issues/1898): Use x_colstart for right-aligned columns (lines 3122, 3135, 3152)
 
 **Files Modified**:
 - `taskcoachlib/widgets/treectrl.py` (lines 342-370, 477-492)

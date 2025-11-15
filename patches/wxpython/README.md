@@ -4,7 +4,7 @@ This directory contains a patched version of wxPython's `hypertreelist.py` file.
 
 ## What This Fixes
 
-The patch applies the fix from wxPython PR #2088 (included in wxPython 4.2.4) to wxPython 4.2.1:
+The patch applies fixes from wxPython [PR #2088](https://github.com/wxWidgets/Phoenix/pull/2088) (included in wxPython 4.2.4) to wxPython 4.2.1:
 
 - ✓ Full-row background colors (not just text backgrounds)
 - ✓ Right-aligned columns (date fields) now fully colored
@@ -13,7 +13,9 @@ The patch applies the fix from wxPython PR #2088 (included in wxPython 4.2.4) to
 
 ## Changes Made
 
-**File**: `hypertreelist.py` (line ~3011)
+### Fix 1: TR_FULL_ROW_HIGHLIGHT (Issue #2081, line 3011)
+
+Fixes background coloring when `TR_FULL_ROW_HIGHLIGHT` flag is enabled.
 
 **Original code**:
 ```python
@@ -35,6 +37,24 @@ elif drawItemBackground:
 else:
     dc.SetTextForeground(colText)
 ```
+
+### Fix 2: TR_FILL_WHOLE_COLUMN_BACKGROUND for Right-Aligned Columns (Issue #1898, lines 3122, 3135, 3152)
+
+Fixes background coloring for right-aligned columns when `TR_FILL_WHOLE_COLUMN_BACKGROUND` flag is enabled.
+
+**Original code** (3 locations):
+```python
+if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
+    itemrect = wx.Rect(text_x-2, item.GetY() + off_h, col_w-2*_MARGIN, total_h - off_h)
+```
+
+**Patched code**:
+```python
+if self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
+    itemrect = wx.Rect(x_colstart, item.GetY() + off_h, col_w, total_h - off_h)
+```
+
+**Why this fix is needed**: For right-aligned text, `text_x` is positioned far from the left edge of the column, leaving gaps in the background. Using `x_colstart` (column start position) ensures the background fills the entire column width.
 
 ## How It Works
 
