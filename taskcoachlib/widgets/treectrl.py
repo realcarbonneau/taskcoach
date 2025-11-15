@@ -347,8 +347,9 @@ class TreeListCtrl(
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            # SetItemBackgroundColour needs to be called for EACH column
-            # With TR_FILL_WHOLE_COLUMN_BACKGROUND flag, this fills each column's width
+            # SetItemBackgroundColour for column 0 ALSO sets item.Attr().SetBackgroundColour()
+            # which is required for TR_FILL_WHOLE_COLUMN_BACKGROUND to work properly.
+            # So we must call it for ALL columns including column 0.
             for column_index in range(self.GetColumnCount()):
                 self.SetItemBackgroundColour(item, bg_color, column_index)
         fg_color = (
@@ -493,6 +494,8 @@ class TreeListCtrl(
         if operating_system.isMac():
             agw_style |= wx.TR_NO_LINES
         agw_style &= ~hypertreelist.TR_NO_HEADER
+        # Disable column lines to prevent white gaps between colored columns
+        agw_style &= ~hypertreelist.TR_COLUMN_LINES
         return agw_style
 
     # pylint: disable=W0221
