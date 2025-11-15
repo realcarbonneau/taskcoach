@@ -128,11 +128,7 @@ source .venv/bin/activate
 pip install desktop3 lockfile gntp distro pypubsub
 deactivate
 
-# 3. Generate resources
-cd icons.in && python3.12 make.py && cd ..
-cd templates.in && python3.12 make.py && cd ..
-
-# 4. Run TaskCoach
+# 3. Run TaskCoach
 ./taskcoach-run.sh
 ```
 

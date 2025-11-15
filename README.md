@@ -73,13 +73,6 @@ Note that --universal is needed because wxWidgets 2.x is 32-bits only;
 --use-gcc is needed because of a bug in recent versions of the XCode
 command-line tools, which make the link fail.
 
-## Preparation
-
-Task Coach needs a few generated files, run the following command
-to generate them:
-
-    make prepare
-
 ## Running
 
 Start Task Coach from the command line like this:
