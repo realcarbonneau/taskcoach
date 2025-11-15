@@ -66,21 +66,13 @@ agw_style &= ~hypertreelist.TR_COLUMN_LINES
 agw_style |= hypertreelist.TR_FILL_WHOLE_COLUMN_BACKGROUND
 ```
 
-**Current State with wxPython 4.2.1**:
+**Current State with wxPython 4.2.1** (code-level workarounds):
 - ✓ Left-aligned columns (Subject, etc.): Full cell background coloring
 - ✓ No white gaps between columns
-- ✗ Right-aligned columns (date columns): Only text background colored
-
-**Final Fix Available**: Patch wxPython or upgrade to version 4.2.4
-- **Option 1 (Recommended)**: Patch the installed wxPython library (see `WXPYTHON_PATCH.md`)
-  - Quick: Takes less than 1 minute
-  - Status: ✓ Already applied to this development environment
-  - For deployment: Run `sudo python3 patch-wxpython-simple.py` (sudo needed for venv with --system-site-packages)
-  - Safe: Creates automatic backup before patching
-- **Option 2 (Alternative)**: Upgrade to wxPython 4.2.4 (see `WXPYTHON_UPGRADE.md`)
-  - Requires compiling from source (15-30 minutes)
-  - Requires GTK development libraries
-  - Provides official fix from PR #2088
+- ⚠️ Right-aligned columns (date columns): Only text background colored
+  - This is a limitation of wxPython 4.2.1 (bug #1898)
+  - Fixed in wxPython 4.2.4 but we do NOT patch/modify system files
+  - The code workarounds provide the best possible results with 4.2.1
 
 **Files Modified**:
 - `taskcoachlib/widgets/treectrl.py` (lines 342-370, 477-492)
@@ -156,45 +148,36 @@ a81d4a6 Use SetItemBackgroundColour with explicit wx.Colour conversion
 3. Verify:
    - ✓ Subject column has full-width background color
    - ✓ No white gaps between columns
-   - ⚠️ Date columns only have text background colored (expected limitation)
+   - ⚠️ Date columns only have text background colored (expected limitation due to wxPython 4.2.1 bug #1898)
 
-### Background Coloring (after wxPython 4.2.4 upgrade)
-1. Run `./upgrade-wxpython.sh`
-2. Launch Task Coach
-3. Verify:
-   - ✓ ALL columns have full-width background color
-   - ✓ Date columns have full cell background (not just text)
-   - ✓ No white gaps between columns
-   - ✓ Colors match selection highlighting width
+## Current Solution
 
-## Next Steps
+The code-level workarounds in `taskcoachlib/widgets/treectrl.py` provide the best possible background coloring with wxPython 4.2.1:
 
-1. **wxPython Patch Status**
-   - ✓ **Already applied** to this development environment
-   - Background coloring should now work correctly on all columns
+1. **Explicit wx.Colour conversion** for Python 3/Phoenix compatibility
+2. **Loop through all columns** to set background colors individually
+3. **TR_COLUMN_LINES disabled** to remove white gaps between columns
+4. **Both flags enabled**: `TR_FULL_ROW_HIGHLIGHT` + `TR_FILL_WHOLE_COLUMN_BACKGROUND`
 
-   For deployment to other systems:
-   - **Apply wxPython patch** (see `WXPYTHON_PATCH.md`) - **RECOMMENDED**
-     - Quick and simple: `sudo python3 patch-wxpython-simple.py`
-     - Alternatively: `sudo ./patch-wxpython.sh`
-     - Note: sudo required for venvs using --system-site-packages
-     - This patches your installed wxPython library with the fix from PR #2088
+These workarounds are:
+- ✓ Safe - No system file modifications
+- ✓ Compatible - Work with wxPython 4.2.1
+- ✓ Future-proof - Will continue to work with wxPython 4.2.4+
+- ⚠️ Limited - Right-aligned columns only color text due to wxPython 4.2.1 bug
 
-   **OR**
+## Testing
 
-   - **Upgrade wxPython to 4.2.4** (see `WXPYTHON_UPGRADE.md`) - **ALTERNATIVE**
-     - Option A: Run `./upgrade-wxpython.sh`
-     - Option B: Manual upgrade with instructions in documentation
-     - Note: Requires compiling from source (15-30 minutes)
-
-2. **Test background coloring** to verify all columns work correctly
+1. **Test background coloring**:
    - Create categories with background colors
-   - Verify date columns (right-aligned) show full cell backgrounds
+   - Verify left-aligned columns have full cell backgrounds
+   - Note: Right-aligned date columns will only have text backgrounds (wxPython limitation)
 
-3. **Keep workarounds in code** for compatibility
-   - The column loop workaround ensures compatibility with unpatched installations
-   - The explicit wx.Colour conversion is required for Python 3/Phoenix compatibility
-   - These workarounds do not interfere with the patch/upgrade
+2. **Test version logging**:
+   - Run Task Coach and check terminal for version output
+   - Should see: `Task Coach 1.5.1.XXX (commit XXXXXXX)`
+
+3. **Test icon transparency**:
+   - Check toolbar icons for proper transparency (no grey backgrounds)
 
 ## References
 
@@ -203,7 +186,3 @@ a81d4a6 Use SetItemBackgroundColour with explicit wx.Colour conversion
 - wxPython PR #2088: https://github.com/wxWidgets/Phoenix/pull/2088
 - wxPython 4.2.4 Release: October 28, 2025
 
-## Related Documentation
-
-- `WXPYTHON_UPGRADE.md`: Detailed wxPython upgrade guide
-- `upgrade-wxpython.sh`: Automated upgrade script
