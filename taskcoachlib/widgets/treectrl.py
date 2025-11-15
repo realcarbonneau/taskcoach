@@ -340,20 +340,29 @@ class TreeListCtrl(
                 item.SetImage(column_index, image, which)
 
     def _refreshColors(self, item, domain_object, check=False):
-        # wxPython automatically converts color tuples to wx.Colour
-        bg_color = (
-            domain_object.backgroundColor(recursive=True) or wx.NullColour
-        )
+        bg_color_tuple = domain_object.backgroundColor(recursive=True)
+
+        # Convert tuple to wx.Colour explicitly for wxPython Phoenix
+        if bg_color_tuple:
+            bg_color = wx.Colour(*bg_color_tuple) if isinstance(bg_color_tuple, tuple) else bg_color_tuple
+        else:
+            bg_color = wx.NullColour
+
         if not check or (
             check and bg_color != self.GetItemBackgroundColour(item)
         ):
-            # Set the ITEM background color (row-level), not column-level
-            # This sets the attribute that controls the full row background
-            attr = item.Attr()
-            attr.SetBackgroundColour(bg_color)
-        fg_color = (
-            domain_object.foregroundColor(recursive=True) or wx.NullColour
-        )
+            # SetItemBackgroundColour sets both column background and item attribute
+            # when column=0 (default), which is what we need for TR_FULL_ROW_HIGHLIGHT
+            self.SetItemBackgroundColour(item, bg_color)
+
+        fg_color_tuple = domain_object.foregroundColor(recursive=True)
+
+        # Convert tuple to wx.Colour explicitly for wxPython Phoenix
+        if fg_color_tuple:
+            fg_color = wx.Colour(*fg_color_tuple) if isinstance(fg_color_tuple, tuple) else fg_color_tuple
+        else:
+            fg_color = wx.NullColour
+
         if not check or (check and fg_color != self.GetItemTextColour(item)):
             self.SetItemTextColour(item, fg_color)
 
