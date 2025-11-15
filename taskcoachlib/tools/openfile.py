@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from taskcoachlib.thirdparty import desktop
 import platform
-import os
+import subprocess
 
 
 def openFile(filename):
@@ -26,7 +26,11 @@ def openFile(filename):
         desktop.open(filename)
     except OSError:
         if platform.system() == "Linux":
-            if os.system('xdg-open "%s"' % filename):
-                raise OSError('Unable to open "%s"')
+            # Use subprocess.run() instead of os.system() to prevent command injection
+            # Pass filename as list argument, not shell string
+            try:
+                subprocess.run(['xdg-open', filename], check=True)
+            except subprocess.CalledProcessError:
+                raise OSError('Unable to open "%s"' % filename)
         else:
             raise
