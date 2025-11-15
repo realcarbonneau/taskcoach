@@ -107,81 +107,8 @@ deactivate
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
 echo
 
-# Generate icons
-echo -e "${BLUE}[5/7] Generating icon resources...${NC}"
-cd "$SCRIPT_DIR"
-if [ ! -f "taskcoachlib/gui/icons.py" ]; then
-    if [ -d "icons.in" ]; then
-        echo "Generating icons (this may take a minute)..."
-        cd icons.in
-
-        # Try without xvfb first (normal desktop)
-        if python3 make.py 2>&1 | tail -5; then
-            cd "$SCRIPT_DIR"
-            echo -e "${GREEN}✓ Icons generated${NC}"
-        else
-            # If that fails, check if we need xvfb (headless)
-            if [ -z "$DISPLAY" ]; then
-                echo -e "${YELLOW}No display detected, trying with xvfb...${NC}"
-                if ! command -v xvfb-run &> /dev/null; then
-                    echo -e "${YELLOW}Installing xvfb for headless operation...${NC}"
-                    sudo apt-get install -y xvfb
-                fi
-                xvfb-run -a python3 make.py 2>&1 | tail -5
-                cd "$SCRIPT_DIR"
-                echo -e "${GREEN}✓ Icons generated (headless)${NC}"
-            else
-                cd "$SCRIPT_DIR"
-                echo -e "${RED}✗ Failed to generate icons${NC}"
-                exit 1
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠ icons.in directory not found${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ Icons already exist${NC}"
-fi
-echo
-
-# Generate templates
-echo -e "${BLUE}[6/7] Generating template resources...${NC}"
-if [ ! -f "taskcoachlib/persistence/xml/templates.py" ]; then
-    if [ -d "templates.in" ]; then
-        echo "Generating templates..."
-        cd templates.in
-
-        # Try without xvfb first (normal desktop)
-        if python3 make.py 2>&1 | tail -5; then
-            cd "$SCRIPT_DIR"
-            echo -e "${GREEN}✓ Templates generated${NC}"
-        else
-            # If that fails, check if we need xvfb (headless)
-            if [ -z "$DISPLAY" ]; then
-                echo -e "${YELLOW}No display detected, trying with xvfb...${NC}"
-                if ! command -v xvfb-run &> /dev/null; then
-                    echo -e "${YELLOW}Installing xvfb for headless operation...${NC}"
-                    sudo apt-get install -y xvfb
-                fi
-                xvfb-run -a python3 make.py 2>&1 | tail -5
-                cd "$SCRIPT_DIR"
-                echo -e "${GREEN}✓ Templates generated (headless)${NC}"
-            else
-                cd "$SCRIPT_DIR"
-                echo -e "${RED}✗ Failed to generate templates${NC}"
-                exit 1
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠ templates.in directory not found${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ Templates already exist${NC}"
-fi
-echo
-
 # Check launch script
-echo -e "${BLUE}[7/7] Checking launch script...${NC}"
+echo -e "${BLUE}[5/5] Checking launch script...${NC}"
 if [ -f "$SCRIPT_DIR/taskcoach-run.sh" ]; then
     chmod +x "$SCRIPT_DIR/taskcoach-run.sh"
     echo -e "${GREEN}✓ Launch script is ready: taskcoach-run.sh${NC}"

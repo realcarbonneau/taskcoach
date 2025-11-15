@@ -79,12 +79,12 @@ run_test "numpy dependency" \
 run_test "dateutil dependency" \
     "python3 -c 'import dateutil'"
 
-# Test 6: Icons file exists
-run_test "Icons generated" \
-    "[ -f taskcoachlib/gui/icons.py ]"
+# Test 6: Icons directory exists and has PNG files
+run_test "Icons directory exists" \
+    "[ -d taskcoachlib/gui/icons ] && [ -f taskcoachlib/gui/icons/splash.png ]"
 
 # Test 7: Templates file exists
-run_test "Templates generated" \
+run_test "Templates file exists" \
     "[ -f taskcoachlib/persistence/xml/templates.py ]"
 
 # Test 8: Application help

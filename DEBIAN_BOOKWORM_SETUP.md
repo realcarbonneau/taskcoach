@@ -24,7 +24,6 @@ Debian Bookworm implements PEP 668, which prevents `pip install --user` from mod
 # - Install system packages
 # - Create a virtual environment
 # - Install remaining dependencies
-# - Generate icons and templates
 ```
 
 ### Option 2: Manual Setup
@@ -77,27 +76,7 @@ deactivate
 
 **Note**: The `--system-site-packages` flag allows the virtual environment to access system-installed packages (like wxPython, twisted, lxml) while keeping pip-installed packages isolated. This is the recommended approach for TaskCoach.
 
-#### Step 3: Generate Required Files
-
-TaskCoach needs to generate icons and templates before first run:
-
-```bash
-# Set your TaskCoach directory (change this to your actual path)
-TASKCOACH_HOME=/path/to/taskcoach
-
-# Generate icons (must run from icons.in directory)
-cd "$TASKCOACH_HOME/icons.in"
-python3 make.py
-
-# Generate templates (must run from templates.in directory)
-cd "$TASKCOACH_HOME/templates.in"
-python3 make.py
-
-# Return to project root
-cd "$TASKCOACH_HOME"
-```
-
-#### Step 4: Run TaskCoach
+#### Step 3: Run TaskCoach
 
 ```bash
 # Using the launch script:
@@ -153,24 +132,6 @@ This runs 12 tests to verify all dependencies and prerequisites.
 sudo apt-get install -y xvfb
 ```
 
-### Generate resources headless
-
-```bash
-# Set your TaskCoach directory (change this to your actual path)
-TASKCOACH_HOME=/path/to/taskcoach
-
-# Generate icons
-cd "$TASKCOACH_HOME/icons.in"
-xvfb-run -a python3 make.py
-
-# Generate templates
-cd "$TASKCOACH_HOME/templates.in"
-xvfb-run -a python3 make.py
-
-# Return to project root
-cd "$TASKCOACH_HOME"
-```
-
 ### Run TaskCoach headless
 
 ```bash
@@ -190,17 +151,6 @@ xvfb-run -a ./taskcoach-run.sh
 **Solution**: Install system package:
 ```bash
 sudo apt-get install python3-wxgtk4.0
-```
-
-### Issue 3: Missing Icons
-**Symptom**: Error message "couldn't import icons.py"
-
-**Solution**: Generate the icons file:
-```bash
-TASKCOACH_HOME=/path/to/taskcoach  # Change to your path
-cd "$TASKCOACH_HOME/icons.in"
-python3 make.py
-cd "$TASKCOACH_HOME"
 ```
 
 If running headless/over SSH without a display:
