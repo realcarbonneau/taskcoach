@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os, pickle, tempfile, shutil
+import os, json, pickle, tempfile, shutil
 from pubsub import pub
 from .xml import TemplateXMLWriter, TemplateXMLReader
 
@@ -56,19 +56,41 @@ class TemplateList(object):
             if name.endswith(".tsktmpl")
             and os.path.exists(os.path.join(self._path, name))
         ]
-        listName = os.path.join(self._path, "list.pickle")
-        if os.path.exists(listName):
+
+        # Try JSON first (new, secure format)
+        jsonName = os.path.join(self._path, "list.json")
+        if os.path.exists(jsonName):
             try:
-                filenames = pickle.load(open(listName, "rb"))
+                with open(jsonName, "r") as f:
+                    filenames = json.load(f)
+                return filenames
+            except:
+                pass
+
+        # Fall back to pickle (old format) for backward compatibility
+        pickleName = os.path.join(self._path, "list.pickle")
+        if os.path.exists(pickleName):
+            try:
+                filenames = pickle.load(open(pickleName, "rb"))
+                # Migrate to JSON automatically
+                try:
+                    with open(jsonName, "w") as f:
+                        json.dump(filenames, f, indent=2)
+                except:
+                    pass  # Migration failed, but we still have the data
             except:
                 pass
         return filenames
 
     def save(self):
-        pickle.dump(
-            [name for task, name in self._templates],
-            open(os.path.join(self._path, "list.pickle"), "wb"),
-        )
+        # Save to JSON (new, secure format) instead of pickle
+        jsonName = os.path.join(self._path, "list.json")
+        with open(jsonName, "w") as f:
+            json.dump(
+                [name for task, name in self._templates],
+                f,
+                indent=2
+            )
 
         for task, name in self._templates:
             templateFile = open(os.path.join(self._path, name), "w")
