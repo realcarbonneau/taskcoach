@@ -2,8 +2,6 @@
 # Quick test script for TaskCoach
 # Tests various functionality to ensure proper operation
 
-set -e
-
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -14,6 +12,16 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Activate virtual environment if it exists
+if [ -d "$SCRIPT_DIR/.venv" ]; then
+    source "$SCRIPT_DIR/.venv/bin/activate"
+    echo -e "${BLUE}Using virtual environment: .venv${NC}"
+else
+    echo -e "${YELLOW}Warning: Virtual environment not found at .venv${NC}"
+    echo -e "${YELLOW}Some tests may fail. Run setup_bookworm.sh first.${NC}"
+fi
+
+echo
 echo -e "${BLUE}TaskCoach Test Suite${NC}"
 echo "===================="
 echo
@@ -49,7 +57,7 @@ run_test "TaskCoach module import" \
 
 # Test 3: Version info
 run_test "Version metadata" \
-    "python3 -c 'from taskcoachlib import meta; assert meta.version'"
+    "python3 -c 'import taskcoachlib.meta.data as meta; assert meta.version'"
 
 # Test 4: wxPython import
 run_test "wxPython import" \
