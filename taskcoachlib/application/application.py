@@ -264,6 +264,14 @@ class Application(object, metaclass=patterns.Singleton):
         Application.start()."""
         self.__init_config(loadSettings)
         self.__init_language()
+
+        # Apply wxPython HyperTreeList patch for TR_FILL_WHOLE_COLUMN_BACKGROUND bug
+        try:
+            from taskcoachlib.thirdparty import wxhypertreelistpatch
+            wxhypertreelistpatch.patch_hypertreelist()
+        except Exception as e:
+            print(f"Warning: Could not apply HyperTreeList patch: {e}")
+
         self.__copy_default_templates()  # Copy templates before GUI is created
         self.__init_domain_objects()
         self.__init_application()
