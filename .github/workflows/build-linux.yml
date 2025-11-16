@@ -31,11 +31,9 @@ jobs:
           libwebpdemux2 \
           libraqm0
 
-    - name: Verify Python and wxPython versions
+    - name: Verify Python and wxPython availability
       run: |
-        python3 --version
-        python3 -c "import sys; print('Python path:', sys.executable)"
-        xvfb-run -a python3 -c "import wx; print('wxPython version:', wx.__version__)"
+        xvfb-run -a python3 check_wxpython.py
 
     - name: Install Python dependencies
       run: |
@@ -61,9 +59,31 @@ jobs:
       run: |
         python3 -m PyInstaller taskcoach.spec
 
+    - name: Verify build warnings
+      run: |
+        echo "=== Checking for critical build errors ==="
+        if grep -q "ERROR: Hidden import 'wx" build/taskcoach/warn-taskcoach.txt; then
+          echo "❌ CRITICAL: wxPython modules not found during build!"
+          echo "The executable will not work without wxPython."
+          echo ""
+          echo "Errors found:"
+          grep "ERROR: Hidden import 'wx" build/taskcoach/warn-taskcoach.txt | head -20
+          echo ""
+          echo "This means the Python environment used by PyInstaller cannot access wxPython."
+          echo "Check that python3-wxgtk4.0 is installed and accessible to system python3."
+          exit 1
+        else
+          echo "✓ No critical wxPython import errors found"
+        fi
+
     - name: Test executable
       run: |
-        xvfb-run -a ./dist/taskcoach --version
+        echo "=== Testing executable ==="
+        if ! xvfb-run -a ./dist/taskcoach --version; then
+          echo "❌ Executable failed to run!"
+          exit 1
+        fi
+        echo "✓ Executable runs successfully"
 
     - name: Get version
       id: get_version
