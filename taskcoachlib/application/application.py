@@ -264,7 +264,15 @@ class Application(object, metaclass=patterns.Singleton):
 
         gui.init()
         show_splash_screen = self.settings.getboolean("window", "splash")
-        splash = gui.SplashScreen() if show_splash_screen else None
+        splash = None
+        if show_splash_screen:
+            try:
+                splash = gui.SplashScreen()
+            except Exception as e:
+                # Splash screen failed to load - continue without it
+                print(f"Warning: Could not load splash screen: {e}")
+                print("Continuing without splash screen...")
+                splash = None
         # pylint: disable=W0201
         self.taskFile = persistence.LockedTaskFile(
             poll=not self.settings.getboolean("file", "nopoll")
