@@ -1,0 +1,112 @@
+name: Build Windows Executable (py2exe)
+
+on:
+  push:
+    branches: [ main, master, claude/** ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install py2exe
+        pip install distro
+        pip install six>=1.16.0
+        pip install desktop3
+        pip install pypubsub
+        pip install twisted
+        pip install chardet>=5.2.0
+        pip install python-dateutil>=2.9.0
+        pip install pyparsing>=3.1.2
+        pip install lxml
+        pip install keyring
+        pip install numpy
+        pip install lockfile>=0.12.2
+        pip install gntp>=1.0.3
+        pip install WMI>=1.5.1
+
+    - name: Install wxPython
+      run: |
+        # Install wxPython 4.2.4 or higher (required for Task Coach)
+        pip install "wxPython>=4.2.4"
+      timeout-minutes: 30
+
+    - name: Verify wxPython installation
+      run: |
+        python -c "import wx; print('wxPython version:', wx.version())"
+
+    - name: Build executable with py2exe
+      run: |
+        # Use the existing pymake.py script with py2exe
+        python pymake.py py2exe
+      timeout-minutes: 20
+
+    - name: List build output
+      run: |
+        echo "Contents of build directory:"
+        Get-ChildItem -Path build -Recurse | Select-Object FullName
+      shell: pwsh
+
+    - name: Verify executable
+      run: |
+        # Find the py2exe output directory
+        $exeDirs = Get-ChildItem -Path build -Directory -Filter "*-win32exe" | Select-Object -First 1
+        if ($exeDirs) {
+          $exePath = Join-Path $exeDirs.FullName "taskcoach.exe"
+          if (Test-Path $exePath) {
+            echo "Executable created successfully at: $exePath"
+            $file = Get-Item $exePath
+            echo "Executable size: $($file.Length) bytes"
+          } else {
+            echo "ERROR: Executable not found at $exePath"
+            exit 1
+          }
+        } else {
+          echo "ERROR: No build output directory found"
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Create distribution archive
+      run: |
+        # Find the py2exe output directory
+        $exeDirs = Get-ChildItem -Path build -Directory -Filter "*-win32exe" | Select-Object -First 1
+        if ($exeDirs) {
+          Compress-Archive -Path "$($exeDirs.FullName)/*" -DestinationPath TaskCoach-Windows-py2exe.zip
+          echo "Created archive: TaskCoach-Windows-py2exe.zip"
+        }
+      shell: pwsh
+
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TaskCoach-Windows-py2exe
+        path: |
+          build/*-win32exe/
+          TaskCoach-Windows-py2exe.zip
+        retention-days: 30
+
+    - name: Upload build logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          build/
+          *.log
+        retention-days: 7

@@ -1,4 +1,7 @@
-name: Build Windows Executable
+name: Build Windows Executable (PyInstaller)
+
+# FIXED: pefile 2024.8.26 was causing the hang at "Looking for dynamic libraries"
+# Solution: Pin pefile != 2024.8.26 (PyInstaller 6.16 workaround)
 
 on:
   push:
@@ -29,8 +32,11 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        # Use latest PyInstaller dev version - has fixes for slow DLL scanning
-        pip install https://github.com/pyinstaller/pyinstaller/archive/develop.zip
+        # CRITICAL FIX: pefile 2024.8.26 causes 60+ minute hang at "Looking for dynamic libraries"
+        # See: https://pyinstaller.org/en/latest/CHANGES.html (PyInstaller 6.16)
+        pip install "pefile!=2024.8.26"
+        # Install PyInstaller 6.16 or later (includes workaround for pefile issue)
+        pip install "pyinstaller>=6.16"
         pip install distro
         pip install six>=1.16.0
         pip install desktop3
@@ -78,27 +84,9 @@ jobs:
 
     - name: Build executable with PyInstaller
       run: |
-        # Use DEBUG to see exactly what DLLs are being scanned
-        # The "Looking for dynamic libraries" step can take 20-40 minutes
-        # This is normal with wxPython + Twisted + numpy on Windows
-        #
-        # Start a background job to print timestamps every 2 minutes
-        # This prevents GitHub Actions from thinking the job is frozen
-        $job = Start-Job -ScriptBlock {
-          while ($true) {
-            Start-Sleep -Seconds 120
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Build still running... (checking DLL dependencies)"
-          }
-        }
-
-        try {
-          pyinstaller TaskCoach.spec --clean --log-level DEBUG
-        } finally {
-          Stop-Job $job
-          Remove-Job $job
-        }
-      shell: pwsh
-      timeout-minutes: 60
+        # With pefile fix, this should complete in 10-15 minutes instead of hanging
+        pyinstaller TaskCoach.spec --clean --log-level INFO
+      timeout-minutes: 30
 
     - name: List build output
       run: |
