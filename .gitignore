@@ -31,3 +31,5 @@ __pycache__
 .idea
 .venv
 venv
+# PyInstaller auto-generated spec file
+TaskCoach.spec
