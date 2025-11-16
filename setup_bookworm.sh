@@ -2,6 +2,10 @@
 # TaskCoach Setup Script for Debian Bookworm
 # This script automates the setup and testing of TaskCoach on Debian 12
 # Updated to handle PEP 668 properly
+#
+# Version: 1.1.0
+# Branch: claude/add-module-loading-logs-01SvgNHroJJfg6fZCGp2mqd5
+# Last Updated: 2025-11-16
 
 set -e  # Exit on error
 
@@ -17,6 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}TaskCoach Setup for Debian Bookworm${NC}"
+echo -e "${BLUE}Version 1.1.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
 
@@ -221,7 +226,16 @@ echo "  • System packages from Debian repos (wxPython, numpy, lxml, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
 echo "  • Additional packages in venv (desktop3, lockfile, gntp, distro, pypubsub)"
 echo
-echo "You can now run TaskCoach with:"
+echo -e "${YELLOW}========================================${NC}"
+echo -e "${YELLOW}IMPORTANT: Next Step Required!${NC}"
+echo -e "${YELLOW}========================================${NC}"
+echo
+echo "To fix category row background coloring, run:"
+echo -e "  ${BLUE}./apply-wxpython-patch.sh${NC}"
+echo
+echo "This will install the wxPython background color patch."
+echo
+echo "Then you can run TaskCoach with:"
 echo -e "  ${BLUE}./taskcoach-run.sh${NC}"
 echo
 echo "To see all options:"

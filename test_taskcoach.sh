@@ -1,6 +1,10 @@
 #!/bin/bash
 # Quick test script for TaskCoach
 # Tests various functionality to ensure proper operation
+#
+# Version: 1.1.0
+# Branch: claude/add-module-loading-logs-01SvgNHroJJfg6fZCGp2mqd5
+# Last Updated: 2025-11-16
 
 # Colors
 GREEN='\033[0;32m'
@@ -22,7 +26,7 @@ else
 fi
 
 echo
-echo -e "${BLUE}TaskCoach Test Suite${NC}"
+echo -e "${BLUE}TaskCoach Test Suite (v1.1.0)${NC}"
 echo "===================="
 echo
 
