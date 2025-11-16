@@ -141,7 +141,12 @@ elif system == "Windows":
             "taskcoachlib", "bin.in", "windows", "py%d%d" % (major, minor)
         ),
     )
-    import _pysyncml
+    # Try to import _pysyncml if available (only exists for Python 2.x)
+    try:
+        import _pysyncml
+    except ImportError:
+        # _pysyncml not available for Python 3.x, skip it
+        pass
 
     # ...
     # ModuleFinder can't handle runtime changes to __path__, but win32com uses them
