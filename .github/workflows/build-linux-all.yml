@@ -83,10 +83,11 @@ jobs:
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
         GLIBC=$(ldd --version | head -1 | awk '{print $NF}')
         FILENAME="taskcoach-${VERSION}-ubuntu24.04-glibc${GLIBC}"
-        ARTIFACT="taskcoach-${VERSION}-ubuntu24.04-glibc${GLIBC}"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
-        echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
+        echo "TaskCoach version: ${VERSION}"
+        echo "GLIBC version: ${GLIBC}"
+        echo "Final filename: ${FILENAME}"
         mv dist/taskcoach "dist/${FILENAME}"
 
     - name: Create build info
@@ -121,14 +122,14 @@ jobs:
     - name: Upload executable
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.artifact }}
+        name: ${{ steps.version.outputs.filename }}
         path: dist/${{ steps.version.outputs.filename }}
         retention-days: 90
 
     - name: Upload build info
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.artifact }}-info
+        name: ${{ steps.version.outputs.filename }}-info
         path: dist/BUILD_INFO.txt
         retention-days: 90
 
@@ -204,10 +205,11 @@ jobs:
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
         GLIBC=$(ldd --version | head -1 | awk '{print $NF}')
         FILENAME="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
-        ARTIFACT="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
-        echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
+        echo "TaskCoach version: ${VERSION}"
+        echo "GLIBC version: ${GLIBC}"
+        echo "Final filename: ${FILENAME}"
         mv dist/taskcoach "dist/${FILENAME}"
 
     - name: Create build info
@@ -246,14 +248,14 @@ jobs:
     - name: Upload executable
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.artifact }}
+        name: ${{ steps.version.outputs.filename }}
         path: dist/${{ steps.version.outputs.filename }}
         retention-days: 90
 
     - name: Upload build info
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.artifact }}-info
+        name: ${{ steps.version.outputs.filename }}-info
         path: dist/BUILD_INFO.txt
         retention-days: 90
 
@@ -373,15 +375,17 @@ jobs:
       id: version
       run: |
         VERSION=$(xvfb-run -a ./TaskCoach-x86_64.AppImage --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
-        ARTIFACT="taskcoach-${VERSION}-x86_64.AppImage"
+        FILENAME="taskcoach-${VERSION}-x86_64.AppImage"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
-        mv TaskCoach-x86_64.AppImage ${ARTIFACT}
+        echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
+        echo "TaskCoach version: ${VERSION}"
+        echo "Final filename: ${FILENAME}"
+        mv TaskCoach-x86_64.AppImage ${FILENAME}
 
     - name: Create build info
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        ARTIFACT="${{ steps.version.outputs.artifact }}"
+        FILENAME="${{ steps.version.outputs.filename }}"
         GLIBC_VER=$(ldd --version | head -1 | awk '{print $NF}')
         {
           echo "Build Information"
@@ -411,28 +415,28 @@ jobs:
           echo "How to Use"
           echo "=========="
           echo "1. Download the .AppImage file"
-          echo "2. Make it executable: chmod +x ${ARTIFACT}"
-          echo "3. Run it: ./${ARTIFACT}"
+          echo "2. Make it executable: chmod +x ${FILENAME}"
+          echo "3. Run it: ./${FILENAME}"
           echo ""
           echo "No installation required! All dependencies are bundled."
           echo ""
           echo "File Information"
           echo "================"
-          ls -lh ${ARTIFACT}
+          ls -lh ${FILENAME}
         } > BUILD_INFO.txt
         cat BUILD_INFO.txt
 
     - name: Upload AppImage
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.artifact }}
-        path: ${{ steps.version.outputs.artifact }}
+        name: ${{ steps.version.outputs.filename }}
+        path: ${{ steps.version.outputs.filename }}
         retention-days: 90
 
     - name: Upload build info
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.version.outputs.artifact }}-info
+        name: ${{ steps.version.outputs.filename }}-info
         path: BUILD_INFO.txt
         retention-days: 90
 

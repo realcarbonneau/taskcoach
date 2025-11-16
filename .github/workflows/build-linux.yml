@@ -100,51 +100,61 @@ jobs:
         fi
         echo "✓ Executable runs successfully"
 
-    - name: Get version
-      id: get_version
+    - name: Get version and create artifact name
+      id: version
       run: |
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "TaskCoach version: $VERSION"
-
-    - name: Prepare artifact name
-      id: artifact_name
-      run: |
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        ARTIFACT_NAME="taskcoach-linux-x86_64-${TIMESTAMP}"
-        echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
-        echo "Artifact name: $ARTIFACT_NAME"
+        GLIBC=$(ldd --version | head -1 | awk '{print $NF}')
+        FILENAME="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
+        echo "TaskCoach version: ${VERSION}"
+        echo "GLIBC version: ${GLIBC}"
+        echo "Final filename: ${FILENAME}"
+        mv dist/taskcoach "dist/${FILENAME}"
 
     - name: Upload executable as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.artifact_name.outputs.name }}
-        path: dist/taskcoach
+        name: ${{ steps.version.outputs.filename }}
+        path: dist/${{ steps.version.outputs.filename }}
         retention-days: 30
 
     - name: Create build info
       run: |
-        echo "Build Information" > dist/BUILD_INFO.txt
-        echo "=================" >> dist/BUILD_INFO.txt
-        echo "Build Date: $(date)" >> dist/BUILD_INFO.txt
-        echo "TaskCoach Version: ${{ steps.get_version.outputs.version }}" >> dist/BUILD_INFO.txt
-        echo "Python Command: ${PYTHON_CMD}" >> dist/BUILD_INFO.txt
-        echo "Python Version: $(${PYTHON_CMD} --version)" >> dist/BUILD_INFO.txt
-        echo "PyInstaller Version: $(${PYTHON_CMD} -m PyInstaller --version)" >> dist/BUILD_INFO.txt
-        echo "wxPython Version: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')" >> dist/BUILD_INFO.txt
-        echo "Platform: $(uname -a)" >> dist/BUILD_INFO.txt
-        echo "GLIBC Version: $(ldd --version | head -1)" >> dist/BUILD_INFO.txt
-        echo "" >> dist/BUILD_INFO.txt
-        echo "File Information:" >> dist/BUILD_INFO.txt
-        ls -lh dist/taskcoach >> dist/BUILD_INFO.txt
-        echo "" >> dist/BUILD_INFO.txt
-        echo "Shared Library Dependencies:" >> dist/BUILD_INFO.txt
-        ldd dist/taskcoach | grep -E "(libc|libpython)" >> dist/BUILD_INFO.txt || true
+        VERSION="${{ steps.version.outputs.version }}"
+        FILENAME="${{ steps.version.outputs.filename }}"
+        GLIBC=$(ldd --version | head -1 | awk '{print $NF}')
+        {
+          echo "Build Information"
+          echo "================="
+          echo "Build Date: $(date)"
+          echo "TaskCoach Version: ${VERSION}"
+          echo "Build Variant: Ubuntu 22.04 (Recommended)"
+          echo "Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))"
+          echo "PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)"
+          echo "wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')"
+          echo "Platform: $(uname -a)"
+          echo "GLIBC: ${GLIBC}"
+          echo ""
+          echo "Compatibility"
+          echo "============="
+          echo "✅ Ubuntu 22.04+ (GLIBC 2.35+)"
+          echo "✅ Ubuntu 23.04+ (GLIBC 2.37+)"
+          echo "✅ Ubuntu 24.04+ (GLIBC 2.38+)"
+          echo "✅ Debian 12+ (Bookworm)"
+          echo "✅ Fedora 36+"
+          echo "✅ Most 2022+ Linux distributions"
+          echo ""
+          echo "File Information"
+          echo "================"
+          ls -lh dist/${FILENAME}
+        } > dist/BUILD_INFO.txt
         cat dist/BUILD_INFO.txt
 
     - name: Upload build info
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.artifact_name.outputs.name }}-info
+        name: ${{ steps.version.outputs.filename }}-info
         path: dist/BUILD_INFO.txt
         retention-days: 30
