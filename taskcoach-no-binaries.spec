@@ -29,6 +29,21 @@ a = Analysis(
         'test',
         'tests',
         'unittest',
+        # CRITICAL: Exclude ALL pywin32 to prevent runtime hooks from loading
+        'win32com',
+        'win32api',
+        'win32con',
+        'win32gui',
+        'win32file',
+        'win32event',
+        'pywintypes',
+        'pythoncom',
+        'win32com.client',
+        'win32com.shell',
+        'wmi',
+        # Also exclude these to prevent DLL scanning
+        'comtypes',
+        'numpy',  # numpy DLLs can also cause hangs
     ],
     # NOTE: optimize and module_collection_mode don't exist in PyInstaller 5.x
 )
