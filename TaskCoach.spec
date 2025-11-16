@@ -64,11 +64,31 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
+        # Large packages we don't need
         'matplotlib',
         'PIL',
         'PyQt5',
         'PyQt6',
         'tkinter',
+        'IPython',
+        'jupyter',
+        'notebook',
+        'pandas',
+        'scipy',
+        'sklearn',
+        'pytest',
+        'test',
+        'tests',
+        '_pytest',
+        # Testing frameworks
+        'unittest2',
+        'nose',
+        # Documentation tools
+        'sphinx',
+        'docutils',
+        # Build tools
+        'setuptools._distutils',
+        'distutils',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -87,7 +107,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # Disabled UPX - it can cause hangs and slow builds
     console=False,  # GUI application, no console window
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -103,7 +123,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,  # Disabled UPX - it can cause hangs and slow builds
     upx_exclude=[],
     name='TaskCoach',
 )

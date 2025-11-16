@@ -74,18 +74,18 @@ def build_executable():
 
     # Run PyInstaller
     try:
-        cmd = ['pyinstaller', spec_file, '--clean']
+        cmd = ['pyinstaller', spec_file, '--clean', '--log-level', 'INFO']
         print(f"Running: {' '.join(cmd)}")
+        print("\nThis may take 10-30 minutes depending on your system...")
+        print("Progress will be shown below:\n")
 
+        # Run with real-time output so user can see progress
         result = subprocess.run(
             cmd,
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
+            # Don't capture output - let it stream to console in real-time
         )
 
-        print(result.stdout)
         print("\nBuild completed successfully!")
         return True
 

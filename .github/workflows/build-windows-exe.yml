@@ -68,10 +68,19 @@ jobs:
         }
       shell: pwsh
 
+    - name: Disable Windows Defender (speeds up build significantly)
+      run: |
+        # Disable real-time monitoring to speed up PyInstaller
+        # This is safe in GitHub Actions and dramatically improves build speed
+        Set-MpPreference -DisableRealtimeMonitoring $true
+      shell: pwsh
+
     - name: Build executable with PyInstaller
       run: |
-        pyinstaller TaskCoach.spec
-      timeout-minutes: 20
+        # Use --log-level INFO to see progress and prevent timeout
+        # --clean ensures a fresh build
+        pyinstaller TaskCoach.spec --clean --log-level INFO
+      timeout-minutes: 45
 
     - name: List build output
       run: |
