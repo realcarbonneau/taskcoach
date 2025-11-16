@@ -83,7 +83,8 @@ jobs:
     - name: Build with PyInstaller
       run: |
         Write-Host "Starting PyInstaller build..."
-        pyinstaller taskcoach-windows.spec --noconfirm --log-level=INFO
+        pyinstaller taskcoach-windows.spec --noconfirm --log-level=DEBUG --clean
+      timeout-minutes: 15  # Kill if build takes more than 15 minutes
 
     - name: Check build output
       run: |
