@@ -107,33 +107,74 @@ jobs:
         # Wait for procmon to initialize
         Start-Sleep -Seconds 5
 
-        # Run PyInstaller with INFO logging (TRACE is too verbose and not helpful)
+        # Run PyInstaller in background
         echo "Starting PyInstaller build..."
-        $timeout = 1800  # 30 minutes
         $process = Start-Process -FilePath "pyinstaller" -ArgumentList "TaskCoach.spec","--clean","--log-level=INFO" -NoNewWindow -PassThru -RedirectStandardOutput "build.log" -RedirectStandardError "build.err"
+        echo "PyInstaller started (PID: $($process.Id))"
 
-        # Wait for PyInstaller with timeout
-        $finished = $process.WaitForExit($timeout * 1000)
+        # Monitor loop - show what's happening every 30 seconds
+        $timeout = 1800  # 30 minutes
+        $elapsed = 0
+        $interval = 30
+        $lastLogSize = 0
 
-        if (-not $finished) {
-          echo "PyInstaller timed out after $timeout seconds - CAPTURING WHERE IT HUNG"
-          # Stop Process Monitor to save the trace
-          Stop-Process -Id $procmon.Id
+        while (-not $process.HasExited -and $elapsed -lt $timeout) {
+          Start-Sleep -Seconds $interval
+          $elapsed += $interval
+
+          # Show timestamp
+          $timestamp = Get-Date -Format "HH:mm:ss"
+          echo ""
+          echo "[$timestamp] Status: Still running ($elapsed / $timeout seconds)"
+
+          # Show last 3 lines of build log
+          if (Test-Path build.log) {
+            $currentSize = (Get-Item build.log).Length
+            $lastLines = Get-Content build.log -Tail 3
+            echo "  Last PyInstaller output:"
+            $lastLines | ForEach-Object { echo "    $_" }
+
+            if ($currentSize -eq $lastLogSize) {
+              echo "  WARNING: Log file hasn't grown in $interval seconds - might be hung!"
+            }
+            $lastLogSize = $currentSize
+          } else {
+            echo "  No build.log found yet"
+          }
+
+          # Show CPU usage - if 0%, it's hung
+          try {
+            $cpuPercent = (Get-Process -Id $process.Id).CPU
+            $workingSet = [math]::Round((Get-Process -Id $process.Id).WorkingSet64 / 1MB, 2)
+            echo "  CPU time: $cpuPercent seconds | Memory: $workingSet MB"
+          } catch {
+            echo "  Could not get process stats"
+          }
+        }
+
+        if ($process.HasExited) {
+          echo ""
+          echo "PyInstaller completed with exit code: $($process.ExitCode)"
+          Stop-Process -Id $procmon.Id -ErrorAction SilentlyContinue
+        } else {
+          echo ""
+          echo "=========================================="
+          echo "PyInstaller TIMED OUT after $timeout seconds"
+          echo "=========================================="
+
+          echo "Stopping Process Monitor to save trace..."
+          Stop-Process -Id $procmon.Id -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 3
 
-          # Kill PyInstaller
-          Stop-Process -Id $process.Id -Force
-
-          echo "Build TIMED OUT - Process Monitor captured all file access"
-        } else {
-          echo "PyInstaller completed successfully"
-          Stop-Process -Id $procmon.Id
+          echo "Killing PyInstaller process..."
+          Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
         }
 
         # Convert PML to CSV for analysis
-        Start-Process -FilePath "procmon\Procmon64.exe" -ArgumentList "/OpenLog","procmon.pml","/SaveAs","procmon.csv" -Wait
+        echo "Converting Process Monitor trace to CSV..."
+        Start-Process -FilePath "procmon\Procmon64.exe" -ArgumentList "/OpenLog","procmon.pml","/SaveAs","procmon.csv" -Wait -ErrorAction SilentlyContinue
 
-        echo "Process Monitor trace saved to procmon.csv"
+        echo "Process Monitor trace saved"
       shell: pwsh
       timeout-minutes: 35
 
