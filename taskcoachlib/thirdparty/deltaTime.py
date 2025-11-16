@@ -69,8 +69,29 @@ def convertToDay(toks):
 def convertToAbsTime(toks):
     now = datetime.now()
     if "dayRef" in toks:
-        day = toks.dayRef.absTime
-        day = datetime(day.year, day.month, day.day)
+        # In newer pyparsing, absTime might not be accessible reliably
+        # Recalculate based on the dayRef token value itself
+        dayRef = toks.dayRef
+        # Extract the actual day string from the parsed result
+        if isinstance(dayRef, str):
+            dayName = dayRef
+        elif hasattr(dayRef, '__iter__') and not isinstance(dayRef, dict):
+            # It might be a list or ParseResults
+            dayName = str(dayRef[0]) if len(dayRef) > 0 else "today"
+        else:
+            dayName = str(dayRef)
+
+        # Calculate the day based on the name
+        day = {
+            "now": now,
+            "today": datetime(now.year, now.month, now.day),
+            "yesterday": datetime(now.year, now.month, now.day) + timedelta(-1),
+            "tomorrow": datetime(now.year, now.month, now.day) + timedelta(+1),
+        }.get(dayName.lower(), datetime(now.year, now.month, now.day))
+
+        # Normalize to midnight
+        if isinstance(day, datetime):
+            day = datetime(day.year, day.month, day.day)
     else:
         day = datetime(now.year, now.month, now.day)
     if "timeOfDay" in toks:
@@ -101,7 +122,8 @@ def convertToAbsTime(toks):
                     mm = 0
                 if not ss:
                     ss = 0
-                if toks.timeOfDay.ampm == "pm":
+                # Check for ampm in hhmmss (pyparsing stores it there)
+                if hasattr(hhmmss, 'ampm') and hhmmss.ampm == "pm":
                     hh += 12
             else:
                 # Fallback: hhmmss might be the parsed result object itself
