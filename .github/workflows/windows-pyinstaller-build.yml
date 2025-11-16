@@ -80,11 +80,19 @@ jobs:
         Write-Host "Contents of taskcoachlib/:"
         Get-ChildItem taskcoachlib -Recurse -Depth 2 | Select-Object FullName
 
-    - name: Build with PyInstaller (Simple spec)
+    - name: Build with PyInstaller (Command-line, no spec)
       run: |
-        Write-Host "Starting PyInstaller build with SIMPLE spec..."
-        Write-Host "Using minimal configuration to avoid hang issues"
-        pyinstaller taskcoach-windows-simple.spec --noconfirm --log-level=INFO --clean
+        Write-Host "Starting PyInstaller build with COMMAND-LINE only..."
+        Write-Host "No spec file - pure auto-detection"
+        Write-Host "Excluding win32com to avoid DLL scanning hang"
+        pyinstaller --onedir --windowed --name=TaskCoach `
+          --exclude-module=win32com `
+          --exclude-module=wmi `
+          --icon=icons.in/taskcoach.ico `
+          --noconfirm `
+          --clean `
+          --log-level=WARN `
+          taskcoach.pyw
       timeout-minutes: 15  # Kill if build takes more than 15 minutes
 
     - name: Check build output
