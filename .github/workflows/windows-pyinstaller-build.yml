@@ -38,7 +38,8 @@ jobs:
         pip install wxPython>=4.2.4
         pip install six desktop3 pypubsub twisted chardet python-dateutil pyparsing lxml keyring numpy lockfile gntp distro
         pip install pywin32 WMI
-        pip install pyinstaller
+        # Try older PyInstaller version to avoid DLL scanning hang (Issue #7290, #7490)
+        pip install pyinstaller==5.13.2
 
     - name: Verify installations
       run: |
@@ -82,22 +83,19 @@ jobs:
 
     - name: Build with PyInstaller (Command-line, no spec)
       run: |
-        Write-Host "Starting PyInstaller build with COMMAND-LINE only..."
-        Write-Host "No spec file - pure auto-detection"
-        Write-Host "Excluding win32com to avoid DLL scanning hang"
+        Write-Host "Starting PyInstaller build with OLDER VERSION (5.13.2)..."
+        Write-Host "Using PyInstaller 5.x to avoid DLL scanning hang on GitHub Actions"
+        Write-Host "See: https://github.com/orgs/pyinstaller/discussions/7490"
         pyinstaller --onedir --windowed --name=TaskCoach `
-          --exclude-module=win32com `
-          --exclude-module=wmi `
-          --exclude-module=pywin32 `
-          --exclude-module=win32api `
-          --exclude-module=win32con `
-          --exclude-module=win32gui `
           --icon=icons.in/taskcoach.ico `
           --noconfirm `
           --clean `
           --log-level=INFO `
           taskcoach.pyw
       timeout-minutes: 15  # Kill if build takes more than 15 minutes
+      env:
+        PYINSTALLER_COMPILE_BOOTLOADER: 0  # Don't recompile bootloader
+        PYINSTALLER_NO_BUNDLE: 0  # Normal bundling
 
     - name: Check build output
       run: |
