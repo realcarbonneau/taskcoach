@@ -1,0 +1,174 @@
+name: Windows PyInstaller Build Test
+
+on:
+  push:
+    branches:
+      - claude/windows-compatibility-review-*
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-windows:
+    name: Build TaskCoach on Windows
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Display Python version
+      run: python --version
+
+    - name: Install system dependencies (Windows)
+      run: |
+        # Install wxPython and other deps
+        python -m pip install --upgrade pip setuptools wheel
+
+    - name: Install Python dependencies
+      run: |
+        pip install wxPython>=4.2.4
+        pip install six desktop3 pypubsub twisted chardet python-dateutil pyparsing lxml keyring numpy lockfile gntp distro
+        pip install pywin32 WMI
+        pip install pyinstaller
+
+    - name: Verify installations
+      run: |
+        python -c "import wx; print(f'wxPython version: {wx.__version__}')"
+        python -c "import win32api; print('pywin32: OK')"
+        python -c "import wmi; print('WMI: OK')"
+        pyinstaller --version
+
+    - name: Generate icons
+      run: |
+        cd icons.in
+        python make.py
+        cd ..
+      continue-on-error: true  # May fail without display
+
+    - name: Generate templates
+      run: |
+        cd templates.in
+        python make.py
+        cd ..
+
+    - name: Check if generated files exist
+      run: |
+        if (Test-Path "taskcoachlib/gui/icons.py") {
+          Write-Host "✓ icons.py generated"
+          Get-Item "taskcoachlib/gui/icons.py" | Select-Object Length, LastWriteTime
+        } else {
+          Write-Host "✗ icons.py NOT generated"
+        }
+        if (Test-Path "taskcoachlib/persistence/xml/templates.py") {
+          Write-Host "✓ templates.py generated"
+          Get-Item "taskcoachlib/persistence/xml/templates.py" | Select-Object Length, LastWriteTime
+        } else {
+          Write-Host "✗ templates.py NOT generated"
+        }
+
+    - name: List taskcoachlib contents
+      run: |
+        Write-Host "Contents of taskcoachlib/:"
+        Get-ChildItem taskcoachlib -Recurse -Depth 2 | Select-Object FullName
+
+    - name: Build with PyInstaller
+      run: |
+        Write-Host "Starting PyInstaller build..."
+        pyinstaller taskcoach-windows.spec --noconfirm --log-level=INFO
+
+    - name: Check build output
+      run: |
+        if (Test-Path "dist/TaskCoach/TaskCoach.exe") {
+          Write-Host "✓ TaskCoach.exe built successfully!"
+          Get-Item "dist/TaskCoach/TaskCoach.exe" | Select-Object Length, LastWriteTime
+        } else {
+          Write-Host "✗ TaskCoach.exe NOT found!"
+          exit 1
+        }
+
+    - name: Calculate build size
+      run: |
+        $size = (Get-ChildItem -Path "dist/TaskCoach" -Recurse | Measure-Object -Property Length -Sum).Sum
+        $sizeMB = [math]::Round($size / 1MB, 2)
+        Write-Host "Total build size: $sizeMB MB"
+
+    - name: List build contents
+      run: |
+        Write-Host "Contents of dist/TaskCoach/:"
+        Get-ChildItem "dist/TaskCoach" -Recurse | Select-Object FullName, Length
+
+    - name: Check for missing dependencies
+      run: |
+        if (Test-Path "build/TaskCoach/warn-TaskCoach.txt") {
+          Write-Host "Warnings from PyInstaller:"
+          Get-Content "build/TaskCoach/warn-TaskCoach.txt" | Select-Object -First 50
+        }
+
+    - name: Test executable (basic launch)
+      run: |
+        # Try to run with --help (should work even without display)
+        & "dist/TaskCoach/TaskCoach.exe" --help
+      timeout-minutes: 2
+      continue-on-error: true
+
+    - name: Package build info
+      run: |
+        $info = @"
+Windows Build Information
+=========================
+Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+Python Version: $(python --version)
+wxPython Version: $(python -c "import wx; print(wx.__version__)")
+PyInstaller Version: $(pyinstaller --version)
+Build Size: $((Get-ChildItem -Path 'dist/TaskCoach' -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB) MB
+Executable: dist/TaskCoach/TaskCoach.exe
+Executable Size: $((Get-Item 'dist/TaskCoach/TaskCoach.exe').Length / 1MB) MB
+
+Files in build:
+$(Get-ChildItem -Path 'dist/TaskCoach' -File | Select-Object Name, @{Name="Size (MB)";Expression={[math]::Round($_.Length / 1MB, 2)}} | Format-Table -AutoSize | Out-String)
+
+Total files: $(((Get-ChildItem -Path 'dist/TaskCoach' -Recurse -File).Count))
+Total folders: $(((Get-ChildItem -Path 'dist/TaskCoach' -Recurse -Directory).Count))
+"@
+        $info | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt"
+        Write-Host $info
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TaskCoach-Windows-PyInstaller
+        path: dist/TaskCoach/
+        retention-days: 30
+
+    - name: Upload build warnings
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-warnings
+        path: build/TaskCoach/warn-TaskCoach.txt
+        retention-days: 7
+
+    - name: Build Summary
+      if: always()
+      run: |
+        Write-Host "`n=========================================="
+        Write-Host "BUILD SUMMARY"
+        Write-Host "=========================================="
+        if (Test-Path "dist/TaskCoach/TaskCoach.exe") {
+          Write-Host "✓ Build: SUCCESS"
+          $size = (Get-ChildItem -Path "dist/TaskCoach" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "✓ Size: $([math]::Round($size, 2)) MB"
+          Write-Host "✓ Executable: dist/TaskCoach/TaskCoach.exe"
+        } else {
+          Write-Host "✗ Build: FAILED"
+          exit 1
+        }
