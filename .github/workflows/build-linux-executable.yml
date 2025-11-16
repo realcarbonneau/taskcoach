@@ -1,11 +1,8 @@
 name: Build Linux Executable
 
 on:
-  # Trigger on pushes to main branch and release tags
+  # Trigger on pushes to any branch and release tags
   push:
-    branches:
-      - main
-      - master
     tags:
       - 'v*'
     paths-ignore:
