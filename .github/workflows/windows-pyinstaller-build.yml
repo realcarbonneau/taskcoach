@@ -88,10 +88,14 @@ jobs:
         pyinstaller --onedir --windowed --name=TaskCoach `
           --exclude-module=win32com `
           --exclude-module=wmi `
+          --exclude-module=pywin32 `
+          --exclude-module=win32api `
+          --exclude-module=win32con `
+          --exclude-module=win32gui `
           --icon=icons.in/taskcoach.ico `
           --noconfirm `
           --clean `
-          --log-level=WARN `
+          --log-level=INFO `
           taskcoach.pyw
       timeout-minutes: 15  # Kill if build takes more than 15 minutes
 
