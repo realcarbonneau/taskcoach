@@ -249,7 +249,9 @@ class Application(object, metaclass=patterns.Singleton):
             for name, template in getDefaultTemplates():
                 filename = os.path.join(template_dir, name + ".tsktmpl")
                 if not os.path.exists(filename):
-                    open(filename, "wb").write(template)
+                    # Decode bytes to string for text mode writing
+                    template_str = template.decode('utf-8') if isinstance(template, bytes) else template
+                    open(filename, "w", encoding="utf-8").write(template_str)
 
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
