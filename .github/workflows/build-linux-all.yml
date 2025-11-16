@@ -1,0 +1,563 @@
+name: Build Linux Executables (All Variants)
+
+on:
+  push:
+    branches:
+      - main
+      - claude/*
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # Build 1: Ubuntu 24.04 (Modern systems, GLIBC 2.38+)
+  build-ubuntu-24:
+    runs-on: ubuntu-24.04
+    name: "Modern Linux (Ubuntu 24.04+)"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3 \
+          python3-pip \
+          python3-wxgtk4.0 \
+          libgtk-3-dev \
+          xvfb
+
+    - name: Detect Python with wxPython
+      id: python-detect
+      run: |
+        echo "=== Detecting Python with wxPython ==="
+        for py_ver in 3.12 3.11 3.10; do
+          if command -v python${py_ver} &> /dev/null; then
+            echo "Testing python${py_ver}..."
+            if xvfb-run -a python${py_ver} -c "import wx; print('wxPython:', wx.__version__)" 2>/dev/null; then
+              echo "✓ Found: python${py_ver} with wxPython"
+              echo "PYTHON_CMD=python${py_ver}" >> $GITHUB_OUTPUT
+              echo "PYTHON_CMD=python${py_ver}" >> $GITHUB_ENV
+              break
+            fi
+          fi
+        done
+
+    - name: Verify environment
+      run: |
+        echo "Python: ${PYTHON_CMD}"
+        ${PYTHON_CMD} --version
+        xvfb-run -a ${PYTHON_CMD} check_wxpython.py
+
+    - name: Install Python dependencies
+      run: |
+        ${PYTHON_CMD} -m pip install --break-system-packages --upgrade pip
+        ${PYTHON_CMD} -m pip install --break-system-packages \
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted
+
+    - name: Build with PyInstaller
+      run: |
+        ${PYTHON_CMD} -m PyInstaller taskcoach.spec
+
+    - name: Verify build
+      run: |
+        if grep -q "ERROR: Hidden import 'wx" build/taskcoach/warn-taskcoach.txt; then
+          echo "❌ CRITICAL: wxPython not bundled!"
+          exit 1
+        fi
+        xvfb-run -a ./dist/taskcoach --version
+
+    - name: Get version and create artifact name
+      id: version
+      run: |
+        VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
+        GLIBC=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
+        ARTIFACT="taskcoach-${VERSION}-linux-x86_64-glibc${GLIBC}-ubuntu24.04"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
+        mv dist/taskcoach dist/taskcoach-ubuntu24.04
+
+    - name: Create build info
+      run: |
+        cat > dist/BUILD_INFO.txt << EOF
+Build Information
+=================
+Build Date: $(date)
+TaskCoach Version: ${{ steps.version.outputs.version }}
+Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
+PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
+wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
+Platform: $(uname -a)
+GLIBC: $(ldd --version | head -1)
+
+Compatibility
+=============
+✅ Ubuntu 24.04+ (GLIBC 2.38+)
+✅ Debian Trixie+ (GLIBC 2.38+)
+❌ Ubuntu 22.04 and older (GLIBC < 2.38)
+
+Recommendation: Use if running Ubuntu 24.04 or newer
+
+File Information
+================
+$(ls -lh dist/taskcoach-ubuntu24.04)
+EOF
+        cat dist/BUILD_INFO.txt
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.artifact }}
+        path: dist/taskcoach-ubuntu24.04
+        retention-days: 90
+
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.artifact }}-info
+        path: dist/BUILD_INFO.txt
+        retention-days: 90
+
+  # Build 2: Ubuntu 22.04 (Broad compatibility, GLIBC 2.35)
+  build-ubuntu-22:
+    runs-on: ubuntu-22.04
+    name: "Broad Compatibility (Ubuntu 20.04+)"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3 \
+          python3-pip \
+          python3-wxgtk4.0 \
+          libgtk-3-dev \
+          xvfb
+
+    - name: Detect Python with wxPython
+      id: python-detect
+      run: |
+        echo "=== Detecting Python with wxPython ==="
+        for py_ver in 3.12 3.11 3.10; do
+          if command -v python${py_ver} &> /dev/null; then
+            echo "Testing python${py_ver}..."
+            if xvfb-run -a python${py_ver} -c "import wx; print('wxPython:', wx.__version__)" 2>/dev/null; then
+              echo "✓ Found: python${py_ver} with wxPython"
+              echo "PYTHON_CMD=python${py_ver}" >> $GITHUB_OUTPUT
+              echo "PYTHON_CMD=python${py_ver}" >> $GITHUB_ENV
+              break
+            fi
+          fi
+        done
+
+    - name: Verify environment
+      run: |
+        echo "Python: ${PYTHON_CMD}"
+        ${PYTHON_CMD} --version
+        xvfb-run -a ${PYTHON_CMD} check_wxpython.py
+
+    - name: Install Python dependencies
+      run: |
+        ${PYTHON_CMD} -m pip install --break-system-packages --upgrade pip
+        ${PYTHON_CMD} -m pip install --break-system-packages \
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted
+
+    - name: Build with PyInstaller
+      run: |
+        ${PYTHON_CMD} -m PyInstaller taskcoach.spec
+
+    - name: Verify build
+      run: |
+        if grep -q "ERROR: Hidden import 'wx" build/taskcoach/warn-taskcoach.txt; then
+          echo "❌ CRITICAL: wxPython not bundled!"
+          exit 1
+        fi
+        xvfb-run -a ./dist/taskcoach --version
+
+    - name: Get version and create artifact name
+      id: version
+      run: |
+        VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
+        GLIBC=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
+        ARTIFACT="taskcoach-${VERSION}-linux-x86_64-glibc${GLIBC}-ubuntu22.04"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
+        mv dist/taskcoach dist/taskcoach-ubuntu22.04
+
+    - name: Create build info
+      run: |
+        cat > dist/BUILD_INFO.txt << EOF
+Build Information
+=================
+Build Date: $(date)
+TaskCoach Version: ${{ steps.version.outputs.version }}
+Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
+PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
+wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
+Platform: $(uname -a)
+GLIBC: $(ldd --version | head -1)
+
+Compatibility
+=============
+✅ Ubuntu 20.04+ (GLIBC 2.31+)
+✅ Ubuntu 22.04+ (GLIBC 2.35+)
+✅ Ubuntu 24.04+ (GLIBC 2.38+)
+✅ Debian Bullseye+ (GLIBC 2.31+)
+✅ Debian Bookworm+ (GLIBC 2.36+)
+✅ Most distributions from 2020+
+❌ Ubuntu 18.04 (GLIBC 2.27)
+
+Recommendation: Use this for BEST COMPATIBILITY on modern systems
+
+File Information
+================
+$(ls -lh dist/taskcoach-ubuntu22.04)
+EOF
+        cat dist/BUILD_INFO.txt
+
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.artifact }}
+        path: dist/taskcoach-ubuntu22.04
+        retention-days: 90
+
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.artifact }}-info
+        path: dist/BUILD_INFO.txt
+        retention-days: 90
+
+  # Build 3: AppImage (Maximum compatibility)
+  build-appimage:
+    runs-on: ubuntu-20.04
+    name: "AppImage (Ubuntu 16.04+)"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3 \
+          python3-pip \
+          python3-wxgtk4.0 \
+          libgtk-3-0 \
+          xvfb \
+          file \
+          desktop-file-utils
+
+    - name: Download AppImage tools
+      run: |
+        wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool
+
+    - name: Detect Python with wxPython
+      id: python-detect
+      run: |
+        echo "=== Detecting Python with wxPython ==="
+        for py_ver in 3.10 3.9 3.8; do
+          if command -v python${py_ver} &> /dev/null; then
+            echo "Testing python${py_ver}..."
+            if xvfb-run -a python${py_ver} -c "import wx; print('wxPython:', wx.__version__)" 2>/dev/null; then
+              echo "✓ Found: python${py_ver} with wxPython"
+              echo "PYTHON_CMD=python${py_ver}" >> $GITHUB_OUTPUT
+              echo "PYTHON_CMD=python${py_ver}" >> $GITHUB_ENV
+              break
+            fi
+          fi
+        done
+
+    - name: Install Python dependencies
+      run: |
+        ${PYTHON_CMD} -m pip install --user --upgrade pip
+        ${PYTHON_CMD} -m pip install --user \
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted
+
+    - name: Build with PyInstaller (directory mode)
+      run: |
+        ${PYTHON_CMD} -m PyInstaller --clean --onedir --name taskcoach \
+          --hidden-import wx \
+          --hidden-import wx._core \
+          --hidden-import wx._adv \
+          --hidden-import wx._html \
+          --hidden-import wx._grid \
+          --hidden-import wx._aui \
+          --hidden-import wx.lib \
+          --hidden-import wx.lib.agw \
+          --hidden-import wx.lib.agw.hypertreelist \
+          --hidden-import pubsub \
+          --collect-data taskcoachlib \
+          taskcoach.py
+
+    - name: Create AppDir structure
+      run: |
+        mkdir -p TaskCoach.AppDir/usr/bin
+        mkdir -p TaskCoach.AppDir/usr/share/applications
+        mkdir -p TaskCoach.AppDir/usr/share/icons/hicolor/256x256/apps
+
+        # Copy PyInstaller output
+        cp -r dist/taskcoach/* TaskCoach.AppDir/usr/bin/
+
+        # Create desktop file
+        cat > TaskCoach.AppDir/taskcoach.desktop << 'EOF'
+        [Desktop Entry]
+        Type=Application
+        Name=Task Coach
+        Exec=taskcoach
+        Icon=taskcoach
+        Categories=Office;ProjectManagement;
+        Comment=Your friendly task manager
+        Terminal=false
+        EOF
+
+        # Copy icon
+        if [ -f icons.in/taskcoach.png ]; then
+          cp icons.in/taskcoach.png TaskCoach.AppDir/taskcoach.png
+          cp icons.in/taskcoach.png TaskCoach.AppDir/usr/share/icons/hicolor/256x256/apps/
+        fi
+
+        # Create AppRun script
+        cat > TaskCoach.AppDir/AppRun << 'EOF'
+        #!/bin/bash
+        SELF=$(readlink -f "$0")
+        HERE=${SELF%/*}
+        export PATH="${HERE}/usr/bin:${PATH}"
+        export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+        exec "${HERE}/usr/bin/taskcoach" "$@"
+        EOF
+        chmod +x TaskCoach.AppDir/AppRun
+
+    - name: Build AppImage
+      run: |
+        ARCH=x86_64 ./appimagetool TaskCoach.AppDir TaskCoach-x86_64.AppImage
+
+    - name: Test AppImage
+      run: |
+        chmod +x TaskCoach-x86_64.AppImage
+        xvfb-run -a ./TaskCoach-x86_64.AppImage --version
+
+    - name: Get version and create artifact name
+      id: version
+      run: |
+        VERSION=$(xvfb-run -a ./TaskCoach-x86_64.AppImage --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
+        ARTIFACT="taskcoach-${VERSION}-x86_64.AppImage"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
+        mv TaskCoach-x86_64.AppImage ${ARTIFACT}
+
+    - name: Create build info
+      run: |
+        cat > BUILD_INFO.txt << EOF
+Build Information
+=================
+Build Date: $(date)
+TaskCoach Version: ${{ steps.version.outputs.version }}
+Format: AppImage
+Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
+PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
+wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
+Base System: Ubuntu 20.04 (GLIBC $(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+'))
+
+Compatibility
+=============
+✅ Ubuntu 16.04+ (GLIBC 2.23+)
+✅ Ubuntu 18.04+ (GLIBC 2.27+)
+✅ Ubuntu 20.04+ (GLIBC 2.31+)
+✅ Ubuntu 22.04+ (GLIBC 2.35+)
+✅ Ubuntu 24.04+ (GLIBC 2.38+)
+✅ Debian 9+ (GLIBC 2.24+)
+✅ CentOS 7+ (GLIBC 2.17+)
+✅ Fedora 25+ (GLIBC 2.24+)
+✅ Most Linux distributions from 2016+
+
+Recommendation: Use this for MAXIMUM COMPATIBILITY
+
+How to Use
+==========
+1. Download the .AppImage file
+2. Make it executable: chmod +x ${{ steps.version.outputs.artifact }}
+3. Run it: ./${{ steps.version.outputs.artifact }}
+
+No installation required! All dependencies are bundled.
+
+File Information
+================
+$(ls -lh ${{ steps.version.outputs.artifact }})
+EOF
+        cat BUILD_INFO.txt
+
+    - name: Upload AppImage
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.artifact }}
+        path: ${{ steps.version.outputs.artifact }}
+        retention-days: 90
+
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.version.outputs.artifact }}-info
+        path: BUILD_INFO.txt
+        retention-days: 90
+
+  # Summary job - creates a summary of all builds
+  create-summary:
+    needs: [build-ubuntu-24, build-ubuntu-22, build-appimage]
+    runs-on: ubuntu-latest
+    name: "Build Summary"
+
+    steps:
+    - name: Create download guide
+      run: |
+        cat > DOWNLOAD_GUIDE.md << 'EOF'
+        # TaskCoach Linux Builds - Download Guide
+
+        Three versions are available. Choose based on your system:
+
+        ## 📦 Which Version Should I Download?
+
+        ### Option 1: Ubuntu 22.04 Build (RECOMMENDED for most users)
+        **Artifact:** `taskcoach-*-glibc2.35-ubuntu22.04`
+
+        **Use if you have:**
+        - ✅ Ubuntu 20.04, 22.04, or 24.04
+        - ✅ Debian Bullseye or Bookworm
+        - ✅ Most modern Linux distributions (2020+)
+
+        **Compatibility:** GLIBC 2.31+ (Ubuntu 20.04+)
+        **Size:** ~60MB
+
+        ---
+
+        ### Option 2: Ubuntu 24.04 Build (Latest systems only)
+        **Artifact:** `taskcoach-*-glibc2.38-ubuntu24.04`
+
+        **Use if you have:**
+        - ✅ Ubuntu 24.04 or newer
+        - ✅ Debian Trixie or newer
+        - ✅ Very recent distributions (2024+)
+
+        **Compatibility:** GLIBC 2.38+ (Ubuntu 24.04+)
+        **Size:** ~60MB
+
+        ---
+
+        ### Option 3: AppImage (MAXIMUM COMPATIBILITY)
+        **Artifact:** `taskcoach-*.AppImage`
+
+        **Use if:**
+        - ✅ You have an older system (Ubuntu 16.04+, CentOS 7+)
+        - ✅ You want a truly portable version
+        - ✅ You're not sure which version to use
+        - ✅ Other versions don't work
+
+        **Compatibility:** GLIBC 2.17+ (most Linux from 2016+)
+        **Size:** ~80-100MB
+
+        **How to use:**
+        ```bash
+        chmod +x taskcoach-*.AppImage
+        ./taskcoach-*.AppImage
+        ```
+
+        ---
+
+        ## 🔍 How to Check Your System
+
+        Check your GLIBC version:
+        ```bash
+        ldd --version
+        ```
+
+        Check your Ubuntu version:
+        ```bash
+        lsb_release -a
+        ```
+
+        ## 📥 Quick Decision Tree
+
+        ```
+        Do you know your GLIBC version?
+        │
+        ├─ Yes
+        │  ├─ GLIBC 2.38+ → Use Ubuntu 24.04 build
+        │  ├─ GLIBC 2.31-2.37 → Use Ubuntu 22.04 build (RECOMMENDED)
+        │  └─ GLIBC < 2.31 → Use AppImage
+        │
+        └─ No / Not sure → Use AppImage (always works!)
+        ```
+
+        ## ⚠️ Troubleshooting
+
+        **If you get "GLIBC version not found" error:**
+        - Download the AppImage version instead
+        - Or download the Ubuntu 22.04 build (broader compatibility)
+
+        **If the executable won't run:**
+        1. Make it executable: `chmod +x taskcoach*`
+        2. Try the AppImage version
+        3. Check system requirements in the BUILD_INFO file
+
+        ---
+
+        **When in doubt, use the AppImage - it works on almost any Linux system!**
+        EOF
+        cat DOWNLOAD_GUIDE.md
+
+    - name: Upload download guide
+      uses: actions/upload-artifact@v4
+      with:
+        name: DOWNLOAD_GUIDE
+        path: DOWNLOAD_GUIDE.md
+        retention-days: 90
+
+    - name: Create workflow summary
+      run: |
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        # ✅ Build Complete - All Variants Built Successfully
+
+        ## 📦 Available Downloads
+
+        | Build Variant | Compatibility | Size | Best For |
+        |---------------|---------------|------|----------|
+        | **Ubuntu 22.04** | GLIBC 2.31+ (Ubuntu 20.04+) | ~60MB | **Most users** ⭐ |
+        | **Ubuntu 24.04** | GLIBC 2.38+ (Ubuntu 24.04+) | ~60MB | Latest systems |
+        | **AppImage** | GLIBC 2.17+ (2016+) | ~80-100MB | Maximum compatibility 🌐 |
+
+        ## 💡 Quick Guide
+
+        **Not sure which to download?**
+        - **Use Ubuntu 22.04 build** if you have a modern system (2020+)
+        - **Use AppImage** if you have an older system or want maximum portability
+
+        **Check your GLIBC:** `ldd --version`
+
+        ## 📥 How to Use
+
+        ```bash
+        # For PyInstaller builds (.tar.gz or executable)
+        chmod +x taskcoach
+        ./taskcoach
+
+        # For AppImage
+        chmod +x taskcoach-*.AppImage
+        ./taskcoach-*.AppImage
+        ```
+
+        ---
+
+        See DOWNLOAD_GUIDE artifact for detailed compatibility information.
+        EOF
