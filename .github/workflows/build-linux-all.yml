@@ -65,6 +65,12 @@ jobs:
           pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
           chardet python-dateutil pyparsing lxml keyring numpy six twisted
 
+        # Verify optional dependencies installed
+        echo "Verifying optional dependencies..."
+        ${PYTHON_CMD} -c "import desktop; print('✓ desktop3')" || echo "⚠ desktop3 not found (file open may be limited)"
+        ${PYTHON_CMD} -c "from xdg import BaseDirectory; print('✓ pyxdg')" || echo "⚠ pyxdg not found (config dirs will use fallback)"
+        ${PYTHON_CMD} -c "import distro; print('✓ distro')" || echo "⚠ distro not found (distro detection disabled)"
+
     - name: Build with PyInstaller
       run: |
         ${PYTHON_CMD} -m PyInstaller taskcoach.spec
@@ -187,6 +193,12 @@ jobs:
           pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
           chardet python-dateutil pyparsing lxml keyring numpy six twisted
 
+        # Verify optional dependencies installed
+        echo "Verifying optional dependencies..."
+        ${PYTHON_CMD} -c "import desktop; print('✓ desktop3')" || echo "⚠ desktop3 not found (file open may be limited)"
+        ${PYTHON_CMD} -c "from xdg import BaseDirectory; print('✓ pyxdg')" || echo "⚠ pyxdg not found (config dirs will use fallback)"
+        ${PYTHON_CMD} -c "import distro; print('✓ distro')" || echo "⚠ distro not found (distro detection disabled)"
+
     - name: Build with PyInstaller
       run: |
         ${PYTHON_CMD} -m PyInstaller taskcoach.spec
@@ -307,6 +319,12 @@ jobs:
         ${PYTHON_CMD} -m pip install --user \
           pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
           chardet python-dateutil pyparsing lxml keyring numpy six twisted
+
+        # Verify optional dependencies installed
+        echo "Verifying optional dependencies..."
+        ${PYTHON_CMD} -c "import desktop; print('✓ desktop3')" || echo "⚠ desktop3 not found (file open may be limited)"
+        ${PYTHON_CMD} -c "from xdg import BaseDirectory; print('✓ pyxdg')" || echo "⚠ pyxdg not found (config dirs will use fallback)"
+        ${PYTHON_CMD} -c "import distro; print('✓ distro')" || echo "⚠ distro not found (distro detection disabled)"
 
     - name: Build with PyInstaller (directory mode)
       run: |
