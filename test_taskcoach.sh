@@ -2,7 +2,7 @@
 # Quick test script for TaskCoach
 # Tests various functionality to ensure proper operation
 #
-# Version: 1.1.1.002 (f43f0c6)
+# Version: 1.1.1.003 (f20c4dc)
 # Branch: claude/add-module-loading-logs-01SvgNHroJJfg6fZCGp2mqd5
 # Last Updated: 2025-11-16
 
@@ -27,7 +27,7 @@ fi
 
 echo
 echo -e "${BLUE}TaskCoach Test Suite${NC}"
-echo -e "${BLUE}Version 1.1.1.002 (f43f0c6)${NC}"
+echo -e "${BLUE}Version 1.1.1.003 (f20c4dc)${NC}"
 echo "===================="
 echo
 
