@@ -89,11 +89,23 @@ jobs:
         Set-MpPreference -DisableRealtimeMonitoring $true
       shell: pwsh
 
-    - name: Build executable with PyInstaller
+    - name: Build executable with PyInstaller (TRACE mode)
       run: |
-        # With pefile fix, this should complete in 10-15 minutes instead of hanging
-        pyinstaller TaskCoach.spec --clean --log-level INFO
+        # TRACE logging shows every file scanned, every library probed, every hook run
+        # This will reveal exactly where PyInstaller hangs
+        pyinstaller TaskCoach.spec --clean --log-level=TRACE --debug=all 2>&1 | Tee-Object -FilePath pyinstaller_trace.log
       timeout-minutes: 30
+
+    - name: Show last 200 lines of trace log (if hung)
+      if: always()
+      run: |
+        if (Test-Path pyinstaller_trace.log) {
+          echo "=== LAST 200 LINES OF TRACE LOG ==="
+          Get-Content pyinstaller_trace.log -Tail 200
+        } else {
+          echo "No trace log found"
+        }
+      shell: pwsh
 
     - name: List build output
       run: |
@@ -127,6 +139,15 @@ jobs:
           dist/TaskCoach/
           TaskCoach-Windows.zip
         retention-days: 30
+
+    - name: Upload trace log (always, even on timeout)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyinstaller-trace-log
+        path: |
+          pyinstaller_trace.log
+        retention-days: 7
 
     - name: Upload build logs on failure
       if: failure()
