@@ -3,8 +3,6 @@ name: Build Linux Executable
 on:
   # Trigger on pushes to any branch and release tags
   push:
-    tags:
-      - 'v*'
     paths-ignore:
       - '**.md'
       - 'docs/**'
