@@ -59,23 +59,16 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        $PYTHON_CMD -m pip install --break-system-packages --upgrade pip
+        # Upgrade pip first
+        $PYTHON_CMD -m pip install --user --upgrade pip
+        # Use --break-system-packages if available (pip 22.1+), otherwise --user
         $PYTHON_CMD -m pip install --break-system-packages \
-          pyinstaller \
-          pypubsub \
-          desktop3 \
-          pyxdg \
-          distro \
-          lockfile \
-          gntp \
-          chardet \
-          python-dateutil \
-          pyparsing \
-          lxml \
-          keyring \
-          numpy \
-          six \
-          twisted
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted \
+          2>/dev/null || \
+        $PYTHON_CMD -m pip install --user \
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted
 
     - name: Build with PyInstaller
       run: |

@@ -54,8 +54,14 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        ${PYTHON_CMD} -m pip install --break-system-packages --upgrade pip
+        # Upgrade pip first (to get --break-system-packages support)
+        ${PYTHON_CMD} -m pip install --user --upgrade pip
+        # Use --break-system-packages if available (pip 22.1+), otherwise --user
         ${PYTHON_CMD} -m pip install --break-system-packages \
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted \
+          2>/dev/null || \
+        ${PYTHON_CMD} -m pip install --user \
           pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
           chardet python-dateutil pyparsing lxml keyring numpy six twisted
 
@@ -83,11 +89,12 @@ jobs:
 
     - name: Create build info
       run: |
-        cat > dist/BUILD_INFO.txt << EOF
+        VERSION="${{ steps.version.outputs.version }}"
+        cat > dist/BUILD_INFO.txt << 'EOF'
 Build Information
 =================
 Build Date: $(date)
-TaskCoach Version: ${{ steps.version.outputs.version }}
+TaskCoach Version: ${VERSION}
 Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
 PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
 wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
@@ -165,8 +172,14 @@ EOF
 
     - name: Install Python dependencies
       run: |
-        ${PYTHON_CMD} -m pip install --break-system-packages --upgrade pip
+        # Upgrade pip first (to get --break-system-packages support)
+        ${PYTHON_CMD} -m pip install --user --upgrade pip
+        # Use --break-system-packages if available (pip 22.1+), otherwise --user
         ${PYTHON_CMD} -m pip install --break-system-packages \
+          pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
+          chardet python-dateutil pyparsing lxml keyring numpy six twisted \
+          2>/dev/null || \
+        ${PYTHON_CMD} -m pip install --user \
           pyinstaller pypubsub desktop3 pyxdg distro lockfile gntp \
           chardet python-dateutil pyparsing lxml keyring numpy six twisted
 
@@ -194,11 +207,12 @@ EOF
 
     - name: Create build info
       run: |
-        cat > dist/BUILD_INFO.txt << EOF
+        VERSION="${{ steps.version.outputs.version }}"
+        cat > dist/BUILD_INFO.txt << 'EOF'
 Build Information
 =================
 Build Date: $(date)
-TaskCoach Version: ${{ steps.version.outputs.version }}
+TaskCoach Version: ${VERSION}
 Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
 PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
 wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
@@ -360,11 +374,13 @@ EOF
 
     - name: Create build info
       run: |
-        cat > BUILD_INFO.txt << EOF
+        VERSION="${{ steps.version.outputs.version }}"
+        ARTIFACT="${{ steps.version.outputs.artifact }}"
+        cat > BUILD_INFO.txt << 'EOF'
 Build Information
 =================
 Build Date: $(date)
-TaskCoach Version: ${{ steps.version.outputs.version }}
+TaskCoach Version: ${VERSION}
 Format: AppImage
 Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
 PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
@@ -388,14 +404,14 @@ Recommendation: Use this for MAXIMUM COMPATIBILITY
 How to Use
 ==========
 1. Download the .AppImage file
-2. Make it executable: chmod +x ${{ steps.version.outputs.artifact }}
-3. Run it: ./${{ steps.version.outputs.artifact }}
+2. Make it executable: chmod +x ${ARTIFACT}
+3. Run it: ./${ARTIFACT}
 
 No installation required! All dependencies are bundled.
 
 File Information
 ================
-$(ls -lh ${{ steps.version.outputs.artifact }})
+$(ls -lh ${ARTIFACT})
 EOF
         cat BUILD_INFO.txt
 
