@@ -46,7 +46,8 @@ class PIElementTree(ET.ElementTree):
             # WTF? ElementTree does not write the encoding if it's ASCII or UTF-8...
             if encoding in ["us-ascii", "utf-8", "unicode"]:
                 # Check if file is in binary mode or text mode
-                is_binary = hasattr(file, 'mode') and 'b' in file.mode
+                # Default to binary if mode cannot be determined (for wrapped file objects)
+                is_binary = not (hasattr(file, 'mode') and 'b' not in file.mode)
                 if is_binary:
                     # Binary mode: write bytes
                     if encoding == "unicode":
@@ -60,7 +61,7 @@ class PIElementTree(ET.ElementTree):
                     else:
                         file.write('<?xml version="1.0" encoding="%s"?>\n' % encoding)
             # Write processing instruction
-            is_binary = hasattr(file, 'mode') and 'b' in file.mode
+            is_binary = not (hasattr(file, 'mode') and 'b' not in file.mode)
             if is_binary:
                 file.write((self.__pi + "\n").encode(encoding if encoding != "unicode" else "utf-8"))
             else:
@@ -74,7 +75,8 @@ class PIElementTree(ET.ElementTree):
             encoding = "utf-8"
         if sys.version_info >= (2, 7):
             # Check if file is in binary mode or text mode
-            is_binary = hasattr(file, 'mode') and 'b' in file.mode
+            # Default to binary if mode cannot be determined (for wrapped file objects)
+            is_binary = not (hasattr(file, 'mode') and 'b' not in file.mode)
 
             # Write XML declaration and processing instruction
             if is_binary:
