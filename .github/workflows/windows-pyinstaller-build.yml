@@ -83,15 +83,22 @@ jobs:
 
     - name: Build with PyInstaller (Command-line, no spec)
       run: |
-        Write-Host "Starting PyInstaller build with OLDER VERSION (5.13.2)..."
-        Write-Host "Using PyInstaller 5.x to avoid DLL scanning hang on GitHub Actions"
+        Write-Host "Starting PyInstaller build with DETAILED DEBUG LOGGING..."
+        Write-Host "Using --debug=all to pinpoint exact hang location"
         Write-Host "See: https://github.com/orgs/pyinstaller/discussions/7490"
+
+        # Set verbose environment for maximum debugging
+        $env:PYINSTALLER_DEBUG = "1"
+
         pyinstaller --onedir --windowed --name=TaskCoach `
           --icon=icons.in/taskcoach.ico `
           --noconfirm `
           --clean `
-          --log-level=INFO `
-          taskcoach.pyw
+          --log-level=DEBUG `
+          --debug=all `
+          taskcoach.pyw 2>&1 | Tee-Object -FilePath "pyinstaller-debug.log"
+
+        Write-Host "Build command completed (or timed out)"
       timeout-minutes: 15  # Kill if build takes more than 15 minutes
       env:
         PYINSTALLER_COMPILE_BOOTLOADER: 0  # Don't recompile bootloader
@@ -167,6 +174,14 @@ jobs:
         "Executable Size: $exeSize MB" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
         "Total files: $fileCount" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
         "Total folders: $dirCount" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+
+    - name: Upload PyInstaller debug log
+      uses: actions/upload-artifact@v4
+      if: always()  # Upload even if build fails/times out
+      with:
+        name: pyinstaller-debug-log
+        path: pyinstaller-debug.log
+        retention-days: 7
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
