@@ -24,21 +24,13 @@ a = Analysis(
         'lxml',
     ],
     hookspath=[],
-    hooksconfig={},
     runtime_hooks=[],
     excludes=[
         'test',
         'tests',
         'unittest',
     ],
-    noarchive=False,
-    optimize=0,
-    # KEY: Don't scan for binaries automatically
-    module_collection_mode={
-        'wx': 'py',  # Only collect .py files, not binaries
-        'numpy': 'py',
-        'lxml': 'py',
-    },
+    # NOTE: optimize and module_collection_mode don't exist in PyInstaller 5.x
 )
 
 # IMPORTANT: Remove ALL binaries to skip DLL scanning
