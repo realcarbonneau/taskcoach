@@ -1,0 +1,107 @@
+name: Build Linux Executable with PyInstaller
+
+on:
+  push:
+    branches:
+      - main
+      - claude/*
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3-wxgtk4.0 \
+          libgtk-3-dev \
+          xvfb \
+          libnotify4 \
+          libwebpdemux2 \
+          libraqm0
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install \
+          pyinstaller \
+          pypubsub \
+          desktop3 \
+          pyxdg \
+          distro \
+          lockfile \
+          gntp \
+          chardet \
+          python-dateutil \
+          pyparsing \
+          lxml \
+          keyring \
+          numpy \
+          six \
+          twisted
+
+    - name: Build with PyInstaller
+      run: |
+        python -m PyInstaller taskcoach.spec
+
+    - name: Test executable
+      run: |
+        xvfb-run -a ./dist/taskcoach --version
+
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "TaskCoach version: $VERSION"
+
+    - name: Prepare artifact name
+      id: artifact_name
+      run: |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        ARTIFACT_NAME="taskcoach-linux-x86_64-${TIMESTAMP}"
+        echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+        echo "Artifact name: $ARTIFACT_NAME"
+
+    - name: Upload executable as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.artifact_name.outputs.name }}
+        path: dist/taskcoach
+        retention-days: 30
+
+    - name: Create build info
+      run: |
+        echo "Build Information" > dist/BUILD_INFO.txt
+        echo "=================" >> dist/BUILD_INFO.txt
+        echo "Build Date: $(date)" >> dist/BUILD_INFO.txt
+        echo "TaskCoach Version: ${{ steps.get_version.outputs.version }}" >> dist/BUILD_INFO.txt
+        echo "Python Version: $(python --version)" >> dist/BUILD_INFO.txt
+        echo "PyInstaller Version: $(pyinstaller --version)" >> dist/BUILD_INFO.txt
+        echo "wxPython Version: $(python -c 'import wx; print(wx.__version__)')" >> dist/BUILD_INFO.txt
+        echo "Platform: $(uname -a)" >> dist/BUILD_INFO.txt
+        echo "" >> dist/BUILD_INFO.txt
+        echo "File Information:" >> dist/BUILD_INFO.txt
+        ls -lh dist/taskcoach >> dist/BUILD_INFO.txt
+        cat dist/BUILD_INFO.txt
+
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.artifact_name.outputs.name }}-info
+        path: dist/BUILD_INFO.txt
+        retention-days: 30
