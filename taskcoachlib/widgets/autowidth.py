@@ -72,8 +72,7 @@ class AutoColumnWidthMixin(object):
             )
         # Temporarily unbind the EVT_SIZE to prevent resizing during dragging
         self.Unbind(wx.EVT_SIZE)
-        if operating_system.isWindows():
-            event.Skip()
+        event.Skip()  # Always skip to allow default drag handling on all platforms
 
     def OnEndColumnDrag(self, event):
         if event.Column == self.ResizeColumn and self.GetColumnCount() > 1:
