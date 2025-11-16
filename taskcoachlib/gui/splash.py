@@ -45,7 +45,17 @@ class SplashScreen(wx.adv.SplashScreen):
     def __init__(self):
         # Load splash.png from icons directory
         splash_path = get_resource_path(os.path.join('icons', 'splash.png'))
+
+        # Check if file exists
+        if not os.path.exists(splash_path):
+            raise FileNotFoundError(f"Splash screen image not found: {splash_path}")
+
+        # Load the image
         image = wx.Image(splash_path)
+
+        # Check if image loaded successfully
+        if not image.IsOk():
+            raise RuntimeError(f"Failed to load splash screen image: {splash_path}")
 
         if i18n.currentLanguageIsRightToLeft():
             # RTL languages cause the bitmap to be mirrored too, but because
@@ -55,6 +65,11 @@ class SplashScreen(wx.adv.SplashScreen):
             bitmap = image.Mirror().ConvertToBitmap()
         else:
             bitmap = image.ConvertToBitmap()
+
+        # Verify bitmap is valid
+        if not bitmap.IsOk():
+            raise RuntimeError(f"Failed to convert splash image to bitmap: {splash_path}")
+
         super().__init__(
             bitmap,
             wx.adv.SPLASH_CENTRE_ON_SCREEN | wx.adv.SPLASH_TIMEOUT,
