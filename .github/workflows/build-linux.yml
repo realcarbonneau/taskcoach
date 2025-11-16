@@ -33,12 +33,14 @@ jobs:
 
     - name: Verify Python and wxPython availability
       run: |
-        xvfb-run -a python3 check_wxpython.py
+        echo "Using Python: $(which python3.12)"
+        python3.12 --version
+        xvfb-run -a python3.12 check_wxpython.py
 
     - name: Install Python dependencies
       run: |
-        python3 -m pip install --break-system-packages --upgrade pip
-        python3 -m pip install --break-system-packages \
+        python3.12 -m pip install --break-system-packages --upgrade pip
+        python3.12 -m pip install --break-system-packages \
           pyinstaller \
           pypubsub \
           desktop3 \
@@ -57,7 +59,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        python3 -m PyInstaller taskcoach.spec
+        python3.12 -m PyInstaller taskcoach.spec
 
     - name: Verify build warnings
       run: |
@@ -113,9 +115,9 @@ jobs:
         echo "=================" >> dist/BUILD_INFO.txt
         echo "Build Date: $(date)" >> dist/BUILD_INFO.txt
         echo "TaskCoach Version: ${{ steps.get_version.outputs.version }}" >> dist/BUILD_INFO.txt
-        echo "Python Version: $(python3 --version)" >> dist/BUILD_INFO.txt
-        echo "PyInstaller Version: $(python3 -m PyInstaller --version)" >> dist/BUILD_INFO.txt
-        echo "wxPython Version: $(xvfb-run -a python3 -c 'import wx; print(wx.__version__)')" >> dist/BUILD_INFO.txt
+        echo "Python Version: $(python3.12 --version)" >> dist/BUILD_INFO.txt
+        echo "PyInstaller Version: $(python3.12 -m PyInstaller --version)" >> dist/BUILD_INFO.txt
+        echo "wxPython Version: $(xvfb-run -a python3.12 -c 'import wx; print(wx.__version__)')" >> dist/BUILD_INFO.txt
         echo "Platform: $(uname -a)" >> dist/BUILD_INFO.txt
         echo "" >> dist/BUILD_INFO.txt
         echo "File Information:" >> dist/BUILD_INFO.txt
