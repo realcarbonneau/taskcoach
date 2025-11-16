@@ -89,21 +89,68 @@ jobs:
         Set-MpPreference -DisableRealtimeMonitoring $true
       shell: pwsh
 
-    - name: Build executable with PyInstaller (TRACE mode)
+    - name: Download Process Monitor (Windows strace equivalent)
       run: |
-        # TRACE logging shows every file scanned, every library probed, every hook run
-        # This will reveal exactly where PyInstaller hangs
-        pyinstaller TaskCoach.spec --clean --log-level=TRACE --debug=all 2>&1 | Tee-Object -FilePath pyinstaller_trace.log
-      timeout-minutes: 30
+        # Download SysInternals Process Monitor - traces ALL file/registry/network access
+        Invoke-WebRequest -Uri "https://download.sysinternals.com/files/ProcessMonitor.zip" -OutFile procmon.zip
+        Expand-Archive procmon.zip -DestinationPath procmon
+        echo "Process Monitor downloaded"
+      shell: pwsh
 
-    - name: Show last 200 lines of trace log (if hung)
+    - name: Build executable with PyInstaller + Process Monitor tracing
+      run: |
+        # Start Process Monitor in background to capture all file access
+        # Filter for python.exe to reduce log size
+        $procmon = Start-Process -FilePath "procmon\Procmon64.exe" -ArgumentList "/BackingFile","procmon.pml","/Quiet","/Minimized" -PassThru
+        echo "Process Monitor started (PID: $($procmon.Id))"
+
+        # Wait for procmon to initialize
+        Start-Sleep -Seconds 5
+
+        # Run PyInstaller with INFO logging (TRACE is too verbose and not helpful)
+        echo "Starting PyInstaller build..."
+        $timeout = 1800  # 30 minutes
+        $process = Start-Process -FilePath "pyinstaller" -ArgumentList "TaskCoach.spec","--clean","--log-level=INFO" -NoNewWindow -PassThru -RedirectStandardOutput "build.log" -RedirectStandardError "build.err"
+
+        # Wait for PyInstaller with timeout
+        $finished = $process.WaitForExit($timeout * 1000)
+
+        if (-not $finished) {
+          echo "PyInstaller timed out after $timeout seconds - CAPTURING WHERE IT HUNG"
+          # Stop Process Monitor to save the trace
+          Stop-Process -Id $procmon.Id
+          Start-Sleep -Seconds 3
+
+          # Kill PyInstaller
+          Stop-Process -Id $process.Id -Force
+
+          echo "Build TIMED OUT - Process Monitor captured all file access"
+        } else {
+          echo "PyInstaller completed successfully"
+          Stop-Process -Id $procmon.Id
+        }
+
+        # Convert PML to CSV for analysis
+        Start-Process -FilePath "procmon\Procmon64.exe" -ArgumentList "/OpenLog","procmon.pml","/SaveAs","procmon.csv" -Wait
+
+        echo "Process Monitor trace saved to procmon.csv"
+      shell: pwsh
+      timeout-minutes: 35
+
+    - name: Analyze Process Monitor trace
       if: always()
       run: |
-        if (Test-Path pyinstaller_trace.log) {
-          echo "=== LAST 200 LINES OF TRACE LOG ==="
-          Get-Content pyinstaller_trace.log -Tail 200
+        if (Test-Path procmon.csv) {
+          echo "=== LAST 100 FILE OPERATIONS BEFORE HANG ==="
+          # Show last 100 operations - reveals exactly which file caused hang
+          Get-Content procmon.csv -Tail 100 | Select-String -Pattern "python.exe|pyinstaller"
         } else {
-          echo "No trace log found"
+          echo "No Process Monitor trace found"
+        }
+
+        if (Test-Path build.log) {
+          echo "=== LAST 50 LINES OF PYINSTALLER OUTPUT ==="
+          Get-Content build.log -Tail 50
         }
       shell: pwsh
 
@@ -140,13 +187,16 @@ jobs:
           TaskCoach-Windows.zip
         retention-days: 30
 
-    - name: Upload trace log (always, even on timeout)
+    - name: Upload Process Monitor trace (shows exact file causing hang)
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: pyinstaller-trace-log
+        name: process-monitor-trace
         path: |
-          pyinstaller_trace.log
+          procmon.csv
+          procmon.pml
+          build.log
+          build.err
         retention-days: 7
 
     - name: Upload build logs on failure
