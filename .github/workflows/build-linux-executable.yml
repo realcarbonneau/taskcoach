@@ -57,6 +57,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
 
+          # Install distro first (required by setup.py)
+          pip install distro
+
           # Install wxPython from wheel (much faster than building from source)
           pip install -U \
             -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04 \
