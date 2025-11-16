@@ -81,11 +81,15 @@ jobs:
         Write-Host "Contents of taskcoachlib/:"
         Get-ChildItem taskcoachlib -Recurse -Depth 2 | Select-Object FullName
 
+    - name: Patch PyInstaller for verbose DLL logging
+      run: |
+        Write-Host "Patching PyInstaller to log which DLLs are being scanned..."
+        python patch_pyinstaller_debug.py
+
     - name: Build with PyInstaller (NO binary scanning)
       run: |
-        Write-Host "Starting PyInstaller build with NO BINARY SCANNING..."
-        Write-Host "Using custom spec that skips DLL dependency scanning"
-        Write-Host "This avoids the hang at 'Looking for dynamic libraries'"
+        Write-Host "Starting PyInstaller build with VERBOSE DLL LOGGING..."
+        Write-Host "Watch for [DLL_SCAN] lines to see what's being scanned"
 
         pyinstaller taskcoach-no-binaries.spec --noconfirm --log-level=INFO 2>&1 | Tee-Object -FilePath "pyinstaller-debug.log"
 
