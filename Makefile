@@ -110,6 +110,17 @@ deb: sdist_linux
 	LC_ALL=C $(PYTHON) pymake.py bdist_deb --sdist=dist/TaskCoach_$(TCVERSION).tar.gz
 	mv dist/taskcoach_$(TCVERSION)-1_all.deb dist/taskcoach_$(TCVERSION)-1.deb
 
+pyinstaller: prepare
+	@echo "Building standalone Linux executable with PyInstaller..."
+	@command -v pyinstaller >/dev/null 2>&1 || { echo >&2 "PyInstaller is not installed. Run: pip install pyinstaller"; exit 1; }
+	pyinstaller taskcoach-linux.spec
+	@echo "Build complete! Executable is in dist/taskcoach/"
+	@echo "To create distributable archive, run: make pyinstaller-dist"
+
+pyinstaller-dist: pyinstaller
+	cd dist && tar -czf taskcoach-linux-x86_64.tar.gz taskcoach/
+	@echo "Archive created: dist/taskcoach-linux-x86_64.tar.gz"
+
 ubuntu: sdist_ubuntu
 	LC_ALL=C $(PYTHON) pymake.py bdist_ubuntu precise 12 --sdist=dist/taskcoach_$(TCVERSION)-0ubuntu12~precise.tar.gz
 	mv build build-precise

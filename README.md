@@ -141,11 +141,23 @@ The coverage report is written to tests/coverage.out.
 
 Use the Makefile to create distributions (they are placed in dist/):
 
-    make windist # Creates installer for Windows
-    make dmg     # Creates disk image for Mac OS X
-    make rpm     # Creates generic RPM
-    make fedora  # Creates RPM for Fedora 8 or later
-    make deb     # Creates Debian package for Debian and Ubuntu
+    make windist         # Creates installer for Windows
+    make dmg             # Creates disk image for Mac OS X
+    make rpm             # Creates generic RPM
+    make fedora          # Creates RPM for Fedora 8 or later
+    make deb             # Creates Debian package for Debian and Ubuntu
+    make pyinstaller     # Creates standalone Linux executable (PyInstaller)
+    make pyinstaller-dist # Creates PyInstaller build + archive
+
+**New: Standalone Linux Executable**
+
+You can now create a self-contained Linux executable that bundles Python and all dependencies:
+
+    make pyinstaller-dist
+
+This creates `dist/taskcoach-linux-x86_64.tar.gz` which can run on any modern Linux distribution without requiring system Python or dependencies. See [LINUX_EXECUTABLE_BUILD.md](LINUX_EXECUTABLE_BUILD.md) for details.
+
+GitHub Actions automatically builds Linux executables on every push. Download artifacts from the [Actions tab](../../actions).
 
 Check out the Makefile for more details. E.g. to create the Task
 Coach app on Mac OS X you can also run:
