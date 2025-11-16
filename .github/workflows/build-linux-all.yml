@@ -93,29 +93,29 @@ jobs:
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         FILENAME="${{ steps.version.outputs.filename }}"
-        cat > dist/BUILD_INFO.txt << 'EOF'
-Build Information
-=================
-Build Date: $(date)
-TaskCoach Version: ${VERSION}
-Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
-PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
-wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
-Platform: $(uname -a)
-GLIBC: $(ldd --version | head -1)
-
-Compatibility
-=============
-✅ Ubuntu 24.04+ (GLIBC 2.38+)
-✅ Debian Trixie+ (GLIBC 2.38+)
-❌ Ubuntu 22.04 and older (GLIBC < 2.38)
-
-Recommendation: Use if running Ubuntu 24.04 or newer
-
-File Information
-================
-$(ls -lh dist/${FILENAME})
-EOF
+        {
+          echo "Build Information"
+          echo "================="
+          echo "Build Date: $(date)"
+          echo "TaskCoach Version: ${VERSION}"
+          echo "Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))"
+          echo "PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)"
+          echo "wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')"
+          echo "Platform: $(uname -a)"
+          echo "GLIBC: $(ldd --version | head -1)"
+          echo ""
+          echo "Compatibility"
+          echo "============="
+          echo "✅ Ubuntu 24.04+ (GLIBC 2.38+)"
+          echo "✅ Debian Trixie+ (GLIBC 2.38+)"
+          echo "❌ Ubuntu 22.04 and older (GLIBC < 2.38)"
+          echo ""
+          echo "Recommendation: Use if running Ubuntu 24.04 or newer"
+          echo ""
+          echo "File Information"
+          echo "================"
+          ls -lh dist/${FILENAME}
+        } > dist/BUILD_INFO.txt
         cat dist/BUILD_INFO.txt
 
     - name: Upload executable
@@ -214,33 +214,33 @@ EOF
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         FILENAME="${{ steps.version.outputs.filename }}"
-        cat > dist/BUILD_INFO.txt << 'EOF'
-Build Information
-=================
-Build Date: $(date)
-TaskCoach Version: ${VERSION}
-Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
-PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
-wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
-Platform: $(uname -a)
-GLIBC: $(ldd --version | head -1)
-
-Compatibility
-=============
-✅ Ubuntu 20.04+ (GLIBC 2.31+)
-✅ Ubuntu 22.04+ (GLIBC 2.35+)
-✅ Ubuntu 24.04+ (GLIBC 2.38+)
-✅ Debian Bullseye+ (GLIBC 2.31+)
-✅ Debian Bookworm+ (GLIBC 2.36+)
-✅ Most distributions from 2020+
-❌ Ubuntu 18.04 (GLIBC 2.27)
-
-Recommendation: Use this for BEST COMPATIBILITY on modern systems
-
-File Information
-================
-$(ls -lh dist/${FILENAME})
-EOF
+        {
+          echo "Build Information"
+          echo "================="
+          echo "Build Date: $(date)"
+          echo "TaskCoach Version: ${VERSION}"
+          echo "Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))"
+          echo "PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)"
+          echo "wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')"
+          echo "Platform: $(uname -a)"
+          echo "GLIBC: $(ldd --version | head -1)"
+          echo ""
+          echo "Compatibility"
+          echo "============="
+          echo "✅ Ubuntu 20.04+ (GLIBC 2.31+)"
+          echo "✅ Ubuntu 22.04+ (GLIBC 2.35+)"
+          echo "✅ Ubuntu 24.04+ (GLIBC 2.38+)"
+          echo "✅ Debian Bullseye+ (GLIBC 2.31+)"
+          echo "✅ Debian Bookworm+ (GLIBC 2.36+)"
+          echo "✅ Most distributions from 2020+"
+          echo "❌ Ubuntu 18.04 (GLIBC 2.27)"
+          echo ""
+          echo "Recommendation: Use this for BEST COMPATIBILITY on modern systems"
+          echo ""
+          echo "File Information"
+          echo "================"
+          ls -lh dist/${FILENAME}
+        } > dist/BUILD_INFO.txt
         cat dist/BUILD_INFO.txt
 
     - name: Upload executable
@@ -382,43 +382,44 @@ EOF
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         ARTIFACT="${{ steps.version.outputs.artifact }}"
-        cat > BUILD_INFO.txt << 'EOF'
-Build Information
-=================
-Build Date: $(date)
-TaskCoach Version: ${VERSION}
-Format: AppImage
-Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))
-PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)
-wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')
-Base System: Ubuntu 20.04 (GLIBC $(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+'))
-
-Compatibility
-=============
-✅ Ubuntu 16.04+ (GLIBC 2.23+)
-✅ Ubuntu 18.04+ (GLIBC 2.27+)
-✅ Ubuntu 20.04+ (GLIBC 2.31+)
-✅ Ubuntu 22.04+ (GLIBC 2.35+)
-✅ Ubuntu 24.04+ (GLIBC 2.38+)
-✅ Debian 9+ (GLIBC 2.24+)
-✅ CentOS 7+ (GLIBC 2.17+)
-✅ Fedora 25+ (GLIBC 2.24+)
-✅ Most Linux distributions from 2016+
-
-Recommendation: Use this for MAXIMUM COMPATIBILITY
-
-How to Use
-==========
-1. Download the .AppImage file
-2. Make it executable: chmod +x ${ARTIFACT}
-3. Run it: ./${ARTIFACT}
-
-No installation required! All dependencies are bundled.
-
-File Information
-================
-$(ls -lh ${ARTIFACT})
-EOF
+        GLIBC_VER=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
+        {
+          echo "Build Information"
+          echo "================="
+          echo "Build Date: $(date)"
+          echo "TaskCoach Version: ${VERSION}"
+          echo "Format: AppImage"
+          echo "Python: ${PYTHON_CMD} ($(${PYTHON_CMD} --version))"
+          echo "PyInstaller: $(${PYTHON_CMD} -m PyInstaller --version)"
+          echo "wxPython: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')"
+          echo "Base System: Ubuntu 20.04 (GLIBC ${GLIBC_VER})"
+          echo ""
+          echo "Compatibility"
+          echo "============="
+          echo "✅ Ubuntu 16.04+ (GLIBC 2.23+)"
+          echo "✅ Ubuntu 18.04+ (GLIBC 2.27+)"
+          echo "✅ Ubuntu 20.04+ (GLIBC 2.31+)"
+          echo "✅ Ubuntu 22.04+ (GLIBC 2.35+)"
+          echo "✅ Ubuntu 24.04+ (GLIBC 2.38+)"
+          echo "✅ Debian 9+ (GLIBC 2.24+)"
+          echo "✅ CentOS 7+ (GLIBC 2.17+)"
+          echo "✅ Fedora 25+ (GLIBC 2.24+)"
+          echo "✅ Most Linux distributions from 2016+"
+          echo ""
+          echo "Recommendation: Use this for MAXIMUM COMPATIBILITY"
+          echo ""
+          echo "How to Use"
+          echo "=========="
+          echo "1. Download the .AppImage file"
+          echo "2. Make it executable: chmod +x ${ARTIFACT}"
+          echo "3. Run it: ./${ARTIFACT}"
+          echo ""
+          echo "No installation required! All dependencies are bundled."
+          echo ""
+          echo "File Information"
+          echo "================"
+          ls -lh ${ARTIFACT}
+        } > BUILD_INFO.txt
         cat BUILD_INFO.txt
 
     - name: Upload AppImage
