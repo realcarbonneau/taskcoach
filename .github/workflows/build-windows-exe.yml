@@ -1,0 +1,182 @@
+name: Build Windows Executable with PyInstaller
+
+on:
+  push:
+    branches:
+      - claude/pyinstaller-windows-build-*
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Display Python version
+        run: |
+          python --version
+          pip --version
+
+      - name: Install wxPython 4.2.4+ (REQUIRED)
+        run: |
+          echo "Installing wxPython 4.2.4 or later..."
+          pip install "wxPython>=4.2.4"
+          python -c "import wx; print(f'wxPython version: {wx.version()}')"
+
+      - name: Install PyInstaller with verbose output
+        run: |
+          echo "Installing PyInstaller..."
+          pip install pyinstaller
+          pyinstaller --version
+
+      - name: Install project dependencies
+        run: |
+          echo "Installing TaskCoach dependencies..."
+          pip install six>=1.16.0
+          pip install desktop3
+          pip install pypubsub
+          pip install twisted
+          pip install chardet>=5.2.0
+          pip install python-dateutil>=2.9.0
+          pip install pyparsing>=3.1.2
+          pip install lxml
+          pip install keyring
+          pip install numpy
+          pip install lockfile>=0.12.2
+          pip install gntp>=1.0.3
+          pip install distro
+          pip install WMI>=1.5.1
+          pip install pywin32
+
+      - name: List installed packages
+        run: |
+          pip list
+
+      - name: Verify critical imports
+        run: |
+          python -c "import wx; print('wx OK')"
+          python -c "import twisted; print('twisted OK')"
+          python -c "import lxml; print('lxml OK')"
+          python -c "import numpy; print('numpy OK')"
+
+      - name: Generate templates (if needed)
+        run: |
+          if (Test-Path "templates.in/make.py") {
+            echo "Generating templates..."
+            cd templates.in
+            python make.py
+            cd ..
+          }
+        shell: pwsh
+
+      - name: Generate icons (if needed)
+        run: |
+          if (Test-Path "icons.in/make.py") {
+            echo "Generating icons..."
+            cd icons.in
+            python make.py
+            cd ..
+          }
+        shell: pwsh
+        continue-on-error: true
+
+      - name: Build with PyInstaller (TRACE logging for debugging)
+        run: |
+          echo "============================================"
+          echo "Building TaskCoach with PyInstaller"
+          echo "Using TRACE logging to debug hanging issue"
+          echo "============================================"
+
+          # Set environment variables to help with debugging
+          $env:PYTHONUNBUFFERED = "1"
+
+          # Run PyInstaller with TRACE logging
+          # This will help us see where it hangs at "Looking for dynamic libraries"
+          pyinstaller --log-level=TRACE --clean TaskCoach.spec 2>&1 | Tee-Object -FilePath pyinstaller_trace.log
+
+          echo "============================================"
+          echo "PyInstaller completed!"
+          echo "============================================"
+        shell: pwsh
+        timeout-minutes: 60
+
+      - name: Upload PyInstaller trace log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-trace-log
+          path: pyinstaller_trace.log
+          retention-days: 7
+
+      - name: Check build output
+        if: always()
+        run: |
+          echo "Checking build directories..."
+          if (Test-Path "dist/TaskCoach") {
+            echo "dist/TaskCoach exists!"
+            Get-ChildItem dist/TaskCoach -Recurse | Select-Object FullName, Length | Format-Table
+          } else {
+            echo "WARNING: dist/TaskCoach not found!"
+          }
+
+          if (Test-Path "build") {
+            echo "Build directory contents:"
+            Get-ChildItem build -Recurse -Depth 1 | Select-Object FullName | Format-Table
+          }
+        shell: pwsh
+
+      - name: Test executable (if built successfully)
+        if: success()
+        run: |
+          if (Test-Path "dist/TaskCoach/TaskCoach.exe") {
+            echo "Testing TaskCoach.exe with --help..."
+            & "dist/TaskCoach/TaskCoach.exe" --help
+
+            echo "Testing TaskCoach.exe with --version..."
+            & "dist/TaskCoach/TaskCoach.exe" --version
+          } else {
+            echo "TaskCoach.exe not found, skipping test"
+          }
+        shell: pwsh
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Package executable
+        if: success()
+        run: |
+          if (Test-Path "dist/TaskCoach") {
+            echo "Creating zip archive..."
+            Compress-Archive -Path dist/TaskCoach/* -DestinationPath TaskCoach-Windows-x64.zip
+
+            echo "Archive created:"
+            Get-Item TaskCoach-Windows-x64.zip | Select-Object Name, Length
+          }
+        shell: pwsh
+
+      - name: Upload Windows executable
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskCoach-Windows-x64
+          path: TaskCoach-Windows-x64.zip
+          retention-days: 30
+
+      - name: Upload build directory for debugging
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-debug-files
+          path: |
+            build/
+            *.log
+          retention-days: 7
