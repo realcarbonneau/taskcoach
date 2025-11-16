@@ -81,7 +81,7 @@ jobs:
       id: version
       run: |
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
-        GLIBC=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
+        GLIBC=$(ldd --version | head -1 | awk '{print $NF}')
         FILENAME="taskcoach-${VERSION}-ubuntu24.04-glibc${GLIBC}"
         ARTIFACT="taskcoach-${VERSION}-ubuntu24.04-glibc${GLIBC}"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -202,7 +202,7 @@ jobs:
       id: version
       run: |
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
-        GLIBC=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
+        GLIBC=$(ldd --version | head -1 | awk '{print $NF}')
         FILENAME="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
         ARTIFACT="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -382,7 +382,7 @@ jobs:
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         ARTIFACT="${{ steps.version.outputs.artifact }}"
-        GLIBC_VER=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
+        GLIBC_VER=$(ldd --version | head -1 | awk '{print $NF}')
         {
           echo "Build Information"
           echo "================="
