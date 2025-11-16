@@ -5,6 +5,10 @@ import os
 import sys
 from pathlib import Path
 
+# Disable some slow binary dependency checks
+# This significantly speeds up the "Looking for dynamic libraries" phase
+os.environ['PYINSTALLER_OPTIMIZE_IMPORTS'] = '1'
+
 # Get the application metadata
 block_cipher = None
 
@@ -89,6 +93,16 @@ a = Analysis(
         # Build tools
         'setuptools._distutils',
         'distutils',
+        # Additional exclusions to speed up DLL scanning
+        'antigravity',
+        'argparse',
+        'calendar',
+        'optparse',
+        'pdb',
+        'pickletools',
+        'plistlib',
+        'pydoc',
+        'pydoc_data',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

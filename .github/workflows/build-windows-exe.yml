@@ -29,7 +29,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install pyinstaller
+        # Use latest PyInstaller dev version - has fixes for slow DLL scanning
+        pip install https://github.com/pyinstaller/pyinstaller/archive/develop.zip
         pip install distro
         pip install six>=1.16.0
         pip install desktop3
@@ -77,10 +78,27 @@ jobs:
 
     - name: Build executable with PyInstaller
       run: |
-        # Use --log-level INFO to see progress and prevent timeout
-        # --clean ensures a fresh build
-        pyinstaller TaskCoach.spec --clean --log-level INFO
-      timeout-minutes: 45
+        # Use DEBUG to see exactly what DLLs are being scanned
+        # The "Looking for dynamic libraries" step can take 20-40 minutes
+        # This is normal with wxPython + Twisted + numpy on Windows
+        #
+        # Start a background job to print timestamps every 2 minutes
+        # This prevents GitHub Actions from thinking the job is frozen
+        $job = Start-Job -ScriptBlock {
+          while ($true) {
+            Start-Sleep -Seconds 120
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Build still running... (checking DLL dependencies)"
+          }
+        }
+
+        try {
+          pyinstaller TaskCoach.spec --clean --log-level DEBUG
+        } finally {
+          Stop-Job $job
+          Remove-Job $job
+        }
+      shell: pwsh
+      timeout-minutes: 60
 
     - name: List build output
       run: |
