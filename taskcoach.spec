@@ -78,6 +78,11 @@ hiddenimports = [
     'distro',
     'six',
     'six.moves',
+    # Required for Twisted/Zope
+    'pkg_resources',
+    'setuptools',
+    'zope',
+    'zope.interface',
     # TaskCoach modules
     'taskcoachlib',
     'taskcoachlib.workarounds',

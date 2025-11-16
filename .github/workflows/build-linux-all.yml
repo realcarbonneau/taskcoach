@@ -82,14 +82,17 @@ jobs:
       run: |
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
         GLIBC=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
-        ARTIFACT="taskcoach-${VERSION}-linux-x86_64-glibc${GLIBC}-ubuntu24.04"
+        FILENAME="taskcoach-${VERSION}-ubuntu24.04-glibc${GLIBC}"
+        ARTIFACT="taskcoach-${VERSION}-ubuntu24.04-glibc${GLIBC}"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
         echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
-        mv dist/taskcoach dist/taskcoach-ubuntu24.04
+        mv dist/taskcoach "dist/${FILENAME}"
 
     - name: Create build info
       run: |
         VERSION="${{ steps.version.outputs.version }}"
+        FILENAME="${{ steps.version.outputs.filename }}"
         cat > dist/BUILD_INFO.txt << 'EOF'
 Build Information
 =================
@@ -111,7 +114,7 @@ Recommendation: Use if running Ubuntu 24.04 or newer
 
 File Information
 ================
-$(ls -lh dist/taskcoach-ubuntu24.04)
+$(ls -lh dist/${FILENAME})
 EOF
         cat dist/BUILD_INFO.txt
 
@@ -119,7 +122,7 @@ EOF
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.version.outputs.artifact }}
-        path: dist/taskcoach-ubuntu24.04
+        path: dist/${{ steps.version.outputs.filename }}
         retention-days: 90
 
     - name: Upload build info
@@ -200,14 +203,17 @@ EOF
       run: |
         VERSION=$(xvfb-run -a ./dist/taskcoach --version 2>&1 | grep -oP 'Task Coach \K[0-9.]+' || echo "unknown")
         GLIBC=$(ldd --version | head -1 | grep -oP '[0-9]+\.[0-9]+')
-        ARTIFACT="taskcoach-${VERSION}-linux-x86_64-glibc${GLIBC}-ubuntu22.04"
+        FILENAME="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
+        ARTIFACT="taskcoach-${VERSION}-ubuntu22.04-glibc${GLIBC}"
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
         echo "artifact=${ARTIFACT}" >> $GITHUB_OUTPUT
-        mv dist/taskcoach dist/taskcoach-ubuntu22.04
+        mv dist/taskcoach "dist/${FILENAME}"
 
     - name: Create build info
       run: |
         VERSION="${{ steps.version.outputs.version }}"
+        FILENAME="${{ steps.version.outputs.filename }}"
         cat > dist/BUILD_INFO.txt << 'EOF'
 Build Information
 =================
@@ -233,7 +239,7 @@ Recommendation: Use this for BEST COMPATIBILITY on modern systems
 
 File Information
 ================
-$(ls -lh dist/taskcoach-ubuntu22.04)
+$(ls -lh dist/${FILENAME})
 EOF
         cat dist/BUILD_INFO.txt
 
@@ -241,7 +247,7 @@ EOF
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.version.outputs.artifact }}
-        path: dist/taskcoach-ubuntu22.04
+        path: dist/${{ steps.version.outputs.filename }}
         retention-days: 90
 
     - name: Upload build info
