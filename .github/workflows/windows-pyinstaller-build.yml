@@ -122,25 +122,39 @@ jobs:
 
     - name: Package build info
       run: |
-        $info = @"
-Windows Build Information
-=========================
-Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-Python Version: $(python --version)
-wxPython Version: $(python -c "import wx; print(wx.__version__)")
-PyInstaller Version: $(pyinstaller --version)
-Build Size: $((Get-ChildItem -Path 'dist/TaskCoach' -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB) MB
-Executable: dist/TaskCoach/TaskCoach.exe
-Executable Size: $((Get-Item 'dist/TaskCoach/TaskCoach.exe').Length / 1MB) MB
+        $buildDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $pythonVersion = python --version
+        $wxVersion = python -c "import wx; print(wx.__version__)"
+        $pyinstallerVersion = pyinstaller --version
+        $totalSize = [math]::Round(((Get-ChildItem -Path 'dist/TaskCoach' -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB), 2)
+        $exeSize = [math]::Round(((Get-Item 'dist/TaskCoach/TaskCoach.exe').Length / 1MB), 2)
+        $fileCount = (Get-ChildItem -Path 'dist/TaskCoach' -Recurse -File).Count
+        $dirCount = (Get-ChildItem -Path 'dist/TaskCoach' -Recurse -Directory).Count
 
-Files in build:
-$(Get-ChildItem -Path 'dist/TaskCoach' -File | Select-Object Name, @{Name="Size (MB)";Expression={[math]::Round($_.Length / 1MB, 2)}} | Format-Table -AutoSize | Out-String)
+        Write-Host "=========================================="
+        Write-Host "Windows Build Information"
+        Write-Host "=========================================="
+        Write-Host "Build Date: $buildDate"
+        Write-Host "Python Version: $pythonVersion"
+        Write-Host "wxPython Version: $wxVersion"
+        Write-Host "PyInstaller Version: $pyinstallerVersion"
+        Write-Host "Total Build Size: $totalSize MB"
+        Write-Host "Executable Size: $exeSize MB"
+        Write-Host "Total files: $fileCount"
+        Write-Host "Total folders: $dirCount"
+        Write-Host "=========================================="
 
-Total files: $(((Get-ChildItem -Path 'dist/TaskCoach' -Recurse -File).Count))
-Total folders: $(((Get-ChildItem -Path 'dist/TaskCoach' -Recurse -Directory).Count))
-"@
-        $info | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt"
-        Write-Host $info
+        # Create BUILD_INFO.txt
+        "Windows Build Information" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt"
+        "=========================" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "Build Date: $buildDate" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "Python Version: $pythonVersion" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "wxPython Version: $wxVersion" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "PyInstaller Version: $pyinstallerVersion" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "Total Build Size: $totalSize MB" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "Executable Size: $exeSize MB" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "Total files: $fileCount" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
+        "Total folders: $dirCount" | Out-File -FilePath "dist/TaskCoach/BUILD_INFO.txt" -Append
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
