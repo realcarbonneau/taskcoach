@@ -66,25 +66,40 @@ class AutoColumnWidthMixin(object):
 
     def OnBeginColumnDrag(self, event):
         # pylint: disable=W0201
-        if event.Column == self.ResizeColumn:
-            self.__oldResizeColumnWidth = self.GetColumnWidth(
-                self.ResizeColumn
-            )
+        # Store the old width of the column being dragged
+        self.__draggedColumn = event.Column
+        self.__oldDraggedColumnWidth = self.GetColumnWidth(event.Column)
         # Temporarily unbind the EVT_SIZE to prevent resizing during dragging
         self.Unbind(wx.EVT_SIZE)
         event.Skip()  # Always skip to allow default drag handling on all platforms
 
     def OnEndColumnDrag(self, event):
-        if event.Column == self.ResizeColumn and self.GetColumnCount() > 1:
-            extra_width = self.__oldResizeColumnWidth - self.GetColumnWidth(
-                self.ResizeColumn
-            )
-            self.DistributeWidthAcrossColumns(extra_width)
+        # After manual column resize, adjust an adjacent column to maintain total width
+        # This ensures only two columns change: the dragged column and its neighbor
+        dragged_column = event.Column
+        new_width = self.GetColumnWidth(dragged_column)
+        width_change = new_width - self.__oldDraggedColumnWidth
+
+        # Determine which adjacent column to adjust
+        # Prefer adjusting the column to the right; if rightmost, adjust left
+        column_count = self.GetColumnCount()
+        if dragged_column < column_count - 1:
+            adjacent_column = dragged_column + 1
+        elif dragged_column > 0:
+            adjacent_column = dragged_column - 1
+        else:
+            # Only one column, nothing to adjust
+            self.Bind(wx.EVT_SIZE, self.OnResize)
+            event.Skip()
+            return
+
+        # Adjust adjacent column by opposite amount to keep total width constant
+        adjacent_width = self.GetColumnWidth(adjacent_column)
+        min_width = self.ResizeColumnMinWidth if adjacent_column == self.ResizeColumn else 50
+        new_adjacent_width = max(min_width, adjacent_width - width_change)
+        self.SetColumnWidth(adjacent_column, new_adjacent_width)
+
         self.Bind(wx.EVT_SIZE, self.OnResize)
-        # Only auto-resize if the user dragged a different column
-        # If they dragged the ResizeColumn itself, respect their manual sizing
-        if event.Column != self.ResizeColumn:
-            wx.CallAfter(self.DoResize)
         event.Skip()
 
     def OnResize(self, event):
