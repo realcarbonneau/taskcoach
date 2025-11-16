@@ -69,8 +69,29 @@ def convertToDay(toks):
 def convertToAbsTime(toks):
     now = datetime.now()
     if "dayRef" in toks:
-        day = toks.dayRef.absTime
-        day = datetime(day.year, day.month, day.day)
+        # In newer pyparsing, absTime might not be accessible reliably
+        # Recalculate based on the dayRef token value itself
+        dayRef = toks.dayRef
+        # Extract the actual day string from the parsed result
+        if isinstance(dayRef, str):
+            dayName = dayRef
+        elif hasattr(dayRef, '__iter__') and not isinstance(dayRef, dict):
+            # It might be a list or ParseResults
+            dayName = str(dayRef[0]) if len(dayRef) > 0 else "today"
+        else:
+            dayName = str(dayRef)
+
+        # Calculate the day based on the name
+        day = {
+            "now": now,
+            "today": datetime(now.year, now.month, now.day),
+            "yesterday": datetime(now.year, now.month, now.day) + timedelta(-1),
+            "tomorrow": datetime(now.year, now.month, now.day) + timedelta(+1),
+        }.get(dayName.lower(), datetime(now.year, now.month, now.day))
+
+        # Normalize to midnight
+        if isinstance(day, datetime):
+            day = datetime(day.year, day.month, day.day)
     else:
         day = datetime(now.year, now.month, now.day)
     if "timeOfDay" in toks:
@@ -86,17 +107,38 @@ def convertToAbsTime(toks):
             }[toks.timeOfDay]
         else:
             hhmmss = toks.timeparts
-            if hhmmss.miltime:
+            # In newer pyparsing, Group results might be lists, not objects with attributes
+            # Access the first element if it's a list
+            if isinstance(hhmmss, (list, tuple)) and len(hhmmss) > 0:
+                hhmmss = hhmmss[0]
+
+            # Check if hhmmss has the expected attributes (hasattr is safe for both objects and strings)
+            if hasattr(hhmmss, 'miltime') and hhmmss.miltime:
                 hh, mm = hhmmss.miltime
                 ss = 0
-            else:
+            elif hasattr(hhmmss, 'HH'):
                 hh, mm, ss = (hhmmss.HH % 12), hhmmss.MM, hhmmss.SS
                 if not mm:
                     mm = 0
                 if not ss:
                     ss = 0
-                if toks.timeOfDay.ampm == "pm":
+                # Check for ampm in hhmmss (pyparsing stores it there)
+                if hasattr(hhmmss, 'ampm') and hhmmss.ampm == "pm":
                     hh += 12
+            else:
+                # Fallback: hhmmss might be the parsed result object itself
+                # Try to access named results from toks.timeOfDay instead
+                if hasattr(toks.timeOfDay, 'miltime') and toks.timeOfDay.miltime:
+                    hh, mm = toks.timeOfDay.miltime
+                    ss = 0
+                else:
+                    # Pyparsing returns parsed integers as strings; convert them
+                    # Check for non-empty strings before converting to int
+                    hh = int(toks.timeOfDay.HH) % 12 if hasattr(toks.timeOfDay, 'HH') and toks.timeOfDay.HH else 0
+                    mm = int(toks.timeOfDay.MM) if hasattr(toks.timeOfDay, 'MM') and toks.timeOfDay.MM else 0
+                    ss = int(toks.timeOfDay.SS) if hasattr(toks.timeOfDay, 'SS') and toks.timeOfDay.SS else 0
+                    if hasattr(toks.timeOfDay, 'ampm') and toks.timeOfDay.ampm == "pm":
+                        hh += 12
             timeOfDay = timedelta(0, (hh * 60 + mm) * 60 + ss, 0)
     else:
         timeOfDay = timedelta(
