@@ -52,6 +52,13 @@ jobs:
         pip install gntp>=1.0.3
         pip install WMI>=1.5.1
 
+    - name: Verify pefile and PyInstaller versions
+      run: |
+        echo "Verifying critical package versions..."
+        python -c "import pefile; print('pefile version:', pefile.__version__)"
+        python -c "import PyInstaller; print('PyInstaller version:', PyInstaller.__version__)"
+        echo "If pefile is 2024.8.26, the hang will occur!"
+
     - name: Install wxPython
       run: |
         # Install wxPython 4.2.4 or higher (required for Task Coach)

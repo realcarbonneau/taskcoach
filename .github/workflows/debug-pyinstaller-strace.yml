@@ -1,0 +1,101 @@
+name: Debug PyInstaller with strace (Linux)
+
+# This workflow uses strace on Linux to debug the PyInstaller hang
+# strace logs every system call to show exactly where PyInstaller gets stuck
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  debug-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install strace
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y strace
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        # Install with pefile constraint
+        pip install "pefile!=2024.8.26"
+        pip install "pyinstaller>=6.16"
+        pip install distro six desktop3 pypubsub twisted chardet python-dateutil pyparsing lxml keyring numpy lockfile gntp
+        pip install "wxPython>=4.2.4"
+
+    - name: Verify versions
+      run: |
+        echo "=== Package Versions ==="
+        python -c "import pefile; print('pefile:', pefile.__version__)"
+        python -c "import PyInstaller; print('PyInstaller:', PyInstaller.__version__)"
+        python -c "import wx; print('wxPython:', wx.version())"
+
+    - name: Build with PyInstaller under strace
+      run: |
+        echo "Starting PyInstaller with strace..."
+        echo "This will create trace files showing every system call"
+        # -ff: follow forks (trace child processes)
+        # -o: output file prefix
+        # -e trace=file: only trace file-related syscalls (faster)
+        # -s 1000: limit string output to 1000 chars
+        timeout 600 strace -ff -o pyinst_trace -e trace=file -s 1000 pyinstaller TaskCoach.spec --clean --log-level DEBUG || true
+        echo "strace completed (or timed out after 10 minutes)"
+
+    - name: Find where it hung
+      run: |
+        echo "=== Analyzing last operations before hang ==="
+        # Show the last 100 lines of each trace file
+        for trace in pyinst_trace.*; do
+          if [ -f "$trace" ]; then
+            echo "=== Last operations in $trace ==="
+            tail -100 "$trace" | grep -E "(openat|stat|access|readlink)" || echo "No file operations found"
+            echo ""
+          fi
+        done
+
+    - name: Show PyInstaller build log
+      run: |
+        echo "=== PyInstaller Output ==="
+        # The strace output captured PyInstaller's stdout/stderr
+        ls -lh build/ dist/ 2>/dev/null || echo "No build output"
+
+    - name: Upload strace logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyinstaller-strace-logs
+        path: |
+          pyinst_trace.*
+          build/
+          *.log
+        retention-days: 7
+
+    - name: Create summary
+      run: |
+        echo "=== Strace Debug Summary ===" > strace_summary.txt
+        echo "Run completed at: $(date)" >> strace_summary.txt
+        echo "" >> strace_summary.txt
+        echo "Trace files created:" >> strace_summary.txt
+        ls -lh pyinst_trace.* >> strace_summary.txt
+        echo "" >> strace_summary.txt
+        echo "To analyze:" >> strace_summary.txt
+        echo "1. Download the pyinstaller-strace-logs artifact" >> strace_summary.txt
+        echo "2. Look at the end of each pyinst_trace.* file" >> strace_summary.txt
+        echo "3. Find the last file being accessed before hang" >> strace_summary.txt
+        cat strace_summary.txt
+
+    - name: Upload summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: strace-summary
+        path: strace_summary.txt
+        retention-days: 7
