@@ -14,9 +14,17 @@ This document explains how to build a standalone Linux executable for TaskCoach 
 
 ### System Requirements
 
-- **OS**: Ubuntu 24.04 LTS (or compatible)
-- **Python**: 3.12 (system python3)
-- **wxPython**: 4.2.1+ (from system packages: python3-wxgtk4.0)
+### Build System
+- **OS**: Ubuntu 22.04 LTS (for maximum compatibility)
+- **Python**: 3.10+ (auto-detected from available versions)
+- **wxPython**: 4.0.7+ (from system packages: python3-wxgtk4.0)
+- **GLIBC**: 2.35 (Ubuntu 22.04)
+
+### Target Systems (Where the executable will run)
+- **GLIBC**: 2.31+ (Ubuntu 20.04, Debian Bullseye or newer)
+- **Architecture**: x86_64 (64-bit)
+
+**Important:** Building on Ubuntu 22.04 produces executables compatible with most Linux distributions from 2020 onwards. Building on newer systems (e.g., Ubuntu 24.04 with GLIBC 2.38) creates binaries that won't run on older systems.
 
 ## Local Build Instructions
 
@@ -167,6 +175,34 @@ python3 -m pip install --break-system-packages {package}
 ```bash
 xvfb-run -a python3 -m PyInstaller taskcoach.spec
 ```
+
+### Issue 5: GLIBC version not found error ⚠️ IMPORTANT
+
+**Symptom**:
+```
+[PYI-311114:ERROR] Failed to load Python shared library '/tmp/_MEIxxxxxx/libpython3.12.so.1.0':
+/lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.38' not found
+```
+
+**Cause**: The executable was built on a newer system (e.g., Ubuntu 24.04 with GLIBC 2.38+) but you're trying to run it on a system with older GLIBC.
+
+**Solution**: **Build on Ubuntu 22.04, not Ubuntu 24.04**
+
+Ubuntu 22.04 has GLIBC 2.35, making executables compatible with:
+- ✅ Ubuntu 20.04+ (GLIBC 2.31)
+- ✅ Ubuntu 22.04+ (GLIBC 2.35)
+- ✅ Debian Bullseye+ (GLIBC 2.31)
+- ✅ Debian Bookworm+ (GLIBC 2.36)
+- ❌ Ubuntu 18.04 (GLIBC 2.27 - too old)
+
+**Check your system's GLIBC:**
+```bash
+ldd --version
+```
+
+**Key Rule:** Always build on the **oldest** system you want to support. Binaries built on newer systems won't run on older ones due to GLIBC symbol versioning.
+
+The GitHub Actions workflow has been updated to use `ubuntu-22.04` for maximum compatibility.
 
 ## Technical Details
 

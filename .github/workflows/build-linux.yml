@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout code
@@ -33,14 +33,34 @@ jobs:
 
     - name: Verify Python and wxPython availability
       run: |
-        echo "Using Python: $(which python3.12)"
-        python3.12 --version
-        xvfb-run -a python3.12 check_wxpython.py
+        echo "=== Python Version Detection ==="
+        echo "Default python3: $(which python3)"
+        python3 --version
+
+        echo ""
+        echo "=== Checking for python3.10, 3.11, 3.12 ==="
+        for py_ver in 3.10 3.11 3.12; do
+          if command -v python${py_ver} &> /dev/null; then
+            echo "✓ python${py_ver} available: $(python${py_ver} --version)"
+            if xvfb-run -a python${py_ver} -c "import wx; print('  wxPython:', wx.__version__)" 2>/dev/null; then
+              echo "  ✓ wxPython accessible"
+              PYTHON_CMD="python${py_ver}"
+            else
+              echo "  ✗ wxPython not accessible"
+            fi
+          fi
+        done
+
+        echo ""
+        echo "=== Selected Python: ${PYTHON_CMD} ==="
+        echo "PYTHON_CMD=${PYTHON_CMD}" >> $GITHUB_ENV
+        ${PYTHON_CMD} --version
+        xvfb-run -a ${PYTHON_CMD} check_wxpython.py
 
     - name: Install Python dependencies
       run: |
-        python3.12 -m pip install --break-system-packages --upgrade pip
-        python3.12 -m pip install --break-system-packages \
+        $PYTHON_CMD -m pip install --break-system-packages --upgrade pip
+        $PYTHON_CMD -m pip install --break-system-packages \
           pyinstaller \
           pypubsub \
           desktop3 \
@@ -59,7 +79,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        python3.12 -m PyInstaller taskcoach.spec
+        $PYTHON_CMD -m PyInstaller taskcoach.spec
 
     - name: Verify build warnings
       run: |
@@ -115,13 +135,18 @@ jobs:
         echo "=================" >> dist/BUILD_INFO.txt
         echo "Build Date: $(date)" >> dist/BUILD_INFO.txt
         echo "TaskCoach Version: ${{ steps.get_version.outputs.version }}" >> dist/BUILD_INFO.txt
-        echo "Python Version: $(python3.12 --version)" >> dist/BUILD_INFO.txt
-        echo "PyInstaller Version: $(python3.12 -m PyInstaller --version)" >> dist/BUILD_INFO.txt
-        echo "wxPython Version: $(xvfb-run -a python3.12 -c 'import wx; print(wx.__version__)')" >> dist/BUILD_INFO.txt
+        echo "Python Command: ${PYTHON_CMD}" >> dist/BUILD_INFO.txt
+        echo "Python Version: $(${PYTHON_CMD} --version)" >> dist/BUILD_INFO.txt
+        echo "PyInstaller Version: $(${PYTHON_CMD} -m PyInstaller --version)" >> dist/BUILD_INFO.txt
+        echo "wxPython Version: $(xvfb-run -a ${PYTHON_CMD} -c 'import wx; print(wx.__version__)')" >> dist/BUILD_INFO.txt
         echo "Platform: $(uname -a)" >> dist/BUILD_INFO.txt
+        echo "GLIBC Version: $(ldd --version | head -1)" >> dist/BUILD_INFO.txt
         echo "" >> dist/BUILD_INFO.txt
         echo "File Information:" >> dist/BUILD_INFO.txt
         ls -lh dist/taskcoach >> dist/BUILD_INFO.txt
+        echo "" >> dist/BUILD_INFO.txt
+        echo "Shared Library Dependencies:" >> dist/BUILD_INFO.txt
+        ldd dist/taskcoach | grep -E "(libc|libpython)" >> dist/BUILD_INFO.txt || true
         cat dist/BUILD_INFO.txt
 
     - name: Upload build info
