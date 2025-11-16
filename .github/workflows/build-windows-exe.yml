@@ -89,110 +89,16 @@ jobs:
         Set-MpPreference -DisableRealtimeMonitoring $true
       shell: pwsh
 
-    - name: Download Process Monitor (Windows strace equivalent)
+    - name: Build executable with PyInstaller (TRACE logging - live output)
       run: |
-        # Download SysInternals Process Monitor - traces ALL file/registry/network access
-        Invoke-WebRequest -Uri "https://download.sysinternals.com/files/ProcessMonitor.zip" -OutFile procmon.zip
-        Expand-Archive procmon.zip -DestinationPath procmon
-        echo "Process Monitor downloaded"
-      shell: pwsh
-
-    - name: Build executable with PyInstaller + Process Monitor tracing
-      run: |
-        # Start Process Monitor in background to capture all file access
-        # Filter for python.exe to reduce log size
-        $procmon = Start-Process -FilePath "procmon\Procmon64.exe" -ArgumentList "/BackingFile","procmon.pml","/Quiet","/Minimized" -PassThru
-        echo "Process Monitor started (PID: $($procmon.Id))"
-
-        # Wait for procmon to initialize
-        Start-Sleep -Seconds 5
-
-        # Run PyInstaller in background
-        echo "Starting PyInstaller build..."
-        $process = Start-Process -FilePath "pyinstaller" -ArgumentList "TaskCoach.spec","--clean","--log-level=INFO" -NoNewWindow -PassThru -RedirectStandardOutput "build.log" -RedirectStandardError "build.err"
-        echo "PyInstaller started (PID: $($process.Id))"
-
-        # Monitor loop - show what's happening every 30 seconds
-        $timeout = 1800  # 30 minutes
-        $elapsed = 0
-        $interval = 30
-        $lastLogSize = 0
-
-        while (-not $process.HasExited -and $elapsed -lt $timeout) {
-          Start-Sleep -Seconds $interval
-          $elapsed += $interval
-
-          # Show timestamp
-          $timestamp = Get-Date -Format "HH:mm:ss"
-          echo ""
-          echo "[$timestamp] Status: Still running ($elapsed / $timeout seconds)"
-
-          # Show last 3 lines of build log
-          if (Test-Path build.log) {
-            $currentSize = (Get-Item build.log).Length
-            $lastLines = Get-Content build.log -Tail 3
-            echo "  Last PyInstaller output:"
-            $lastLines | ForEach-Object { echo "    $_" }
-
-            if ($currentSize -eq $lastLogSize) {
-              echo "  WARNING: Log file hasn't grown in $interval seconds - might be hung!"
-            }
-            $lastLogSize = $currentSize
-          } else {
-            echo "  No build.log found yet"
-          }
-
-          # Show CPU usage - if 0%, it's hung
-          try {
-            $cpuPercent = (Get-Process -Id $process.Id).CPU
-            $workingSet = [math]::Round((Get-Process -Id $process.Id).WorkingSet64 / 1MB, 2)
-            echo "  CPU time: $cpuPercent seconds | Memory: $workingSet MB"
-          } catch {
-            echo "  Could not get process stats"
-          }
-        }
-
-        if ($process.HasExited) {
-          echo ""
-          echo "PyInstaller completed with exit code: $($process.ExitCode)"
-          Stop-Process -Id $procmon.Id -ErrorAction SilentlyContinue
-        } else {
-          echo ""
-          echo "=========================================="
-          echo "PyInstaller TIMED OUT after $timeout seconds"
-          echo "=========================================="
-
-          echo "Stopping Process Monitor to save trace..."
-          Stop-Process -Id $procmon.Id -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 3
-
-          echo "Killing PyInstaller process..."
-          Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        }
-
-        # Convert PML to CSV for analysis
-        echo "Converting Process Monitor trace to CSV..."
-        Start-Process -FilePath "procmon\Procmon64.exe" -ArgumentList "/OpenLog","procmon.pml","/SaveAs","procmon.csv" -Wait -ErrorAction SilentlyContinue
-
-        echo "Process Monitor trace saved"
-      shell: pwsh
+        # Run PyInstaller directly (not in background) so output streams in real-time
+        # TRACE shows EVERY file, DLL, hook, and path being processed
+        # You will see exactly where it hangs
+        echo "Starting PyInstaller with TRACE logging..."
+        echo "Output will stream in real-time showing every operation"
+        echo ""
+        pyinstaller TaskCoach.spec --clean --log-level=TRACE
       timeout-minutes: 35
-
-    - name: Analyze Process Monitor trace
-      if: always()
-      run: |
-        if (Test-Path procmon.csv) {
-          echo "=== LAST 100 FILE OPERATIONS BEFORE HANG ==="
-          # Show last 100 operations - reveals exactly which file caused hang
-          Get-Content procmon.csv -Tail 100 | Select-String -Pattern "python.exe|pyinstaller"
-        } else {
-          echo "No Process Monitor trace found"
-        }
-
-        if (Test-Path build.log) {
-          echo "=== LAST 50 LINES OF PYINSTALLER OUTPUT ==="
-          Get-Content build.log -Tail 50
-        }
       shell: pwsh
 
     - name: List build output
