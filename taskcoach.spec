@@ -6,6 +6,8 @@ from PyInstaller.utils.hooks import collect_data_files
 block_cipher = None
 
 # Collect icon data files
+# Bundle icons to 'icons/' at the root of the bundle (not 'taskcoachlib/gui/icons/')
+# because the application uses get_resource_path(os.path.join('icons', 'splash.png'))
 icon_path = os.path.join(os.getcwd(), 'taskcoachlib', 'gui', 'icons')
 icon_datas = []
 if os.path.exists(icon_path):
@@ -13,7 +15,7 @@ if os.path.exists(icon_path):
         for file in files:
             if file.endswith(('.png', '.ico', '.xpm', '.bmp')):
                 src = os.path.join(root, file)
-                dst = os.path.relpath(root, os.getcwd())
+                dst = 'icons'  # Bundle to 'icons/' at root, not full path
                 icon_datas.append((src, dst))
 
 # Collect help files
