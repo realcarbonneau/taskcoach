@@ -81,28 +81,16 @@ jobs:
         Write-Host "Contents of taskcoachlib/:"
         Get-ChildItem taskcoachlib -Recurse -Depth 2 | Select-Object FullName
 
-    - name: Build with PyInstaller (Command-line, no spec)
+    - name: Build with PyInstaller (NO binary scanning)
       run: |
-        Write-Host "Starting PyInstaller build with DETAILED DEBUG LOGGING..."
-        Write-Host "Using --debug=all to pinpoint exact hang location"
-        Write-Host "See: https://github.com/orgs/pyinstaller/discussions/7490"
+        Write-Host "Starting PyInstaller build with NO BINARY SCANNING..."
+        Write-Host "Using custom spec that skips DLL dependency scanning"
+        Write-Host "This avoids the hang at 'Looking for dynamic libraries'"
 
-        # Set verbose environment for maximum debugging
-        $env:PYINSTALLER_DEBUG = "1"
-
-        pyinstaller --onedir --windowed --name=TaskCoach `
-          --icon=icons.in/taskcoach.ico `
-          --noconfirm `
-          --clean `
-          --log-level=DEBUG `
-          --debug=all `
-          taskcoach.pyw 2>&1 | Tee-Object -FilePath "pyinstaller-debug.log"
+        pyinstaller taskcoach-no-binaries.spec --noconfirm --log-level=INFO 2>&1 | Tee-Object -FilePath "pyinstaller-debug.log"
 
         Write-Host "Build command completed (or timed out)"
-      timeout-minutes: 15  # Kill if build takes more than 15 minutes
-      env:
-        PYINSTALLER_COMPILE_BOOTLOADER: 0  # Don't recompile bootloader
-        PYINSTALLER_NO_BUNDLE: 0  # Normal bundling
+      timeout-minutes: 10  # Should be MUCH faster without DLL scanning
 
     - name: Check build output
       run: |
