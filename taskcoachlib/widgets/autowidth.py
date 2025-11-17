@@ -131,12 +131,35 @@ class AutoColumnWidthMixin(object):
             return
         if self.GetSize().height < 32:
             return  # Avoid an endless update bug when the height is small.
-        if self.GetColumnCount() <= self.ResizeColumn:
+        if self.GetColumnCount() == 0:
             return  # Nothing to resize.
 
-        unused_width = max(self.AvailableWidth - self.NecessaryWidth, 0)
-        resize_column_width = self.ResizeColumnMinWidth + unused_width
-        self.SetColumnWidth(self.ResizeColumn, resize_column_width)
+        # In auto-resize mode, distribute available width PROPORTIONALLY
+        # across all columns based on their saved widths (as relative ratios).
+        # Saved widths represent desired PROPORTIONS, not absolute pixels.
+
+        available_width = self.AvailableWidth
+        MINIMUM_COLUMN_WIDTH = 50  # Minimum readable width per column
+
+        # Get current column widths (from saved settings or defaults)
+        column_widths = []
+        for column_index in range(self.GetColumnCount()):
+            column_widths.append(self.GetColumnWidth(column_index))
+
+        total_saved_width = sum(column_widths)
+
+        if total_saved_width == 0:
+            # Fallback: distribute equally if no saved widths
+            width_per_column = max(MINIMUM_COLUMN_WIDTH, available_width // self.GetColumnCount())
+            for column_index in range(self.GetColumnCount()):
+                self.SetColumnWidth(column_index, width_per_column)
+        else:
+            # Distribute proportionally: each column gets (saved_width / total) × available_width
+            for column_index in range(self.GetColumnCount()):
+                saved_width = column_widths[column_index]
+                proportion = saved_width / total_saved_width
+                new_width = max(MINIMUM_COLUMN_WIDTH, int(proportion * available_width))
+                self.SetColumnWidth(column_index, new_width)
 
     def DistributeWidthAcrossColumns(self, extra_width):
         # When the user resizes the ResizeColumn distribute the extra available
