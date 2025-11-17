@@ -1254,17 +1254,14 @@ class EditBook(widgets.Notebook):
         self.addPages(taskFile, items_are_new)
         self.__load_perspective(items_are_new)
 
-        # Bind resize event to notebook
-        self.Bind(wx.EVT_SIZE, self.onNotebookResize)
-
-        # Also use a timer to periodically log sizes (in case events don't fire)
+        # Keep logging to verify the fix works
         self._size_log_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.onSizeLogTimer, self._size_log_timer)
         self._size_log_timer.Start(500)  # Log every 500ms
         self._last_logged_size = None
 
     def onSizeLogTimer(self, event):
-        """Periodically log size to catch changes even if EVT_SIZE doesn't fire."""
+        """Periodically log size to verify sizing works correctly."""
         nb_size = self.GetSize()
         # Only log if size changed
         if nb_size != self._last_logged_size:
@@ -1278,30 +1275,6 @@ class EditBook(widgets.Notebook):
                 page_name = getattr(page, 'pageName', 'unknown')
                 print(f"[TIMER] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
 
-    def onNotebookResize(self, event):
-        """Log notebook and current page sizes during resize."""
-        event.Skip()
-        nb_size = self.GetSize()
-        nb_min = self.GetMinSize()
-        sel = self.GetSelection()
-        if sel >= 0:
-            page = self.GetPage(sel)
-            page_size = page.GetSize()
-            page_min = page.GetMinSize()
-            page_name = getattr(page, 'pageName', 'unknown')
-            print(f"[NOTEBOOK RESIZE] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
-
-            # FORCE the page to resize to fill the notebook
-            # AUI notebook doesn't respect page min sizes or sizers properly
-            # So we manually resize all pages to fill the available space
-            for i in range(self.GetPageCount()):
-                p = self.GetPage(i)
-                # Get the client area size (area available for pages)
-                client_size = self.GetClientSize()
-                # Set each page to fill the full client area
-                p.SetSize(client_size)
-                p.Layout()  # Force layout update
-
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
         curSel = curSel + 1 if forward else curSel - 1
@@ -1314,29 +1287,15 @@ class EditBook(widgets.Notebook):
         for page_name in page_names:
             page = self.createPage(page_name, task_file, items_are_new)
             self.AddPage(page, page.pageTitle, page.pageIcon)
-        # Set a reasonable minimum size for the notebook
-        width, height = self.__get_minimum_page_size()
-        notebook_height = self.GetHeightForPageHeight(height)
-        print(f"[EditBook.addPages] Setting notebook min size: ({width}, {notebook_height}) [page_height={height}]")
-        self.SetMinSize((width, notebook_height))
-
-        # Force initial page sizing - AUI notebook doesn't auto-size pages
-        wx.CallAfter(self.__resize_pages_to_fit)
-
-    def __resize_pages_to_fit(self):
-        """Force all pages to resize to fill the notebook's client area."""
-        client_size = self.GetClientSize()
-        print(f"[__resize_pages_to_fit] Resizing {self.GetPageCount()} pages to {client_size}")
-        for i in range(self.GetPageCount()):
-            page = self.GetPage(i)
-            page.SetSize(client_size)
-            page.Layout()
+        # DON'T set notebook minimum size to max of all pages!
+        # That locks the notebook to the widest page (e.g., EffortPage = 1879px)
+        # which breaks sizer constraints when dialog is smaller (e.g., 800px)
+        # Let the notebook size naturally and let pages handle their own scrolling
+        print(f"[EditBook.addPages] Created {len(page_names)} pages - letting notebook size naturally")
 
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
         event.Skip()
-        # Also resize the newly selected page
-        wx.CallAfter(self.__resize_pages_to_fit)
         if operating_system.isMac():
             # The dialog loses focus sometimes...
             wx.GetTopLevelParent(self).Raise()
