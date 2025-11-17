@@ -74,7 +74,9 @@ class BookPage(wx.Panel):
         )
 
     def fit(self):
-        self.SetSizerAndFit(self._sizer)
+        # Use SetSizer instead of SetSizerAndFit to prevent locking MinSize
+        # SetSizerAndFit would lock MinSize to current size, preventing shrinking
+        self.SetSizer(self._sizer)
 
     def __defaultFlags(self, controls):
         """Return the default flags for placing a list of controls."""
