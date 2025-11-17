@@ -984,13 +984,22 @@ class EffortPage(PageWithViewer):
     pageIcon = "clock_icon"
 
     def createViewer(self, taskFile, settings, settingsSection):
+        # Handle both tasks and categories
+        # For categories, use empty TaskList to test layout behavior
+        if self.items and hasattr(self.items[0], 'categories'):
+            # Items are tasks
+            tasks_to_show = task.TaskList(self.items)
+        else:
+            # Items are categories or other objects - use empty list for layout testing
+            tasks_to_show = task.TaskList()
+
         return viewer.EffortViewer(
             self,
             taskFile,
             settings,
             settingsSection=settingsSection,
             use_separate_settings_section=False,
-            tasksToShowEffortFor=task.TaskList(self.items),
+            tasksToShowEffortFor=tasks_to_show,
         )
 
     def entries(self):
@@ -1510,7 +1519,8 @@ class TaskEditBook(EditBook):
 
 
 class CategoryEditBook(EditBook):
-    allPageNames = ["subject", "notes", "attachments", "appearance"]
+    # TESTING: Added "effort" to compare layout behavior with TaskEditBook
+    allPageNames = ["subject", "notes", "effort", "attachments", "appearance"]
     domainObject = "category"
 
     def create_subject_page(self):
