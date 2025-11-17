@@ -71,10 +71,11 @@ jobs:
 
       - name: Install wxPython
         run: |
-          # Try to install wxPython 4.2.4+
-          python -m pip install wxPython>=4.2.4 || {
-            echo "Failed to install wxPython from PyPI, trying extras repository..."
-            python -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython
+          # Use pre-built wheels from extras repository (much faster than building from source)
+          echo "Installing wxPython from extras repository..."
+          python -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython || {
+            echo "Failed to install from extras repository, trying PyPI..."
+            python -m pip install wxPython>=4.2.4
           }
 
       - name: Verify wxPython installation

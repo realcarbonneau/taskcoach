@@ -71,10 +71,10 @@ install_dependencies() {
         gntp>=1.0.3 \
         || echo "Warning: Some Python packages failed to install"
 
-    # Try to install wxPython (may fail if system doesn't have GTK dev files)
-    echo "Installing wxPython..."
-    pip3 install wxPython>=4.2.4 || \
-        pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython || \
+    # Install wxPython using pre-built wheels (much faster than building from source)
+    echo "Installing wxPython from extras repository..."
+    pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython || \
+        pip3 install wxPython>=4.2.4 || \
         echo "Warning: wxPython installation failed. Will try to use system wxPython."
 
     echo "Dependencies installed (some may have failed, will be handled in CI)"

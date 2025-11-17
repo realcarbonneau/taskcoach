@@ -103,6 +103,7 @@ echo "Installing Python dependencies into AppDir..."
 mkdir -p "$APP_DIR/usr/lib/python-deps"
 
 # Use pip to install dependencies to a custom location
+# Install non-wxPython dependencies first
 python3 -m pip install --no-cache-dir --target="$APP_DIR/usr/lib/python-deps" \
     six>=1.16.0 \
     desktop3 \
@@ -117,8 +118,14 @@ python3 -m pip install --no-cache-dir --target="$APP_DIR/usr/lib/python-deps" \
     numpy \
     lockfile>=0.12.2 \
     gntp>=1.0.3 \
-    wxPython>=4.2.4 \
     || echo "Warning: Some dependencies may have failed to install"
+
+# Install wxPython separately using pre-built wheels (much faster)
+echo "Installing wxPython from extras repository..."
+python3 -m pip install --no-cache-dir --target="$APP_DIR/usr/lib/python-deps" \
+    -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 \
+    wxPython \
+    || echo "Warning: wxPython installation failed"
 
 # Update wrapper script to use the bundled Python packages
 cat > "$APP_DIR/usr/bin/taskcoach" << 'WRAPPER_EOF2'
