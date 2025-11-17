@@ -1,0 +1,234 @@
+name: Build Linux Executables
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'claude/**'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-pyinstaller:
+    name: Build PyInstaller Executable
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libsoup2.4-dev \
+            libwebkit2gtk-4.0-dev \
+            libnotify-dev \
+            libsdl2-dev \
+            libjpeg-dev \
+            libtiff-dev \
+            libpng-dev \
+            freeglut3-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libwebkit2gtk-4.0-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install pyinstaller distro
+
+      - name: Install TaskCoach dependencies
+        run: |
+          python -m pip install \
+            six>=1.16.0 \
+            desktop3 \
+            pypubsub \
+            twisted \
+            chardet>=5.2.0 \
+            python-dateutil>=2.9.0 \
+            pyparsing>=3.1.2 \
+            lxml \
+            pyxdg \
+            keyring \
+            numpy \
+            lockfile>=0.12.2 \
+            gntp>=1.0.3
+
+      - name: Install wxPython
+        run: |
+          # Try to install wxPython 4.2.4+
+          python -m pip install wxPython>=4.2.4 || {
+            echo "Failed to install wxPython from PyPI, trying extras repository..."
+            python -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython
+          }
+
+      - name: Verify wxPython installation
+        run: |
+          python -c "import wx; print(f'wxPython version: {wx.version()}')"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller taskcoach.spec
+
+      - name: Create tarball
+        run: |
+          VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
+          ARCH=$(uname -m)
+          cd dist
+          tar czf "TaskCoach-${VERSION}-${ARCH}-pyinstaller.tar.gz" taskcoach/
+          cd ..
+          echo "TARBALL_NAME=TaskCoach-${VERSION}-${ARCH}-pyinstaller.tar.gz" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Test executable
+        run: |
+          # Test that the executable exists and is executable
+          test -f dist/taskcoach/taskcoach
+          test -x dist/taskcoach/taskcoach
+          # Try to run with --help (will fail without DISPLAY, but should show it tried)
+          dist/taskcoach/taskcoach --help || echo "Expected to fail without DISPLAY"
+
+      - name: Upload PyInstaller artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskcoach-pyinstaller-linux-${{ env.VERSION }}
+          path: dist/${{ env.TARBALL_NAME }}
+          retention-days: 90
+
+      - name: Upload executable directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskcoach-pyinstaller-dir-${{ env.VERSION }}
+          path: dist/taskcoach/
+          retention-days: 30
+
+  build-appimage:
+    name: Build AppImage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libgdk-pixbuf2.0-dev \
+            libsoup2.4-dev \
+            libwebkit2gtk-4.0-dev \
+            libnotify-dev \
+            libsdl2-dev \
+            libjpeg-dev \
+            libtiff-dev \
+            libpng-dev \
+            freeglut3-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libwebkit2gtk-4.0-dev \
+            fuse \
+            file \
+            wget
+
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel distro
+
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build AppImage
+        run: |
+          chmod +x build-appimage.sh
+          ./build-appimage.sh
+
+      - name: List AppImage
+        run: |
+          ls -lh TaskCoach-*.AppImage
+          ARCH=$(uname -m)
+          echo "APPIMAGE_NAME=TaskCoach-${VERSION}-${ARCH}.AppImage" >> $GITHUB_ENV
+
+      - name: Test AppImage
+        run: |
+          # Test that the AppImage exists and is executable
+          test -f "$APPIMAGE_NAME"
+          test -x "$APPIMAGE_NAME"
+          # Extract and verify structure
+          ./"$APPIMAGE_NAME" --appimage-extract
+          test -f squashfs-root/AppRun
+          test -f squashfs-root/taskcoach.desktop
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: taskcoach-appimage-${{ env.VERSION }}
+          path: TaskCoach-*.AppImage
+          retention-days: 90
+
+  create-release:
+    name: Create Release
+    needs: [build-pyinstaller, build-appimage]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/taskcoach-pyinstaller-linux-${{ env.VERSION }}/*.tar.gz
+            artifacts/taskcoach-appimage-${{ env.VERSION }}/*.AppImage
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
