@@ -1299,8 +1299,11 @@ class EditBook(widgets.Notebook):
         for page_name in page_names:
             page = self.createPage(page_name, task_file, items_are_new)
             self.AddPage(page, page.pageTitle, page.pageIcon)
-        width, height = self.__get_minimum_page_size()
-        self.SetMinSize((width, self.GetHeightForPageHeight(height)))
+        # DISABLED: Don't lock EditBook MinSize based on page sizes
+        # This was causing the notebook to be locked at 3021px when any page
+        # contained a viewer with oversized BestSize (VirtualListCtrl sums columns)
+        # width, height = self.__get_minimum_page_size()
+        # self.SetMinSize((width, self.GetHeightForPageHeight(height)))
 
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
