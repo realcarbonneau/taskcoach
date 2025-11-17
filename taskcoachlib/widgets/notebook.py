@@ -60,6 +60,18 @@ class BookPage(wx.Panel):
         else:
             self._growableColumn = growableColumn
         self._borderWidth = 5
+        # Bind to size events for debugging
+        self.Bind(wx.EVT_SIZE, self.onPageSize)
+
+    def onPageSize(self, event):
+        """Log size changes for debugging."""
+        event.Skip()
+        newSize = event.GetSize()
+        bestSize = self.GetBestSize()
+        minSize = self.GetMinSize()
+        print(
+            f"[BookPage] onPageSize - New size: {newSize}, Best size: {bestSize}, Min size: {minSize}"
+        )
 
     def fit(self):
         self.SetSizerAndFit(self._sizer)

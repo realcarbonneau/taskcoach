@@ -52,6 +52,34 @@ class VirtualListCtrl(
         self.__parent = parent
         self.bindEventHandlers(selectCommand, editCommand)
 
+    def DoGetBestSize(self):
+        """Override to prevent width from being sum of all column widths.
+
+        The default wxListCtrl behavior sums all column widths to calculate
+        best size, which causes the widget to request excessive width when
+        used in editors. Instead, we use the parent's available width or
+        a reasonable default.
+        """
+        # Get the default best size (which includes summed column widths)
+        defaultBest = super().DoGetBestSize()
+
+        # Use parent's width if available, otherwise use a reasonable max
+        parent = self.GetParent()
+        if parent:
+            parentWidth = parent.GetClientSize().GetWidth()
+            # If parent has been sized, use its width; otherwise use default
+            if parentWidth > 0:
+                # Use parent width, capping the height from default calculation
+                return wx.Size(parentWidth, defaultBest.GetHeight())
+
+        # Fallback: cap width at 800 pixels (reasonable for most screens)
+        # but keep the calculated height
+        maxWidth = 800
+        return wx.Size(
+            min(defaultBest.GetWidth(), maxWidth),
+            defaultBest.GetHeight()
+        )
+
     def bindEventHandlers(self, selectCommand, editCommand):
         # pylint: disable=W0201
         if selectCommand:

@@ -944,6 +944,19 @@ class PageWithViewer(Page):
         self.__settings = settings
         self.__settingsSection = settingsSection
         super().__init__(items, parent, *args, **kwargs)
+        # Bind to size events for debugging
+        self.Bind(wx.EVT_SIZE, self.onSize)
+
+    def onSize(self, event):
+        """Log size changes for debugging."""
+        event.Skip()
+        newSize = event.GetSize()
+        viewerSize = "N/A"
+        if hasattr(self, "viewer") and self.viewer:
+            viewerSize = self.viewer.GetSize()
+        print(
+            f"[PageWithViewer] onSize - New size: {newSize}, Viewer size: {viewerSize}"
+        )
 
     def addEntries(self):
         # pylint: disable=W0201
@@ -1253,6 +1266,27 @@ class EditBook(widgets.Notebook):
         super().__init__(parent)
         self.addPages(taskFile, items_are_new)
         self.__load_perspective(items_are_new)
+        # Bind to size events for debugging
+        self.Bind(wx.EVT_SIZE, self.onBookSize)
+
+    def onBookSize(self, event):
+        """Log size changes for debugging."""
+        event.Skip()
+        notebookSize = event.GetSize()
+        minSize = self.GetMinSize()
+        # Get the current page size if available
+        currentPage = "N/A"
+        pageName = "unknown"
+        if self.GetPageCount() > 0:
+            idx = self.GetSelection()
+            if idx >= 0:
+                page = self.GetPage(idx)
+                currentPage = page.GetSize()
+                if hasattr(page, "pageName"):
+                    pageName = page.pageName
+        print(
+            f"[EditBook] RESIZE - Notebook: {notebookSize}, Min: {minSize}, Page {self.GetSelection()} ({pageName}): {currentPage}"
+        )
 
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
@@ -1403,11 +1437,13 @@ class EditBook(widgets.Notebook):
         """Load the perspective (layout) for the current combination of visible
         pages from the settings."""
         perspective = self.perspective()
-        if perspective:
-            try:
-                self.LoadPerspective(perspective)
-            except:  # pylint: disable=W0702
-                pass
+        # DISABLED: LoadPerspective causes layout issues with Effort tab
+        # The saved perspective contains stale sizing that breaks initial layout
+        # if perspective:
+        #     try:
+        #         self.LoadPerspective(perspective)
+        #     except:  # pylint: disable=W0702
+        #         pass
         if items_are_new:
             current_page = (
                 self.getPageIndex("subject") or 0
@@ -1857,6 +1893,19 @@ class Editor(BalloonTipManager, widgets.Dialog):
         self.__call_after = kwargs.get("call_after", wx.CallAfter)
         super().__init__(
             parent, self.__title(), buttonTypes=wx.ID_CLOSE, *args, **kwargs
+        )
+        # Bind to size events for debugging
+        self.Bind(wx.EVT_SIZE, self.onEditorSize)
+
+    def onEditorSize(self, event):
+        """Log size changes for debugging."""
+        event.Skip()
+        windowSize = self.GetSize()
+        interiorSize = self._interior.GetSize()
+        clientSize = self.GetClientSize()
+        screenSize = wx.DisplaySize()
+        print(
+            f"[Editor] RESIZE - Window: {windowSize}, Interior: {interiorSize}, Client: {clientSize}, Screen: {screenSize}"
         )
         if not column_name:
             if self._interior.perspective() and hasattr(

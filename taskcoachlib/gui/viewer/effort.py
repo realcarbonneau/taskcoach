@@ -263,7 +263,19 @@ class EffortViewer(
         widget.AssignImageList(
             imageList, wx.IMAGE_LIST_SMALL
         )  # pylint: disable=E1101
+        # Add size event logging for debugging
+        widget.Bind(wx.EVT_SIZE, self.onViewerSize)
         return widget
+
+    def onViewerSize(self, event):
+        """Log size changes for debugging effort viewer sizing issues."""
+        event.Skip()
+        viewerSize = event.GetSize()
+        widgetSize = self.widget.GetSize()
+        bestSize = self.widget.GetBestSize()
+        print(
+            f"[EFFORT SIZE] Viewer.onViewerSize - Viewer new size: {viewerSize}, Widget size: {widgetSize}, Best size: {bestSize}"
+        )
 
     def _createColumns(self):
         # pylint: disable=W0142

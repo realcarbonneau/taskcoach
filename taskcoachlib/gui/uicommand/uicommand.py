@@ -1164,9 +1164,11 @@ class ViewColumn(ViewerCommand, settings_uicommand.UICheckCommand):
         return self.viewer.isVisibleColumnByName(self.setting)
 
     def doCommand(self, event):
-        self.viewer.showColumnByName(
-            self.setting, self._isMenuItemChecked(event)
+        show = self._isMenuItemChecked(event)
+        print(
+            f"[COLUMN DEBUG] ViewColumn.doCommand - viewer: {self.viewer.__class__.__name__}, column: {self.setting}, setting to: {show}"
         )
+        self.viewer.showColumnByName(self.setting, show)
 
 
 class ViewColumns(ViewerCommand, settings_uicommand.UICheckCommand):
