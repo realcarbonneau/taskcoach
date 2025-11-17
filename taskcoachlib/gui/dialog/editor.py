@@ -1502,8 +1502,18 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
-    # Simplified to match Category structure - only essential pages
-    allPageNames = ["subject", "notes", "attachments", "appearance"]
+    # All pages except "effort" which has a 1879px wide viewer that breaks layout
+    allPageNames = [
+        "subject",
+        "dates",
+        "prerequisites",
+        "progress",
+        "categories",
+        "budget",
+        "notes",
+        "attachments",
+        "appearance",
+    ]
     domainObject = "task"
 
     def create_subject_page(self):
