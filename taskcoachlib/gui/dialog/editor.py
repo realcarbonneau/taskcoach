@@ -1033,6 +1033,14 @@ class CategoriesPage(PageWithViewer):
             self.__realized = True
             super().addEntries()
             self.fit()
+            # Force the page to resize to fill the notebook's client area
+            # AUI notebook doesn't automatically resize pages when min size changes
+            parent = self.GetParent()
+            if parent:
+                parent_size = parent.GetClientSize()
+                self.SetSize(parent_size)
+                self.Layout()
+                print(f"[PageWithViewer.selected] Forced resize to parent size: {parent_size}, page min: {self.GetMinSize()}")
 
     def createViewer(self, taskFile, settings, settingsSection):
         assert len(self.items) == 1
@@ -1213,6 +1221,14 @@ class PrerequisitesPage(PageWithViewer):
             self.__realized = True
             super().addEntries()
             self.fit()
+            # Force the page to resize to fill the notebook's client area
+            # AUI notebook doesn't automatically resize pages when min size changes
+            parent = self.GetParent()
+            if parent:
+                parent_size = parent.GetClientSize()
+                self.SetSize(parent_size)
+                self.Layout()
+                print(f"[PageWithViewer.selected] Forced resize to parent size: {parent_size}, page min: {self.GetMinSize()}")
 
     def createViewer(self, taskFile, settings, settingsSection):
         assert len(self.items) == 1
