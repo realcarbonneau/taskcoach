@@ -78,6 +78,13 @@ class AttachmentViewer(
         )
         widget.SetColumnWidth(0, 150)
         widget.AssignImageList(imageList, wx.IMAGE_LIST_SMALL)
+
+        # CRITICAL FIX: Force the widget to not request oversized width
+        # SetMaxSize prevents the sizer from honoring the inflated BestSize
+        # that comes from summing all column widths
+        widget.SetMaxSize(wx.Size(9999, -1))  # Unlimited width
+        widget.SetMinSize(wx.Size(200, -1))   # Minimum reasonable width
+
         return widget
 
     def _createColumns(self):

@@ -51,42 +51,7 @@ class VirtualListCtrl(
         )
         self.__parent = parent
         self.bindEventHandlers(selectCommand, editCommand)
-
-    def DoGetBestSize(self):
-        """Override to prevent width from being sum of all column widths.
-
-        The default wxListCtrl behavior sums all column widths to calculate
-        best size, which causes the widget to request excessive width when
-        used in editors. Instead, we return a reasonable default that won't
-        cause the sizer to lock in an oversized MinSize.
-        """
-        # Get the default best size (which includes summed column widths)
-        defaultBest = super().DoGetBestSize()
-
-        # ALWAYS cap the width at a reasonable value to prevent MinSize from
-        # being set to the oversized sum-of-columns width
-        maxWidth = 800
-        return wx.Size(
-            min(defaultBest.GetWidth(), maxWidth),
-            defaultBest.GetHeight()
-        )
-
-    def DoGetMinSize(self):
-        """Override to prevent MinSize from being locked to oversized width.
-
-        This is critical because sizers will call GetBestSize() during initial
-        layout and then set MinSize to that value, which would lock us into
-        the oversized width even after DoGetBestSize() is fixed.
-        """
-        # Get the default min size
-        defaultMin = super().DoGetMinSize()
-
-        # Cap the width to prevent being locked at oversized dimensions
-        maxWidth = 800
-        return wx.Size(
-            min(defaultMin.GetWidth(), maxWidth),
-            defaultMin.GetHeight()
-        )
+        print(f"[VirtualListCtrl] Created - Initial size: {self.GetSize()}, Best: {self.GetBestSize()}, Min: {self.GetMinSize()}, Max: {self.GetMaxSize()}")
 
     def bindEventHandlers(self, selectCommand, editCommand):
         # pylint: disable=W0201
