@@ -131,39 +131,14 @@ class AutoColumnWidthMixin(object):
             return
         if self.GetSize().height < 32:
             return  # Avoid an endless update bug when the height is small.
-        if self.GetColumnCount() == 0:
+        if self.GetColumnCount() <= self.ResizeColumn:
             return  # Nothing to resize.
 
-        # In auto-resize mode, distribute available width PROPORTIONALLY
-        # across all columns based on their saved widths (as relative ratios).
-        # Saved widths represent desired PROPORTIONS, not absolute pixels.
-
-        available_width = self.AvailableWidth
-        MINIMUM_COLUMN_WIDTH = 50  # Minimum readable width per column
-
-        # Get current column widths (from saved settings or defaults)
-        column_widths = []
-        for column_index in range(self.GetColumnCount()):
-            column_widths.append(self.GetColumnWidth(column_index))
-
-        total_saved_width = sum(column_widths)
-
-        if total_saved_width == 0:
-            # Fallback: distribute equally if no saved widths
-            width_per_column = max(MINIMUM_COLUMN_WIDTH, available_width // self.GetColumnCount())
-            for column_index in range(self.GetColumnCount()):
-                self.SetColumnWidth(column_index, width_per_column)
-        else:
-            # Distribute proportionally: each column gets (saved_width / total) × available_width
-            if not hasattr(self, '_logged_proportional_resize'):
-                self._logged_proportional_resize = True
-                print(f"[DoResize] Proportional mode - Available: {available_width}px, Total saved: {total_saved_width}px, Columns: {self.GetColumnCount()}")
-
-            for column_index in range(self.GetColumnCount()):
-                saved_width = column_widths[column_index]
-                proportion = saved_width / total_saved_width
-                new_width = max(MINIMUM_COLUMN_WIDTH, int(proportion * available_width))
-                self.SetColumnWidth(column_index, new_width)
+        # Traditional ResizeColumn behavior: one designated column absorbs extra space
+        # This is a common UI pattern that users are accustomed to
+        unused_width = max(self.AvailableWidth - self.NecessaryWidth, 0)
+        resize_column_width = self.ResizeColumnMinWidth + unused_width
+        self.SetColumnWidth(self.ResizeColumn, resize_column_width)
 
     def DistributeWidthAcrossColumns(self, extra_width):
         # When the user resizes the ResizeColumn distribute the extra available
