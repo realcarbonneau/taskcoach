@@ -180,12 +180,24 @@ class AutoColumnWidthMixin(object):
     AvailableWidth = property(GetAvailableWidth)
 
     def GetNecessaryWidth(self):
+        """Calculate minimum necessary width for all columns.
+
+        CRITICAL: Use a reasonable per-column minimum (50px) instead of the
+        current/saved column width. This prevents the "one-way ratchet" problem
+        where once a table was made wide, it can never be shrunk back down
+        because saved column widths are used as minimums.
+
+        Saved widths should be PREFERENCES (how wide user wants columns),
+        not MINIMUMS (how narrow columns CAN be).
+        """
+        REASONABLE_COLUMN_MINIMUM = 50  # Minimum readable column width
         necessary_width = 0
         for column_index in range(self.GetColumnCount()):
             if column_index == self.ResizeColumn:
                 necessary_width += self.ResizeColumnMinWidth
             else:
-                necessary_width += self.GetColumnWidth(column_index)
+                # Use reasonable minimum, NOT current/saved width
+                necessary_width += REASONABLE_COLUMN_MINIMUM
         return necessary_width
 
     NecessaryWidth = property(GetNecessaryWidth)
