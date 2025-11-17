@@ -155,6 +155,10 @@ class AutoColumnWidthMixin(object):
                 self.SetColumnWidth(column_index, width_per_column)
         else:
             # Distribute proportionally: each column gets (saved_width / total) × available_width
+            if not hasattr(self, '_logged_proportional_resize'):
+                self._logged_proportional_resize = True
+                print(f"[DoResize] Proportional mode - Available: {available_width}px, Total saved: {total_saved_width}px, Columns: {self.GetColumnCount()}")
+
             for column_index in range(self.GetColumnCount()):
                 saved_width = column_widths[column_index]
                 proportion = saved_width / total_saved_width
