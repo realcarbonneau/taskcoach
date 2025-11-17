@@ -196,6 +196,40 @@ class TreeListCtrl(
         )
         self.bindEventHandlers(selectCommand, editCommand, dragAndDropCommand)
 
+        # CRITICAL: Set MinSize to allow widget to shrink below BestSize
+        # Without this, GetEffectiveMinSize() returns BestSize (sum of columns)
+        # and the sizer honors that instead of proportion=1/wx.EXPAND
+        self.SetMinSize((100, 50))  # Small minimum, allows filling parent
+
+    def DoGetBestSize(self):
+        """Override to prevent TreeListCtrl from reporting inflated BestSize.
+
+        By default, HyperTreeList calculates BestSize as sum of all column widths,
+        which can be 3700px+ with many columns. This causes parent sizers to
+        allocate that much space instead of making the widget fill available space.
+
+        Return a reasonable default that won't break layout.
+        """
+        # Get what the default would have been
+        defaultBest = super().DoGetBestSize() if hasattr(super(), 'DoGetBestSize') else wx.Size(-1, -1)
+        overrideBest = wx.Size(200, 100)
+        print(f"[TreeListCtrl] DoGetBestSize() called - Default: {defaultBest}, Returning: {overrideBest}, Current Size: {self.GetSize()}, MinSize: {self.GetMinSize()}")
+        return overrideBest
+
+    def GetEffectiveMinSize(self):
+        """Override to prevent BestSize from being used as minimum constraint.
+
+        By default, GetEffectiveMinSize returns max(MinSize, BestSize).
+        Since BestSize can be 3700px+ (sum of all columns), this prevents the
+        widget from shrinking below that even with proportion=1 and wx.EXPAND.
+
+        Return only our explicit MinSize, ignoring BestSize.
+        """
+        minSize = self.GetMinSize()
+        effectiveMin = minSize if minSize.x > 0 else wx.Size(100, 50)
+        print(f"[TreeListCtrl] GetEffectiveMinSize() called - MinSize: {minSize}, BestSize: {self.GetBestSize()}, Returning: {effectiveMin}, Current Size: {self.GetSize()}")
+        return effectiveMin
+
     def bindEventHandlers(
         self, selectCommand, editCommand, dragAndDropCommand
     ):

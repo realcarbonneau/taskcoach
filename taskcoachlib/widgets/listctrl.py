@@ -74,6 +74,20 @@ class VirtualListCtrl(
         print(f"[VirtualListCtrl] DoGetBestSize() called - Default: {defaultBest}, Returning: {overrideBest}, Current Size: {self.GetSize()}, MinSize: {self.GetMinSize()}")
         return overrideBest
 
+    def GetEffectiveMinSize(self):
+        """Override to prevent BestSize from being used as minimum constraint.
+
+        By default, GetEffectiveMinSize returns max(MinSize, BestSize).
+        Since BestSize can be 3700px+ (sum of all columns), this prevents the
+        widget from shrinking below that even with proportion=1 and wx.EXPAND.
+
+        Return only our explicit MinSize, ignoring BestSize.
+        """
+        minSize = self.GetMinSize()
+        effectiveMin = minSize if minSize.x > 0 else wx.Size(100, 50)
+        print(f"[VirtualListCtrl] GetEffectiveMinSize() called - MinSize: {minSize}, BestSize: {self.GetBestSize()}, Returning: {effectiveMin}, Current Size: {self.GetSize()}")
+        return effectiveMin
+
     def bindEventHandlers(self, selectCommand, editCommand):
         # pylint: disable=W0201
         if selectCommand:
