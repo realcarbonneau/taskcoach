@@ -46,6 +46,7 @@ class EffortViewer(
 
     def __init__(self, parent, taskFile, settings, *args, **kwargs):
         kwargs.setdefault("settingsSection", "effortviewer")
+        print(f"[EFFORT DEBUG] EffortViewer.__init__ - settingsSection from kwargs: {kwargs.get('settingsSection')}")
         self.__tasksToShowEffortFor = kwargs.pop("tasksToShowEffortFor", [])
         self.aggregation = (
             "details"  # Temporary value, will be properly set below
@@ -55,6 +56,7 @@ class EffortViewer(
         self.__columnUICommands = None
         self.__domainObjectsToView = None
         super().__init__(parent, taskFile, settings, *args, **kwargs)
+        print(f"[EFFORT DEBUG] EffortViewer.__init__ - self.settingsSection() returns: {self.settingsSection()}")
         self.secondRefresher = refresher.SecondRefresher(
             self, effort.Effort.trackingChangedEventType()
         )

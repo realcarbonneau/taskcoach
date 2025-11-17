@@ -1161,11 +1161,19 @@ class HideCurrentColumn(ViewerCommand):
 
 class ViewColumn(ViewerCommand, settings_uicommand.UICheckCommand):
     def isSettingChecked(self):
-        return self.viewer.isVisibleColumnByName(self.setting)
+        visible = self.viewer.isVisibleColumnByName(self.setting)
+        viewer_class = self.viewer.__class__.__name__
+        if viewer_class == "EffortViewer":
+            print(f"[COLUMN DEBUG] ViewColumn.isSettingChecked - viewer: {viewer_class}, column: {self.setting}, visible: {visible}")
+        return visible
 
     def doCommand(self, event):
+        checked = self._isMenuItemChecked(event)
+        viewer_class = self.viewer.__class__.__name__
+        if viewer_class == "EffortViewer":
+            print(f"[COLUMN DEBUG] ViewColumn.doCommand - viewer: {viewer_class}, column: {self.setting}, setting to: {checked}")
         self.viewer.showColumnByName(
-            self.setting, self._isMenuItemChecked(event)
+            self.setting, checked
         )
 
 
@@ -3310,15 +3318,19 @@ class ToggleAutoColumnResizing(
         self.viewer.getWidget().ToggleAutoResizing(self.isSettingChecked())
 
     def isSettingChecked(self):
-        return self.settings.getboolean(
-            self.viewer.settingsSection(), "columnautoresizing"
-        )
+        section = self.viewer.settingsSection()
+        value = self.settings.getboolean(section, "columnautoresizing")
+        print(f"[COLUMN DEBUG] ToggleAutoColumnResizing.isSettingChecked - section: {section}, value: {value}")
+        return value
 
     def doCommand(self, event):
+        section = self.viewer.settingsSection()
+        checked = self._isMenuItemChecked(event)
+        print(f"[COLUMN DEBUG] ToggleAutoColumnResizing.doCommand - section: {section}, setting to: {checked}")
         self.settings.set(
-            self.viewer.settingsSection(),
+            section,
             "columnautoresizing",
-            str(self._isMenuItemChecked(event)),
+            str(checked),
         )
         self.updateWidget()
 
