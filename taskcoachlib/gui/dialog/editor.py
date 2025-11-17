@@ -1510,8 +1510,7 @@ class TaskEditBook(EditBook):
 
 
 class CategoryEditBook(EditBook):
-    # MODIFIED: Added "effort" to test if Effort tab has layout issues in Category editor too
-    allPageNames = ["subject", "notes", "effort", "attachments", "appearance"]
+    allPageNames = ["subject", "notes", "attachments", "appearance"]
     domainObject = "category"
 
     def create_subject_page(self):

@@ -62,9 +62,17 @@ class BookPage(wx.Panel):
         self._borderWidth = 5
 
     def fit(self):
-        print(f"[BookPage.fit] Before SetSizerAndFit - Page size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
-        self.SetSizerAndFit(self._sizer)
-        print(f"[BookPage.fit] After SetSizerAndFit - Page size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        print(f"[BookPage.fit] Before SetSizer - Page size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        # FIXED: Changed from SetSizerAndFit to SetSizer to prevent locking the page to minimum size
+        # SetSizerAndFit was setting Min size = Best size, preventing the page from expanding
+        self.SetSizer(self._sizer)
+        print(f"[BookPage.fit] After SetSizer - Page size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        # Bind size event to log dynamic resizing
+        self.Bind(wx.EVT_SIZE, self.onPageSize)
+
+    def onPageSize(self, event):
+        print(f"[BookPage] onPageSize - New size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        event.Skip()
 
     def __defaultFlags(self, controls):
         """Return the default flags for placing a list of controls."""
