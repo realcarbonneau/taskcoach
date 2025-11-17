@@ -17,7 +17,7 @@ on:
 jobs:
   build-pyinstaller:
     name: Build PyInstaller Executable
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Use 22.04 for better GLIBC compatibility (2.35 vs 2.38+)
 
     steps:
       - name: Checkout code
@@ -73,7 +73,7 @@ jobs:
         run: |
           # Use pre-built wheels from extras repository (much faster than building from source)
           echo "Installing wxPython from extras repository..."
-          python -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython || {
+          python -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04 wxPython || {
             echo "Failed to install from extras repository, trying PyPI..."
             python -m pip install wxPython>=4.2.4
           }
@@ -90,11 +90,13 @@ jobs:
         run: |
           VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
           ARCH=$(uname -m)
+          UBUNTU_VERSION="ubuntu22.04"
           cd dist
-          tar czf "TaskCoach-${VERSION}-${ARCH}-pyinstaller.tar.gz" taskcoach/
+          tar czf "TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-pyinstaller.tar.gz" taskcoach/
           cd ..
-          echo "TARBALL_NAME=TaskCoach-${VERSION}-${ARCH}-pyinstaller.tar.gz" >> $GITHUB_ENV
+          echo "TARBALL_NAME=TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-pyinstaller.tar.gz" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "UBUNTU_VERSION=${UBUNTU_VERSION}" >> $GITHUB_ENV
 
       - name: Test executable
         run: |
@@ -107,20 +109,20 @@ jobs:
       - name: Upload PyInstaller artifact
         uses: actions/upload-artifact@v4
         with:
-          name: taskcoach-pyinstaller-linux-${{ env.VERSION }}
+          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-pyinstaller-tarball
           path: dist/${{ env.TARBALL_NAME }}
           retention-days: 90
 
-      - name: Upload executable directory
+      - name: Upload executable directory (for testing)
         uses: actions/upload-artifact@v4
         with:
-          name: taskcoach-pyinstaller-dir-${{ env.VERSION }}
+          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-pyinstaller-dir
           path: dist/taskcoach/
           retention-days: 30
 
   build-appimage:
     name: Build AppImage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Use 22.04 for better GLIBC compatibility (2.35 vs 2.38+)
 
     steps:
       - name: Checkout code
@@ -161,19 +163,21 @@ jobs:
         id: get_version
         run: |
           VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
+          UBUNTU_VERSION="ubuntu22.04"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "UBUNTU_VERSION=${UBUNTU_VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Build AppImage
         run: |
           chmod +x build-appimage.sh
-          ./build-appimage.sh
+          UBUNTU_VERSION=${{ env.UBUNTU_VERSION }} ./build-appimage.sh
 
       - name: List AppImage
         run: |
           ls -lh TaskCoach-*.AppImage
           ARCH=$(uname -m)
-          echo "APPIMAGE_NAME=TaskCoach-${VERSION}-${ARCH}.AppImage" >> $GITHUB_ENV
+          echo "APPIMAGE_NAME=TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}.AppImage" >> $GITHUB_ENV
 
       - name: Test AppImage
         run: |

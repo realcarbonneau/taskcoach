@@ -14,8 +14,9 @@ APP_NAME="TaskCoach"
 APP_DIR="AppDir"
 VERSION=$(python3 -c "from taskcoachlib import meta; print(meta.version)")
 ARCH=$(uname -m)
+UBUNTU_VERSION="${UBUNTU_VERSION:-ubuntu22.04}"
 
-echo "Building TaskCoach AppImage version $VERSION for $ARCH"
+echo "Building TaskCoach AppImage version $VERSION for $ARCH (${UBUNTU_VERSION})"
 
 # Clean up previous builds
 rm -rf "$APP_DIR"
@@ -123,9 +124,29 @@ python3 -m pip install --no-cache-dir --target="$APP_DIR/usr/lib/python-deps" \
 # Install wxPython separately using pre-built wheels (much faster)
 echo "Installing wxPython from extras repository..."
 python3 -m pip install --no-cache-dir --target="$APP_DIR/usr/lib/python-deps" \
-    -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 \
+    -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04 \
     wxPython \
     || echo "Warning: wxPython installation failed"
+
+# Copy required system libraries that wxPython depends on
+echo "Copying required shared libraries..."
+mkdir -p "$APP_DIR/usr/lib/x86_64-linux-gnu"
+
+# Find and copy wxPython's shared libraries
+if [ -d "$APP_DIR/usr/lib/python-deps/wx" ]; then
+    # Copy .so files from wx package
+    find "$APP_DIR/usr/lib/python-deps/wx" -name "*.so*" -type f -exec ldd {} \; 2>/dev/null | \
+        grep "=>" | awk '{print $3}' | grep -v "^$" | sort -u | while read lib; do
+        if [ -f "$lib" ]; then
+            libname=$(basename "$lib")
+            # Copy important libraries but skip system-critical ones
+            if [[ ! "$libname" =~ ^(libc\.|libm\.|libpthread\.|libdl\.|librt\.|libgcc_s\.|libstdc\+\+) ]]; then
+                echo "  Copying $libname"
+                cp -L "$lib" "$APP_DIR/usr/lib/x86_64-linux-gnu/" 2>/dev/null || true
+            fi
+        fi
+    done
+fi
 
 # Update wrapper script to use the bundled Python packages
 cat > "$APP_DIR/usr/bin/taskcoach" << 'WRAPPER_EOF2'
@@ -137,7 +158,9 @@ APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")/../..}"
 
 # Set Python path to include bundled modules
 export PYTHONPATH="$APPDIR/usr/lib/python-deps:$APPDIR/usr/lib:$PYTHONPATH"
-export LD_LIBRARY_PATH="$APPDIR/usr/lib:$LD_LIBRARY_PATH"
+
+# Add bundled libraries to library path (IMPORTANT: put at beginning for priority)
+export LD_LIBRARY_PATH="$APPDIR/usr/lib/x86_64-linux-gnu:$APPDIR/usr/lib:$LD_LIBRARY_PATH"
 
 # Ensure GTK and other GUI libraries can be found
 export GDK_PIXBUF_MODULEDIR="$APPDIR/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders"
@@ -161,10 +184,11 @@ fi
 
 # Build AppImage
 echo "Building AppImage..."
-ARCH=$ARCH ./appimagetool-${ARCH}.AppImage "$APP_DIR" "TaskCoach-${VERSION}-${ARCH}.AppImage"
+APPIMAGE_NAME="TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}.AppImage"
+ARCH=$ARCH ./appimagetool-${ARCH}.AppImage "$APP_DIR" "$APPIMAGE_NAME"
 
 # Make it executable
-chmod +x "TaskCoach-${VERSION}-${ARCH}.AppImage"
+chmod +x "$APPIMAGE_NAME"
 
-echo "AppImage built successfully: TaskCoach-${VERSION}-${ARCH}.AppImage"
+echo "AppImage built successfully: $APPIMAGE_NAME"
 ls -lh TaskCoach-*.AppImage

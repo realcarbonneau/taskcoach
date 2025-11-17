@@ -73,7 +73,7 @@ install_dependencies() {
 
     # Install wxPython using pre-built wheels (much faster than building from source)
     echo "Installing wxPython from extras repository..."
-    pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 wxPython || \
+    pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04 wxPython || \
         pip3 install wxPython>=4.2.4 || \
         echo "Warning: wxPython installation failed. Will try to use system wxPython."
 

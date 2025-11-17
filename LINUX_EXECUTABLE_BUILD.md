@@ -146,12 +146,26 @@ The repository includes a GitHub Actions workflow (`.github/workflows/build-linu
 
 ### Artifacts
 
-The workflow uploads build artifacts:
+The workflow uploads build artifacts with filenames indicating the build environment:
 
-- **PyInstaller tarball**: `TaskCoach-<version>-<arch>-pyinstaller.tar.gz`
-- **AppImage**: `TaskCoach-<version>-<arch>.AppImage`
+- **PyInstaller tarball**: `TaskCoach-{version}-{arch}-{ubuntu-version}-pyinstaller.tar.gz`
+  - Example: `TaskCoach-1.5.1-x86_64-ubuntu22.04-pyinstaller.tar.gz`
+  - Contains the `taskcoach/` directory with executable and all dependencies
 
-Artifacts are retained for 90 days.
+- **PyInstaller directory** (for testing): `taskcoach-{version}-{ubuntu-version}-pyinstaller-dir`
+  - Unpacked directory artifact for quick testing in CI
+  - Retained for 30 days
+
+- **AppImage**: `TaskCoach-{version}-{arch}-{ubuntu-version}.AppImage`
+  - Example: `TaskCoach-1.5.1-x86_64-ubuntu22.04.AppImage`
+  - Single self-contained executable file
+
+The `{ubuntu-version}` in the filename (e.g., `ubuntu22.04`) indicates:
+- **Build environment**: Ubuntu 22.04 (GLIBC 2.35)
+- **Minimum requirement**: Requires Ubuntu 22.04+ or equivalent distribution
+- **Compatibility**: Works on Debian 12+, RHEL 9+, and most distros from 2022+
+
+Artifacts are retained for 90 days (30 days for directory artifacts).
 
 ## wxPython Version
 
@@ -160,6 +174,19 @@ Unlike the Debian package build, these executables use **wxPython 4.2.4+** direc
 - No patches required for TR_FULL_ROW_HIGHLIGHT or TR_FILL_WHOLE_COLUMN_BACKGROUND
 - Latest wxPython features and bug fixes available
 - Consistent behavior across different Linux distributions
+
+## GLIBC Compatibility
+
+The executables are built on **Ubuntu 22.04** (GLIBC 2.35) for maximum compatibility with older Linux distributions:
+
+- ✅ **Compatible with**: Ubuntu 22.04+, Debian 12+, RHEL 9+, and most distributions from 2022+
+- ⚠️ **Not compatible with**: Ubuntu 20.04 or earlier (GLIBC 2.31), Debian 11 or earlier
+- 📦 **Reason**: PyInstaller bundles the Python interpreter and libraries from the build system
+
+If you need to run on older distributions:
+1. Use the **AppImage** format (more portable)
+2. Or build locally on your target distribution
+3. Or use the source installation method
 
 ## Testing
 
