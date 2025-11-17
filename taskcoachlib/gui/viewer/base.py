@@ -959,7 +959,17 @@ class ViewerWithColumns(Viewer):  # pylint: disable=W0223
             if columnName == "ordering"
             else hypertreelist._DEFAULT_COL_WIDTH
         )  # pylint: disable=W0212
-        return columnWidths.get(columnName, defaultWidth)
+        width = columnWidths.get(columnName, defaultWidth)
+
+        # Sanity check: Cap excessively wide columns (likely from old saved settings
+        # when widget was sized to sum of all columns instead of fitting parent)
+        MAX_REASONABLE_COLUMN_WIDTH = 400
+        if width > MAX_REASONABLE_COLUMN_WIDTH:
+            print(f"[COLUMN WIDTH] WARNING: {columnName} width {width} exceeds max {MAX_REASONABLE_COLUMN_WIDTH}, capping")
+            width = MAX_REASONABLE_COLUMN_WIDTH
+
+        print(f"[COLUMN WIDTH] getColumnWidth({columnName}) - Saved: {columnWidths.get(columnName, 'none')}, Default: {defaultWidth}, Returning: {width}")
+        return width
 
     def onResizeColumn(self, column, width):
         columnWidths = self.settings.getdict(
