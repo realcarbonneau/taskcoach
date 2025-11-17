@@ -1254,6 +1254,43 @@ class EditBook(widgets.Notebook):
         self.addPages(taskFile, items_are_new)
         self.__load_perspective(items_are_new)
 
+        # Bind resize event to notebook
+        self.Bind(wx.EVT_SIZE, self.onNotebookResize)
+
+        # Also use a timer to periodically log sizes (in case events don't fire)
+        self._size_log_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.onSizeLogTimer, self._size_log_timer)
+        self._size_log_timer.Start(500)  # Log every 500ms
+        self._last_logged_size = None
+
+    def onSizeLogTimer(self, event):
+        """Periodically log size to catch changes even if EVT_SIZE doesn't fire."""
+        nb_size = self.GetSize()
+        # Only log if size changed
+        if nb_size != self._last_logged_size:
+            self._last_logged_size = nb_size
+            nb_min = self.GetMinSize()
+            sel = self.GetSelection()
+            if sel >= 0:
+                page = self.GetPage(sel)
+                page_size = page.GetSize()
+                page_min = page.GetMinSize()
+                page_name = getattr(page, 'pageName', 'unknown')
+                print(f"[TIMER] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
+
+    def onNotebookResize(self, event):
+        """Log notebook and current page sizes during resize."""
+        event.Skip()
+        nb_size = self.GetSize()
+        nb_min = self.GetMinSize()
+        sel = self.GetSelection()
+        if sel >= 0:
+            page = self.GetPage(sel)
+            page_size = page.GetSize()
+            page_min = page.GetMinSize()
+            page_name = getattr(page, 'pageName', 'unknown')
+            print(f"[NOTEBOOK RESIZE] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
+
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
         curSel = curSel + 1 if forward else curSel - 1
