@@ -1291,6 +1291,17 @@ class EditBook(widgets.Notebook):
             page_name = getattr(page, 'pageName', 'unknown')
             print(f"[NOTEBOOK RESIZE] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
 
+            # FORCE the page to resize to fill the notebook
+            # AUI notebook doesn't respect page min sizes or sizers properly
+            # So we manually resize all pages to fill the available space
+            for i in range(self.GetPageCount()):
+                p = self.GetPage(i)
+                # Get the client area size (area available for pages)
+                client_size = self.GetClientSize()
+                # Set each page to fill the full client area
+                p.SetSize(client_size)
+                p.Layout()  # Force layout update
+
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
         curSel = curSel + 1 if forward else curSel - 1
@@ -1309,9 +1320,23 @@ class EditBook(widgets.Notebook):
         print(f"[EditBook.addPages] Setting notebook min size: ({width}, {notebook_height}) [page_height={height}]")
         self.SetMinSize((width, notebook_height))
 
+        # Force initial page sizing - AUI notebook doesn't auto-size pages
+        wx.CallAfter(self.__resize_pages_to_fit)
+
+    def __resize_pages_to_fit(self):
+        """Force all pages to resize to fill the notebook's client area."""
+        client_size = self.GetClientSize()
+        print(f"[__resize_pages_to_fit] Resizing {self.GetPageCount()} pages to {client_size}")
+        for i in range(self.GetPageCount()):
+            page = self.GetPage(i)
+            page.SetSize(client_size)
+            page.Layout()
+
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
         event.Skip()
+        # Also resize the newly selected page
+        wx.CallAfter(self.__resize_pages_to_fit)
         if operating_system.isMac():
             # The dialog loses focus sometimes...
             wx.GetTopLevelParent(self).Raise()
