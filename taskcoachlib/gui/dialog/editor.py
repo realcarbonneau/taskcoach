@@ -1446,22 +1446,18 @@ class EditBook(widgets.Notebook):
         perspective = self.perspective()
         if perspective:
             try:
-                print(f"[EditBook.__load_perspective] Loading perspective: {perspective[:100]}...")
-                self.LoadPerspective(perspective)
-                print(f"[EditBook.__load_perspective] After LoadPerspective - Notebook size: {self.GetSize()}")
-                # CRITICAL FIX: Reset minimum sizes that LoadPerspective may have set
-                # LoadPerspective restores saved layout including locked page sizes
+                print(f"[EditBook.__load_perspective] SKIPPING LoadPerspective to avoid locked page sizes")
+                print(f"[EditBook.__load_perspective] Perspective was: {perspective[:100]}...")
+                # CRITICAL FIX: Don't load perspective - it locks pages to old sizes (200, 169)
+                # LoadPerspective restores exact page sizes from settings, overriding sizers
+                # Comment out the LoadPerspective call:
+                # self.LoadPerspective(perspective)
+
+                # Instead, just log the current state
                 for idx in range(self.GetPageCount()):
                     page = self.GetPage(idx)
-                    min_size = page.GetMinSize()
-                    print(f"[EditBook.__load_perspective] Page {idx} ({page.pageName}): Size {page.GetSize()}, Min size {min_size}")
-                    # Reset minimum size to allow pages to resize naturally
-                    if min_size != (-1, -1):
-                        print(f"[EditBook.__load_perspective] FIXING: Resetting page {idx} ({page.pageName}) min size from {min_size} to (-1, -1)")
-                        page.SetMinSize((-1, -1))
-                # Force layout recalculation
-                self.Layout()
-                print(f"[EditBook.__load_perspective] After Layout() and min size reset")
+                    print(f"[EditBook.__load_perspective] Page {idx} ({page.pageName}): Size {page.GetSize()}, Min size {page.GetMinSize()}")
+                print(f"[EditBook.__load_perspective] Skipped LoadPerspective - pages should resize naturally")
             except:  # pylint: disable=W0702
                 pass
         if items_are_new:
