@@ -1272,6 +1272,20 @@ class EditBook(widgets.Notebook):
         self.addPages(taskFile, items_are_new)
         self.__load_perspective(items_are_new)
 
+        # LIVE LOGGING: Track EditBook (notebook) size changes
+        self.Bind(wx.EVT_SIZE, self.onEditBookSize)
+        print(f"[EditBook] __init__ - Notebook size: {self.GetSize()}, Min size: {self.GetMinSize()}, Best size: {self.GetBestSize()}")
+
+    def onEditBookSize(self, event):
+        """Live logging of notebook size changes"""
+        current_page = self.GetSelection()
+        page_info = f"Page {current_page}" if current_page >= 0 else "No page"
+        if current_page >= 0 and current_page < self.GetPageCount():
+            page = self.GetPage(current_page)
+            page_info = f"Page {current_page} ({page.pageName}): {page.GetSize()}"
+        print(f"[EditBook] RESIZE - Notebook: {self.GetSize()}, Min: {self.GetMinSize()}, {page_info}")
+        event.Skip()
+
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
         curSel = curSel + 1 if forward else curSel - 1
@@ -1500,6 +1514,7 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
+    # REMOVED: "effort" tab to isolate layout issue - testing if other tabs work correctly
     allPageNames = [
         "subject",
         "dates",
@@ -1507,7 +1522,7 @@ class TaskEditBook(EditBook):
         "progress",
         "categories",
         "budget",
-        "effort",
+        # "effort",  # REMOVED for testing
         "notes",
         "attachments",
         "appearance",
@@ -1923,6 +1938,15 @@ class Editor(BalloonTipManager, widgets.Dialog):
                 self, settings, self._interior.settings_section()
             )
         )
+
+        # LIVE LOGGING: Bind size events to track window and interior sizing
+        self.Bind(wx.EVT_SIZE, self.onEditorSize)
+        print(f"[Editor] __init__ - Window size: {self.GetSize()}, Interior size: {self._interior.GetSize()}, Client size: {self.GetClientSize()}")
+
+    def onEditorSize(self, event):
+        """Live logging of editor window size changes"""
+        print(f"[Editor] RESIZE - Window: {self.GetSize()}, Interior: {self._interior.GetSize()}, Client: {self.GetClientSize()}, Screen: {wx.GetDisplaySize()}")
+        event.Skip()
 
     def __on_timer(self, event):
         if not self.IsShown():
