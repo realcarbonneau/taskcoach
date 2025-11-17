@@ -206,3 +206,20 @@ class Notebook(BookMixin, aui.AuiNotebook):
             & ~aui.AUI_NB_MIDDLE_CLICK_CLOSE
         )
         super().__init__(*args, **kwargs)
+
+        # Bind resize event to force pages to resize with the notebook
+        self.Bind(wx.EVT_SIZE, self.onNotebookResize)
+
+    def onNotebookResize(self, event):
+        """Force all pages to resize when the notebook resizes."""
+        event.Skip()  # Let the event propagate
+
+        # Get the client area size (area available for page content)
+        client_size = self.GetClientSize()
+
+        # Resize ALL pages to fill the client area
+        # AUI notebook doesn't do this automatically
+        for i in range(self.GetPageCount()):
+            page = self.GetPage(i)
+            page.SetSize(client_size)
+            page.Layout()
