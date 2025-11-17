@@ -135,28 +135,38 @@ class Dialog(sized_controls.SizedDialog):
     def onResize(self, event):
         """Log dialog and interior (notebook) sizes during resize."""
         event.Skip()  # Let the event propagate
-        dialog_size = self.GetSize()
-        interior_size = self._interior.GetSize()
-        interior_min_size = self._interior.GetMinSize()
-        panel_size = self._panel.GetSize()
 
-        # Get editor type if available
-        editor_type = getattr(self._interior, '__class__', type(self._interior)).__name__
+        # Safety check - window might be closing
+        if not self or not self._interior or not self._panel:
+            return
 
-        # Also log current page size if this is a notebook editor
-        page_info = ""
-        if hasattr(self._interior, 'GetSelection'):
-            try:
-                sel = self._interior.GetSelection()
-                if sel >= 0:
-                    page = self._interior.GetPage(sel)
-                    page_size = page.GetSize()
-                    page_name = getattr(page, 'pageName', 'unknown')
-                    page_info = f", CurrentPage({page_name}): {page_size}"
-            except:
-                pass
+        try:
+            dialog_size = self.GetSize()
+            interior_size = self._interior.GetSize()
+            interior_min_size = self._interior.GetMinSize()
+            panel_size = self._panel.GetSize()
 
-        print(f"[RESIZE {editor_type}] Dialog: {dialog_size}, Interior: {interior_size}, Interior MinSize: {interior_min_size}, Panel: {panel_size}{page_info}")
+            # Get editor type if available
+            editor_type = getattr(self._interior, '__class__', type(self._interior)).__name__
+
+            # Also log current page size if this is a notebook editor
+            page_info = ""
+            if hasattr(self._interior, 'GetSelection'):
+                try:
+                    sel = self._interior.GetSelection()
+                    if sel >= 0:
+                        page = self._interior.GetPage(sel)
+                        if page:  # Safety check
+                            page_size = page.GetSize()
+                            page_name = getattr(page, 'pageName', 'unknown')
+                            page_info = f", CurrentPage({page_name}): {page_size}"
+                except:
+                    pass
+
+            print(f"[RESIZE {editor_type}] Dialog: {dialog_size}, Interior: {interior_size}, Interior MinSize: {interior_min_size}, Panel: {panel_size}{page_info}")
+        except:
+            # Silently ignore errors during logging (window might be closing)
+            pass
 
     def disableOK(self):
         wxhelper.getButtonFromStdDialogButtonSizer(

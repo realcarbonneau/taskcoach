@@ -1278,19 +1278,28 @@ class EditBook(widgets.Notebook):
 
     def onSizeLogTimer(self, event):
         """Periodically log size to verify sizing works correctly."""
-        nb_size = self.GetSize()
-        # Only log if size changed
-        if nb_size != self._last_logged_size:
-            self._last_logged_size = nb_size
-            editor_type = self.__class__.__name__
-            nb_min = self.GetMinSize()
-            sel = self.GetSelection()
-            if sel >= 0:
-                page = self.GetPage(sel)
-                page_size = page.GetSize()
-                page_min = page.GetMinSize()
-                page_name = getattr(page, 'pageName', 'unknown')
-                print(f"[TIMER {editor_type}] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
+        # Safety check - window might be closing
+        if not self:
+            return
+
+        try:
+            nb_size = self.GetSize()
+            # Only log if size changed
+            if nb_size != self._last_logged_size:
+                self._last_logged_size = nb_size
+                editor_type = self.__class__.__name__
+                nb_min = self.GetMinSize()
+                sel = self.GetSelection()
+                if sel >= 0:
+                    page = self.GetPage(sel)
+                    if page:  # Safety check
+                        page_size = page.GetSize()
+                        page_min = page.GetMinSize()
+                        page_name = getattr(page, 'pageName', 'unknown')
+                        print(f"[TIMER {editor_type}] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
+        except:
+            # Silently ignore errors during logging (window might be closing)
+            pass
 
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
@@ -1523,6 +1532,11 @@ class EditBook(widgets.Notebook):
     def close_edit_book(self):
         """Close all pages in the edit book and save the current layout in
         the settings."""
+        # Stop the size logging timer to prevent access to destroyed objects
+        if hasattr(self, '_size_log_timer') and self._size_log_timer:
+            self._size_log_timer.Stop()
+            self._size_log_timer = None
+
         for page in self:
             page.close()
         self.__save_perspective()

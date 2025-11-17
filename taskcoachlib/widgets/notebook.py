@@ -214,12 +214,21 @@ class Notebook(BookMixin, aui.AuiNotebook):
         """Force all pages to resize when the notebook resizes."""
         event.Skip()  # Let the event propagate
 
-        # Get the client area size (area available for page content)
-        client_size = self.GetClientSize()
+        # Safety check - don't resize if being destroyed
+        if not self:
+            return
 
-        # Resize ALL pages to fill the client area
-        # AUI notebook doesn't do this automatically
-        for i in range(self.GetPageCount()):
-            page = self.GetPage(i)
-            page.SetSize(client_size)
-            page.Layout()
+        try:
+            # Get the client area size (area available for page content)
+            client_size = self.GetClientSize()
+
+            # Resize ALL pages to fill the client area
+            # AUI notebook doesn't do this automatically
+            for i in range(self.GetPageCount()):
+                page = self.GetPage(i)
+                if page:  # Safety check
+                    page.SetSize(client_size)
+                    page.Layout()
+        except:
+            # Silently ignore errors during resize (window might be closing)
+            pass
