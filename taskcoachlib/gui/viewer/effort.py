@@ -263,14 +263,6 @@ class EffortViewer(
         widget.AssignImageList(
             imageList, wx.IMAGE_LIST_SMALL
         )  # pylint: disable=E1101
-
-        # CRITICAL FIX: Force the widget to not request oversized width
-        # SetMaxSize prevents the sizer from honoring the inflated BestSize
-        # that comes from summing all column widths
-        widget.SetMaxSize(wx.Size(9999, -1))  # Unlimited width
-        widget.SetMinSize(wx.Size(200, -1))   # Minimum reasonable width
-        print(f"[EFFORT FIX] After SetMinSize/SetMaxSize - Size: {widget.GetSize()}, Best: {widget.GetBestSize()}, Min: {widget.GetMinSize()}, Max: {widget.GetMaxSize()}")
-
         # Add size event logging for debugging
         widget.Bind(wx.EVT_SIZE, self.onViewerSize)
         return widget

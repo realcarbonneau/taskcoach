@@ -209,7 +209,10 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self._sizer = wx.BoxSizer(wx.VERTICAL)  # pylint: disable=W0201
         self._sizer.Add(self.toolbar, flag=wx.EXPAND)
         self._sizer.Add(self.widget, proportion=1, flag=wx.EXPAND)
-        self.SetSizerAndFit(self._sizer)
+        # Use SetSizer instead of SetSizerAndFit to prevent locking MinSize
+        # to the widget's oversized BestSize. With proportion=1 and wx.EXPAND,
+        # the widget should fill available space regardless of its BestSize.
+        self.SetSizer(self._sizer)
 
     def createWidget(self, *args):
         raise NotImplementedError
