@@ -975,7 +975,7 @@ class EffortPage(PageWithViewer):
     pageIcon = "clock_icon"
 
     def createViewer(self, taskFile, settings, settingsSection):
-        return viewer.EffortViewer(
+        effort_viewer = viewer.EffortViewer(
             self,
             taskFile,
             settings,
@@ -983,6 +983,11 @@ class EffortPage(PageWithViewer):
             use_separate_settings_section=False,
             tasksToShowEffortFor=task.TaskList(self.items),
         )
+        # Override the viewer's minimum size to prevent layout breaking
+        # The EffortViewer has many columns that sum to 1879px, which is too wide
+        # for the dialog. Set a reasonable minimum and let it scroll horizontally.
+        effort_viewer.SetMinSize((400, 200))
+        return effort_viewer
 
     def entries(self):
         if hasattr(self, "viewer"):
@@ -1502,7 +1507,7 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
-    # All pages except "effort" which has a 1879px wide viewer that breaks layout
+    # All pages restored - effort page now has constrained minimum size
     allPageNames = [
         "subject",
         "dates",
@@ -1510,6 +1515,7 @@ class TaskEditBook(EditBook):
         "progress",
         "categories",
         "budget",
+        "effort",
         "notes",
         "attachments",
         "appearance",
