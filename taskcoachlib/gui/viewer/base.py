@@ -213,6 +213,9 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         # to the widget's oversized BestSize. With proportion=1 and wx.EXPAND,
         # the widget should fill available space regardless of its BestSize.
         self.SetSizer(self._sizer)
+        # CRITICAL: Set MinSize on Viewer panel to override BestSize from child widgets
+        # Without this, GetEffectiveMinSize() returns child's oversized BestSize (3705px)
+        self.SetMinSize((100, 50))
 
     def createWidget(self, *args):
         raise NotImplementedError
