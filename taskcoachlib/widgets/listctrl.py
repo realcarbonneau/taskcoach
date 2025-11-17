@@ -68,7 +68,11 @@ class VirtualListCtrl(
 
         Return a reasonable default that won't break layout.
         """
-        return wx.Size(200, 100)
+        # Get what the default would have been
+        defaultBest = super().DoGetBestSize() if hasattr(super(), 'DoGetBestSize') else wx.Size(-1, -1)
+        overrideBest = wx.Size(200, 100)
+        print(f"[VirtualListCtrl] DoGetBestSize() called - Default: {defaultBest}, Returning: {overrideBest}, Current Size: {self.GetSize()}, MinSize: {self.GetMinSize()}")
+        return overrideBest
 
     def bindEventHandlers(self, selectCommand, editCommand):
         # pylint: disable=W0201

@@ -422,6 +422,7 @@ class EffortViewer(
         )
 
     def _showWeekdayColumns(self, show=True):
+        print(f"[EFFORT] _showWeekdayColumns({show}) - BEFORE: Widget MinSize: {self.widget.GetMinSize()}, BestSize: {self.widget.GetBestSize()}, Size: {self.widget.GetSize()}")
         if show:
             columnsToShow = self.__hiddenWeekdayColumns[:]
             self.__hiddenWeekdayColumns = []
@@ -442,8 +443,10 @@ class EffortViewer(
             ]
         for column in columnsToShow:
             self.showColumn(column, show, refresh=False)
+        print(f"[EFFORT] _showWeekdayColumns({show}) - AFTER: Widget MinSize: {self.widget.GetMinSize()}, BestSize: {self.widget.GetBestSize()}, Size: {self.widget.GetSize()}")
 
     def _showTotalColumns(self, show=True):
+        print(f"[EFFORT] _showTotalColumns({show}) - BEFORE: Widget MinSize: {self.widget.GetMinSize()}, BestSize: {self.widget.GetBestSize()}, Size: {self.widget.GetSize()}")
         if show:
             columnsToShow = self.__hiddenTotalColumns[:]
             self.__hiddenTotalColumns = []
@@ -455,6 +458,7 @@ class EffortViewer(
             ]
         for column in columnsToShow:
             self.showColumn(column, show, refresh=False)
+        print(f"[EFFORT] _showTotalColumns({show}) - AFTER: Widget MinSize: {self.widget.GetMinSize()}, BestSize: {self.widget.GetBestSize()}, Size: {self.widget.GetSize()}")
 
     def getColumnUICommands(self):
         # Create new UI commands every time since the UI commands depend on the

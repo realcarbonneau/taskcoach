@@ -227,7 +227,9 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         Return a reasonable default instead.
         """
         # Return a modest size that won't cause the sizer to over-allocate
-        return wx.Size(200, 100)
+        overrideBest = wx.Size(200, 100)
+        print(f"[Viewer] DoGetBestSize() called - Returning: {overrideBest}, Current Size: {self.GetSize()}, MinSize: {self.GetMinSize()}")
+        return overrideBest
 
     def createWidget(self, *args):
         raise NotImplementedError
