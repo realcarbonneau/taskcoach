@@ -67,11 +67,12 @@ class BookPage(wx.Panel):
         # Get the best size from the sizer's contents
         best_size = self._sizer.ComputeFittingWindowSize(self)
         print(f"[BookPage.fit] Page: {self.__class__.__name__}, best_size: {best_size}, columns: {self._columns}")
-        # Set this as minimum size so notebook knows how much space we need
-        # but the actual size can be larger due to EXPAND flags
+        # Set ONLY the minimum size - don't constrain the actual size
+        # This lets the notebook know how much space we need minimum,
+        # but allows the page to expand to fill the notebook with EXPAND flags
         self.SetMinSize(best_size)
-        # SetInitialSize uses best size but allows sizer to make it larger
-        self.SetInitialSize(best_size)
+        # DON'T call SetInitialSize or Fit - they lock the size!
+        # Just let the sizer and EXPAND flags handle the actual sizing
         self.Layout()
 
     def __defaultFlags(self, controls):
