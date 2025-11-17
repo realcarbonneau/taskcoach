@@ -261,6 +261,44 @@ class SubjectPage(Page):
         )
 
 
+class SimpleTestPage(wx.Panel):
+    """Simple test page with just a colored background to test resize."""
+    pageName = "test"
+    pageTitle = "TEST RESIZE"
+    pageIcon = "wrench_icon"
+
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent)
+        self.SetBackgroundColour(wx.Colour(255, 200, 200))  # Light red
+
+        # Create a sizer with proportion=1 to fill space
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Add a text control that should expand
+        self.text = wx.TextCtrl(self, value="This should resize with the window",
+                                style=wx.TE_MULTILINE)
+        sizer.Add(self.text, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
+
+        self.SetSizer(sizer)
+
+        # Bind resize event to log size changes
+        self.Bind(wx.EVT_SIZE, self.onResize)
+
+    def onResize(self, event):
+        event.Skip()
+        size = self.GetSize()
+        print(f"[SimpleTestPage.onResize] Page size: {size}")
+
+    def ok(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+    def selected(self):
+        pass
+
+
 class TaskSubjectPage(SubjectPage):
     def addEntries(self):
         # Override to insert a priority entry between the description and the
@@ -1503,6 +1541,7 @@ class EditBook(widgets.Notebook):
 
 class TaskEditBook(EditBook):
     allPageNames = [
+        "test",  # Simple test page first
         "subject",
         "dates",
         "prerequisites",
@@ -1515,6 +1554,9 @@ class TaskEditBook(EditBook):
         "appearance",
     ]
     domainObject = "task"
+
+    def create_test_page(self):
+        return SimpleTestPage(self)
 
     def create_subject_page(self):
         return TaskSubjectPage(self.items, self, self.settings)

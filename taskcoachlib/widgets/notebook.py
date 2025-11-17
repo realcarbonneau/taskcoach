@@ -220,13 +220,17 @@ class Notebook(BookMixin, aui.AuiNotebook):
         try:
             # Get the client area size (area available for page content)
             client_size = self.GetClientSize()
+            print(f"[Notebook.onNotebookResize] Notebook client size: {client_size}, resizing {self.GetPageCount()} pages")
 
             # Resize ALL pages to fill the client area
             for i in range(self.GetPageCount()):
                 page = self.GetPage(i)
                 if page and page.IsShown():
+                    old_size = page.GetSize()
                     page.SetSize(client_size)
                     page.Layout()
-        except (RuntimeError, AttributeError):
+                    page_name = getattr(page, 'pageName', f'page{i}')
+                    print(f"  Page {i} ({page_name}): {old_size} -> {client_size}")
+        except (RuntimeError, AttributeError) as e:
             # Silently ignore if window is being destroyed
-            pass
+            print(f"[Notebook.onNotebookResize] Error (window closing): {e}")
