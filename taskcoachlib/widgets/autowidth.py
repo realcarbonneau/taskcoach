@@ -197,24 +197,33 @@ class AutoColumnWidthMixin(object):
     def InsertColumn(self, *args, **kwargs):
         """Insert the new column and then resize."""
         result = super().InsertColumn(*args, **kwargs)
+        # CRITICAL: Invalidate BestSize cache to force using our DoGetBestSize override
+        # Without this, wxPython C++ recalculates BestSize as sum of columns
+        self.InvalidateBestSize()
         self.DoResize()
         return result
 
     def DeleteColumn(self, *args, **kwargs):
         """Delete the column and then resize."""
         result = super().DeleteColumn(*args, **kwargs)
+        # CRITICAL: Invalidate BestSize cache to force using our DoGetBestSize override
+        self.InvalidateBestSize()
         self.DoResize()
         return result
 
     def RemoveColumn(self, *args, **kwargs):
         """Remove the column and then resize."""
         result = super().RemoveColumn(*args, **kwargs)
+        # CRITICAL: Invalidate BestSize cache to force using our DoGetBestSize override
+        self.InvalidateBestSize()
         self.DoResize()
         return result
 
     def AddColumn(self, *args, **kwargs):
         """Add the column and then resize."""
         result = super().AddColumn(*args, **kwargs)
+        # CRITICAL: Invalidate BestSize cache to force using our DoGetBestSize override
+        self.InvalidateBestSize()
         self.DoResize()
         return result
 
