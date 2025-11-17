@@ -27,13 +27,14 @@ sudo apt-get install -y \
     libpango1.0-dev \
     libatk1.0-dev \
     libgdk-pixbuf2.0-dev \
-    libsoup2.4-dev \
-    libwebkit2gtk-4.0-dev \
     libnotify-dev \
     libsdl2-dev \
     libjpeg-dev \
     libtiff-dev \
     libpng-dev \
+    freeglut3-dev \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
     fuse \
     file \
     wget
