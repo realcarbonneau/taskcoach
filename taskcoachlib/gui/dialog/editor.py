@@ -1265,9 +1265,9 @@ class EditBook(widgets.Notebook):
         for page_name in page_names:
             page = self.createPage(page_name, task_file, items_are_new)
             self.AddPage(page, page.pageTitle, page.pageIcon)
-        # Don't set minimum size on notebook - let it expand freely
-        # width, height = self.__get_minimum_page_size()
-        # self.SetMinSize((width, self.GetHeightForPageHeight(height)))
+        # Set a reasonable minimum size for the notebook
+        width, height = self.__get_minimum_page_size()
+        self.SetMinSize((width, self.GetHeightForPageHeight(height)))
 
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
