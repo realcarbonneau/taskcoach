@@ -1262,12 +1262,15 @@ class EditBook(widgets.Notebook):
 
     def addPages(self, task_file, items_are_new):
         page_names = self.settings.getlist(self.settings_section(), "pages")
+        print(f"[EditBook.addPages] Creating {len(page_names)} pages: {page_names}")
         for page_name in page_names:
             page = self.createPage(page_name, task_file, items_are_new)
             self.AddPage(page, page.pageTitle, page.pageIcon)
         # Set a reasonable minimum size for the notebook
         width, height = self.__get_minimum_page_size()
-        self.SetMinSize((width, self.GetHeightForPageHeight(height)))
+        notebook_height = self.GetHeightForPageHeight(height)
+        print(f"[EditBook.addPages] Setting notebook min size: ({width}, {notebook_height}) [page_height={height}]")
+        self.SetMinSize((width, notebook_height))
 
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
@@ -1290,11 +1293,15 @@ class EditBook(widgets.Notebook):
 
     def __get_minimum_page_size(self):
         min_widths, min_heights = [], []
-        for page in self:
+        for idx, page in enumerate(self):
             min_width, min_height = page.GetMinSize()
+            page_name = getattr(page, 'pageName', 'unknown')
+            print(f"[__get_minimum_page_size] Page {idx} ({page_name}): min_size=({min_width}, {min_height})")
             min_widths.append(min_width)
             min_heights.append(min_height)
-        return max(min_widths), max(min_heights)
+        max_width, max_height = max(min_widths), max(min_heights)
+        print(f"[__get_minimum_page_size] Final: max_width={max_width}, max_height={max_height}")
+        return max_width, max_height
 
     def __pages_to_create(self):
         return [
