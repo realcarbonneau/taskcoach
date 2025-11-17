@@ -46,7 +46,6 @@ class EffortViewer(
 
     def __init__(self, parent, taskFile, settings, *args, **kwargs):
         kwargs.setdefault("settingsSection", "effortviewer")
-        print(f"[EFFORT DEBUG] EffortViewer.__init__ - settingsSection from kwargs: {kwargs.get('settingsSection')}")
         self.__tasksToShowEffortFor = kwargs.pop("tasksToShowEffortFor", [])
         self.aggregation = (
             "details"  # Temporary value, will be properly set below
@@ -55,8 +54,10 @@ class EffortViewer(
         self.__hiddenTotalColumns = []
         self.__columnUICommands = None
         self.__domainObjectsToView = None
+        print(f"[EFFORT SIZE] EffortViewer.__init__ - Parent size: {parent.GetSize()}, Parent best size: {parent.GetBestSize()}")
         super().__init__(parent, taskFile, settings, *args, **kwargs)
-        print(f"[EFFORT DEBUG] EffortViewer.__init__ - self.settingsSection() returns: {self.settingsSection()}")
+        print(f"[EFFORT SIZE] EffortViewer.__init__ AFTER super - Viewer size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        print(f"[EFFORT SIZE] EffortViewer.__init__ AFTER super - Widget size: {self.widget.GetSize()}, Best size: {self.widget.GetBestSize()}, Min size: {self.widget.GetMinSize()}")
         self.secondRefresher = refresher.SecondRefresher(
             self, effort.Effort.trackingChangedEventType()
         )

@@ -208,20 +208,21 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
     def initLayout(self):
         self._sizer = wx.BoxSizer(wx.VERTICAL)  # pylint: disable=W0201
         self._sizer.Add(self.toolbar, flag=wx.EXPAND)
-        print(f"[Viewer.initLayout] After adding toolbar - Toolbar size: {self.toolbar.GetSize()}, Best size: {self.toolbar.GetBestSize()}")
         self._sizer.Add(self.widget, proportion=1, flag=wx.EXPAND)
-        print(f"[Viewer.initLayout] After adding widget - Widget size: {self.widget.GetSize()}, Best size: {self.widget.GetBestSize()}, Min size: {self.widget.GetMinSize()}")
-        print(f"[Viewer.initLayout] Before SetSizer - Viewer size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        print(f"[EFFORT SIZE] Viewer.initLayout - Widget size: {self.widget.GetSize()}, Best size: {self.widget.GetBestSize()}, Min size: {self.widget.GetMinSize()}")
+        print(f"[EFFORT SIZE] Viewer.initLayout - Viewer size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
         # FIXED: Changed from SetSizerAndFit to SetSizer to prevent the viewer from
         # constraining itself to minimum size. The viewer is embedded in a page and
         # should expand to fill available space.
         self.SetSizer(self._sizer)
-        print(f"[Viewer.initLayout] After SetSizer - Viewer size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+        print(f"[EFFORT SIZE] Viewer.initLayout AFTER SetSizer - Viewer size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
         self.Bind(wx.EVT_SIZE, self.onViewerSize)
 
     def onViewerSize(self, event):
-        size = self.GetSize()
-        print(f"[Viewer] onViewerSize - New size: {size}, Widget size: {self.widget.GetSize()}, Toolbar size: {self.toolbar.GetSize()}")
+        viewer_class = self.__class__.__name__
+        if viewer_class == "EffortViewer":
+            size = self.GetSize()
+            print(f"[EFFORT SIZE] Viewer.onViewerSize - Viewer new size: {size}, Widget size: {self.widget.GetSize()}, Best size: {self.widget.GetBestSize()}")
         event.Skip()
 
     def createWidget(self, *args):
