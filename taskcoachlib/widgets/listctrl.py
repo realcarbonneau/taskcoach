@@ -57,27 +57,35 @@ class VirtualListCtrl(
 
         The default wxListCtrl behavior sums all column widths to calculate
         best size, which causes the widget to request excessive width when
-        used in editors. Instead, we use the parent's available width or
-        a reasonable default.
+        used in editors. Instead, we return a reasonable default that won't
+        cause the sizer to lock in an oversized MinSize.
         """
         # Get the default best size (which includes summed column widths)
         defaultBest = super().DoGetBestSize()
 
-        # Use parent's width if available, otherwise use a reasonable max
-        parent = self.GetParent()
-        if parent:
-            parentWidth = parent.GetClientSize().GetWidth()
-            # If parent has been sized, use its width; otherwise use default
-            if parentWidth > 0:
-                # Use parent width, capping the height from default calculation
-                return wx.Size(parentWidth, defaultBest.GetHeight())
-
-        # Fallback: cap width at 800 pixels (reasonable for most screens)
-        # but keep the calculated height
+        # ALWAYS cap the width at a reasonable value to prevent MinSize from
+        # being set to the oversized sum-of-columns width
         maxWidth = 800
         return wx.Size(
             min(defaultBest.GetWidth(), maxWidth),
             defaultBest.GetHeight()
+        )
+
+    def DoGetMinSize(self):
+        """Override to prevent MinSize from being locked to oversized width.
+
+        This is critical because sizers will call GetBestSize() during initial
+        layout and then set MinSize to that value, which would lock us into
+        the oversized width even after DoGetBestSize() is fixed.
+        """
+        # Get the default min size
+        defaultMin = super().DoGetMinSize()
+
+        # Cap the width to prevent being locked at oversized dimensions
+        maxWidth = 800
+        return wx.Size(
+            min(defaultMin.GetWidth(), maxWidth),
+            defaultMin.GetHeight()
         )
 
     def bindEventHandlers(self, selectCommand, editCommand):

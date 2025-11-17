@@ -1897,16 +1897,6 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # Bind to size events for debugging
         self.Bind(wx.EVT_SIZE, self.onEditorSize)
 
-    def onEditorSize(self, event):
-        """Log size changes for debugging."""
-        event.Skip()
-        windowSize = self.GetSize()
-        interiorSize = self._interior.GetSize()
-        clientSize = self.GetClientSize()
-        screenSize = wx.DisplaySize()
-        print(
-            f"[Editor] RESIZE - Window: {windowSize}, Interior: {interiorSize}, Client: {clientSize}, Screen: {screenSize}"
-        )
         if not column_name:
             if self._interior.perspective() and hasattr(
                 self._interior, "GetSelection"
@@ -1952,6 +1942,17 @@ class Editor(BalloonTipManager, widgets.Dialog):
             windowdimensionstracker.WindowSizeAndPositionTracker(
                 self, settings, self._interior.settings_section()
             )
+        )
+
+    def onEditorSize(self, event):
+        """Log size changes for debugging."""
+        event.Skip()
+        windowSize = self.GetSize()
+        interiorSize = self._interior.GetSize()
+        clientSize = self.GetClientSize()
+        screenSize = wx.DisplaySize()
+        print(
+            f"[Editor] RESIZE - Window: {windowSize}, Interior: {interiorSize}, Client: {clientSize}, Screen: {screenSize}"
         )
 
     def __on_timer(self, event):
