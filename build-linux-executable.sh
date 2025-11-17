@@ -36,6 +36,7 @@ install_dependencies() {
             libatk1.0-dev \
             libgdk-pixbuf2.0-dev \
             libnotify-dev \
+            libsdl2-dev \
             libjpeg-dev \
             libtiff-dev \
             libpng-dev \
