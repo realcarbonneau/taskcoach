@@ -140,6 +140,9 @@ class Dialog(sized_controls.SizedDialog):
         interior_min_size = self._interior.GetMinSize()
         panel_size = self._panel.GetSize()
 
+        # Get editor type if available
+        editor_type = getattr(self._interior, '__class__', type(self._interior)).__name__
+
         # Also log current page size if this is a notebook editor
         page_info = ""
         if hasattr(self._interior, 'GetSelection'):
@@ -153,7 +156,7 @@ class Dialog(sized_controls.SizedDialog):
             except:
                 pass
 
-        print(f"[RESIZE] Dialog: {dialog_size}, Interior: {interior_size}, Interior MinSize: {interior_min_size}, Panel: {panel_size}{page_info}")
+        print(f"[RESIZE {editor_type}] Dialog: {dialog_size}, Interior: {interior_size}, Interior MinSize: {interior_min_size}, Panel: {panel_size}{page_info}")
 
     def disableOK(self):
         wxhelper.getButtonFromStdDialogButtonSizer(

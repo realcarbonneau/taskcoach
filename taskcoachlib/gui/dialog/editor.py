@@ -1266,6 +1266,7 @@ class EditBook(widgets.Notebook):
         # Only log if size changed
         if nb_size != self._last_logged_size:
             self._last_logged_size = nb_size
+            editor_type = self.__class__.__name__
             nb_min = self.GetMinSize()
             sel = self.GetSelection()
             if sel >= 0:
@@ -1273,7 +1274,7 @@ class EditBook(widgets.Notebook):
                 page_size = page.GetSize()
                 page_min = page.GetMinSize()
                 page_name = getattr(page, 'pageName', 'unknown')
-                print(f"[TIMER] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
+                print(f"[TIMER {editor_type}] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
 
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
@@ -1283,7 +1284,8 @@ class EditBook(widgets.Notebook):
 
     def addPages(self, task_file, items_are_new):
         page_names = self.settings.getlist(self.settings_section(), "pages")
-        print(f"[EditBook.addPages] Creating {len(page_names)} pages: {page_names}")
+        editor_type = self.__class__.__name__  # TaskEditBook, CategoryEditBook, etc.
+        print(f"[EditBook.addPages] {editor_type}: Creating {len(page_names)} pages: {page_names}")
         for page_name in page_names:
             page = self.createPage(page_name, task_file, items_are_new)
             self.AddPage(page, page.pageTitle, page.pageIcon)
@@ -1291,7 +1293,7 @@ class EditBook(widgets.Notebook):
         # That locks the notebook to the widest page (e.g., EffortPage = 1879px)
         # which breaks sizer constraints when dialog is smaller (e.g., 800px)
         # Let the notebook size naturally and let pages handle their own scrolling
-        print(f"[EditBook.addPages] Created {len(page_names)} pages - letting notebook size naturally")
+        print(f"[EditBook.addPages] {editor_type}: Created {len(page_names)} pages - letting notebook size naturally")
 
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
