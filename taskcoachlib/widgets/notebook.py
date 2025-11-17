@@ -62,7 +62,8 @@ class BookPage(wx.Panel):
         self._borderWidth = 5
 
     def fit(self):
-        self.SetSizerAndFit(self._sizer)
+        self.SetSizer(self._sizer)
+        self.Layout()
 
     def __defaultFlags(self, controls):
         """Return the default flags for placing a list of controls."""
