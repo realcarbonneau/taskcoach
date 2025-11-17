@@ -217,6 +217,18 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         # Without this, GetEffectiveMinSize() returns child's oversized BestSize (3705px)
         self.SetMinSize((100, 50))
 
+    def DoGetBestSize(self):
+        """Override to prevent Viewer from requesting excessive width based on child widget.
+
+        The VirtualListCtrl child calculates BestSize as sum of column widths (3705px+),
+        and by default the parent panel would propagate that upward. This causes the
+        GridBagSizer to allocate 3705px to the Viewer instead of making it fill available space.
+
+        Return a reasonable default instead.
+        """
+        # Return a modest size that won't cause the sizer to over-allocate
+        return wx.Size(200, 100)
+
     def createWidget(self, *args):
         raise NotImplementedError
 

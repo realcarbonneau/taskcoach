@@ -59,6 +59,17 @@ class VirtualListCtrl(
 
         print(f"[VirtualListCtrl] Created - Initial size: {self.GetSize()}, Best: {self.GetBestSize()}, Min: {self.GetMinSize()}, Max: {self.GetMaxSize()}")
 
+    def DoGetBestSize(self):
+        """Override to prevent VirtualListCtrl from reporting inflated BestSize.
+
+        By default, wx.ListCtrl calculates BestSize as sum of all column widths,
+        which can be 3700px+ with many columns. This causes parent sizers to
+        allocate that much space instead of making the widget fill available space.
+
+        Return a reasonable default that won't break layout.
+        """
+        return wx.Size(200, 100)
+
     def bindEventHandlers(self, selectCommand, editCommand):
         # pylint: disable=W0201
         if selectCommand:
