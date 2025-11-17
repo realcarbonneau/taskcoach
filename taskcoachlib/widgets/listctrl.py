@@ -51,6 +51,12 @@ class VirtualListCtrl(
         )
         self.__parent = parent
         self.bindEventHandlers(selectCommand, editCommand)
+
+        # CRITICAL: Set MinSize to allow widget to shrink below BestSize
+        # Without this, GetEffectiveMinSize() returns BestSize (sum of columns = 3700px+)
+        # and the sizer honors that instead of proportion=1/wx.EXPAND
+        self.SetMinSize((100, 50))  # Small minimum, allows filling parent
+
         print(f"[VirtualListCtrl] Created - Initial size: {self.GetSize()}, Best: {self.GetBestSize()}, Min: {self.GetMinSize()}, Max: {self.GetMaxSize()}")
 
     def bindEventHandlers(self, selectCommand, editCommand):
