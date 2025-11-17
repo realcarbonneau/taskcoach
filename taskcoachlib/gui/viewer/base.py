@@ -953,7 +953,12 @@ class ViewerWithColumns(Viewer):  # pylint: disable=W0223
             if columnName == "ordering"
             else hypertreelist._DEFAULT_COL_WIDTH
         )  # pylint: disable=W0212
-        return columnWidths.get(columnName, defaultWidth)
+
+        saved_width = columnWidths.get(columnName, None)
+        final_width = saved_width if saved_width is not None else defaultWidth
+
+        print(f"[getColumnWidth] Column '{columnName}': saved={saved_width}, default={defaultWidth}, returning={final_width}")
+        return final_width
 
     def onResizeColumn(self, column, width):
         columnWidths = self.settings.getdict(
