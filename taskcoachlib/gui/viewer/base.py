@@ -209,7 +209,7 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self._sizer = wx.BoxSizer(wx.VERTICAL)  # pylint: disable=W0201
         self._sizer.Add(self.toolbar, flag=wx.EXPAND)
         self._sizer.Add(self.widget, proportion=1, flag=wx.EXPAND)
-        self.SetSizerAndFit(self._sizer)
+        self.SetSizer(self._sizer)
 
     def createWidget(self, *args):
         raise NotImplementedError
