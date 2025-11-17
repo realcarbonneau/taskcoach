@@ -244,7 +244,7 @@ class MainWindow(
 
         try:
             self.manager.LoadPerspective(perspective)
-        except ValueError as reason:
+        except Exception as reason:
             # This has been reported to happen. Don't know why. Keep going
             # if it does.
             if self.__splash:
