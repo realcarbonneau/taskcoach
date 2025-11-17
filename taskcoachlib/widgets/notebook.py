@@ -66,7 +66,6 @@ class BookPage(wx.Panel):
         self.SetSizer(self._sizer)
         # Get the best size from the sizer's contents
         best_size = self._sizer.ComputeFittingWindowSize(self)
-        print(f"[BookPage.fit] Page: {self.__class__.__name__}, best_size: {best_size}, columns: {self._columns}")
         # Set ONLY the minimum size - don't constrain the actual size
         # This lets the notebook know how much space we need minimum,
         # but allows the page to expand to fill the notebook with EXPAND flags
@@ -211,24 +210,23 @@ class Notebook(BookMixin, aui.AuiNotebook):
         self.Bind(wx.EVT_SIZE, self.onNotebookResize)
 
     def onNotebookResize(self, event):
-        """Force all pages to resize when the notebook resizes."""
-        event.Skip()  # Let the event propagate
+        """Force all pages to resize when the notebook resizes.
 
-        # Safety check - don't resize if being destroyed
-        if not self:
-            return
+        AUI notebook doesn't automatically resize pages when the notebook
+        itself resizes, causing pages to stay stuck at their initial size.
+        """
+        event.Skip()  # Let the event propagate
 
         try:
             # Get the client area size (area available for page content)
             client_size = self.GetClientSize()
 
             # Resize ALL pages to fill the client area
-            # AUI notebook doesn't do this automatically
             for i in range(self.GetPageCount()):
                 page = self.GetPage(i)
-                if page:  # Safety check
+                if page and page.IsShown():
                     page.SetSize(client_size)
                     page.Layout()
-        except:
-            # Silently ignore errors during resize (window might be closing)
+        except (RuntimeError, AttributeError):
+            # Silently ignore if window is being destroyed
             pass

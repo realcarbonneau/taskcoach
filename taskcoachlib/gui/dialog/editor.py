@@ -1040,7 +1040,6 @@ class CategoriesPage(PageWithViewer):
                 parent_size = parent.GetClientSize()
                 self.SetSize(parent_size)
                 self.Layout()
-                print(f"[PageWithViewer.selected] Forced resize to parent size: {parent_size}, page min: {self.GetMinSize()}")
 
     def createViewer(self, taskFile, settings, settingsSection):
         assert len(self.items) == 1
@@ -1228,7 +1227,6 @@ class PrerequisitesPage(PageWithViewer):
                 parent_size = parent.GetClientSize()
                 self.SetSize(parent_size)
                 self.Layout()
-                print(f"[PageWithViewer.selected] Forced resize to parent size: {parent_size}, page min: {self.GetMinSize()}")
 
     def createViewer(self, taskFile, settings, settingsSection):
         assert len(self.items) == 1
@@ -1270,37 +1268,6 @@ class EditBook(widgets.Notebook):
         self.addPages(taskFile, items_are_new)
         self.__load_perspective(items_are_new)
 
-        # Keep logging to verify the fix works
-        self._size_log_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.onSizeLogTimer, self._size_log_timer)
-        self._size_log_timer.Start(500)  # Log every 500ms
-        self._last_logged_size = None
-
-    def onSizeLogTimer(self, event):
-        """Periodically log size to verify sizing works correctly."""
-        # Safety check - window might be closing
-        if not self:
-            return
-
-        try:
-            nb_size = self.GetSize()
-            # Only log if size changed
-            if nb_size != self._last_logged_size:
-                self._last_logged_size = nb_size
-                editor_type = self.__class__.__name__
-                nb_min = self.GetMinSize()
-                sel = self.GetSelection()
-                if sel >= 0:
-                    page = self.GetPage(sel)
-                    if page:  # Safety check
-                        page_size = page.GetSize()
-                        page_min = page.GetMinSize()
-                        page_name = getattr(page, 'pageName', 'unknown')
-                        print(f"[TIMER {editor_type}] Notebook: {nb_size}, NB MinSize: {nb_min}, Page({page_name}): {page_size}, Page MinSize: {page_min}")
-        except:
-            # Silently ignore errors during logging (window might be closing)
-            pass
-
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
         curSel = curSel + 1 if forward else curSel - 1
@@ -1309,8 +1276,6 @@ class EditBook(widgets.Notebook):
 
     def addPages(self, task_file, items_are_new):
         page_names = self.settings.getlist(self.settings_section(), "pages")
-        editor_type = self.__class__.__name__  # TaskEditBook, CategoryEditBook, etc.
-        print(f"[EditBook.addPages] {editor_type}: Creating {len(page_names)} pages: {page_names}")
         for page_name in page_names:
             page = self.createPage(page_name, task_file, items_are_new)
             self.AddPage(page, page.pageTitle, page.pageIcon)
@@ -1318,7 +1283,6 @@ class EditBook(widgets.Notebook):
         # That locks the notebook to the widest page (e.g., EffortPage = 1879px)
         # which breaks sizer constraints when dialog is smaller (e.g., 800px)
         # Let the notebook size naturally and let pages handle their own scrolling
-        print(f"[EditBook.addPages] {editor_type}: Created {len(page_names)} pages - letting notebook size naturally")
 
     def onPageChanged(self, event):
         self.GetPage(event.Selection).selected()
@@ -1532,11 +1496,6 @@ class EditBook(widgets.Notebook):
     def close_edit_book(self):
         """Close all pages in the edit book and save the current layout in
         the settings."""
-        # Stop the size logging timer to prevent access to destroyed objects
-        if hasattr(self, '_size_log_timer') and self._size_log_timer:
-            self._size_log_timer.Stop()
-            self._size_log_timer = None
-
         for page in self:
             page.close()
         self.__save_perspective()
