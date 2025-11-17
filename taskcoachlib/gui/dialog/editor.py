@@ -434,7 +434,7 @@ class TaskAppearancePage(Page):
             self.items[0].appearanceChangedEventType(),
         )
         setattr(self, "_%sColorSync" % colorType, colorSync)
-        self.addEntry(labelText, colorEntry, flags=[wx.ALIGN_RIGHT, wx.ALL])
+        self.addEntry(labelText, colorEntry, flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND])
 
     def addFontEntry(self):
         # pylint: disable=W0201,E1101
@@ -460,7 +460,7 @@ class TaskAppearancePage(Page):
             self.items[0].appearanceChangedEventType(),
         )
         self.addEntry(
-            _("Font"), self._fontEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
+            _("Font"), self._fontEntry, flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND]
         )
 
     def addIconEntry(self):
@@ -477,7 +477,7 @@ class TaskAppearancePage(Page):
             self.items[0].appearanceChangedEventType(),
         )
         self.addEntry(
-            _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
+            _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND]
         )
 
     def entries(self):
@@ -776,7 +776,7 @@ class BudgetPage(Page):
             self.items[0].budgetChangedEventType(),
         )
         self.addEntry(
-            _("Budget"), self._budgetEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
+            _("Budget"), self._budgetEntry, flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND]
         )
 
     def addTimeSpentEntry(self):
@@ -788,7 +788,7 @@ class BudgetPage(Page):
         self.addEntry(
             _("Time spent"),
             self._timeSpentEntry,
-            flags=[wx.ALIGN_RIGHT, wx.ALL],
+            flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND],
         )
         pub.subscribe(
             self.onTimeSpentChanged, self.items[0].timeSpentChangedEventType()
@@ -809,7 +809,7 @@ class BudgetPage(Page):
         self.addEntry(
             _("Budget left"),
             self._budgetLeftEntry,
-            flags=[wx.ALIGN_RIGHT, wx.ALL],
+            flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND],
         )
         pub.subscribe(
             self.onBudgetLeftChanged,
@@ -846,7 +846,7 @@ class BudgetPage(Page):
         self.addEntry(
             _("Hourly fee"),
             self._hourlyFeeEntry,
-            flags=[wx.ALIGN_RIGHT, wx.ALL],
+            flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND],
         )
 
     def addFixedFeeEntry(self):
@@ -865,7 +865,7 @@ class BudgetPage(Page):
             self.items[0].fixedFeeChangedEventType(),
         )
         self.addEntry(
-            _("Fixed fee"), self._fixedFeeEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
+            _("Fixed fee"), self._fixedFeeEntry, flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND]
         )
 
     def addRevenueEntry(self):
@@ -875,7 +875,7 @@ class BudgetPage(Page):
             self, revenue, readonly=True
         )  # pylint: disable=W0201
         self.addEntry(
-            _("Revenue"), self._revenueEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
+            _("Revenue"), self._revenueEntry, flags=[wx.ALIGN_RIGHT, wx.ALL | wx.EXPAND]
         )
         pub.subscribe(
             self.onRevenueChanged, self.items[0].revenueChangedEventType()

@@ -62,7 +62,13 @@ class BookPage(wx.Panel):
         self._borderWidth = 5
 
     def fit(self):
-        self.SetSizerAndFit(self._sizer)
+        # Set the sizer and allow the panel to expand beyond minimum size
+        # SetSizerAndFit would constrain the panel, preventing proper expansion
+        self.SetSizer(self._sizer)
+        # Calculate minimum size for proper notebook sizing
+        min_size = self._sizer.CalcMin()
+        self.SetMinSize(min_size)
+        self.Layout()
 
     def __defaultFlags(self, controls):
         """Return the default flags for placing a list of controls."""
