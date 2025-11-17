@@ -1514,7 +1514,6 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
-    # REMOVED: "effort" tab to isolate layout issue - testing if other tabs work correctly
     allPageNames = [
         "subject",
         "dates",
@@ -1522,7 +1521,7 @@ class TaskEditBook(EditBook):
         "progress",
         "categories",
         "budget",
-        # "effort",  # REMOVED for testing
+        "effort",  # Re-added with fixed BookPage.SetSizer()
         "notes",
         "attachments",
         "appearance",

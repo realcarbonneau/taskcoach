@@ -412,6 +412,27 @@ defaults = {
         "alwaysroundup": "False",
         "consolidateeffortspertask": "False",
     },
+    "effortviewerincategoryeditor": {
+        # TESTING: Settings for effort viewer in category editor (for comparison testing)
+        "toolbarperspective": "Spacer,ResetFilter,Search",  # Minimal toolbar
+        "aggregation": "details",  # 'details' (default), 'day', 'week', or 'month'
+        "sortby": '["-period"]',
+        "sortcasesensitive": "False",
+        "columns": "['description', 'timeSpent']",
+        "columnsalwaysvisible": "['period', 'task']",
+        "columnwidths": "{'period': 160, 'monday': 70, 'tuesday': 70, "
+        "'wednesday': 70, 'thursday': 70, 'friday': 70, "
+        "'saturday': 70, 'sunday': 70, 'description': 200}",
+        "columnautoresizing": "False",
+        "searchfilterstring": "",
+        "searchfiltermatchcase": "False",
+        "searchfilterincludesubitems": "False",
+        "searchdescription": "False",
+        "regularexpression": "False",
+        "round": "0",
+        "alwaysroundup": "False",
+        "consolidateeffortspertask": "False",
+    },
     "attachmentviewer": {
         "title": "",
         "toolbarperspective": "AttachmentNew,Separator,Edit,Delete,Separator,AttachmentOpen,Spacer,Search",
