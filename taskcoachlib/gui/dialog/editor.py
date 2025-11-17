@@ -944,13 +944,22 @@ class PageWithViewer(Page):
         self.__settings = settings
         self.__settingsSection = settingsSection
         super().__init__(items, parent, *args, **kwargs)
+        self.Bind(wx.EVT_SIZE, self.onSize)
+        print(f"[PageWithViewer] __init__ - Initial size: {self.GetSize()}, Best size: {self.GetBestSize()}, Min size: {self.GetMinSize()}")
+
+    def onSize(self, event):
+        size = self.GetSize()
+        print(f"[PageWithViewer] onSize - New size: {size}, Viewer size: {self.viewer.GetSize() if hasattr(self, 'viewer') else 'N/A'}")
+        event.Skip()
 
     def addEntries(self):
         # pylint: disable=W0201
         self.viewer = self.createViewer(
             self.__taskFile, self.__settings, self.__settingsSection
         )
+        print(f"[PageWithViewer] addEntries - Viewer created. Viewer size: {self.viewer.GetSize()}, Best size: {self.viewer.GetBestSize()}, Min size: {self.viewer.GetMinSize()}")
         self.addEntry(self.viewer, growable=True, flags=[wx.EXPAND])
+        print(f"[PageWithViewer] addEntries - After addEntry. Viewer size: {self.viewer.GetSize()}, Best size: {self.viewer.GetBestSize()}, Min size: {self.viewer.GetMinSize()}")
 
     def createViewer(self, taskFile, settings, settingsSection):
         raise NotImplementedError
@@ -1501,7 +1510,8 @@ class TaskEditBook(EditBook):
 
 
 class CategoryEditBook(EditBook):
-    allPageNames = ["subject", "notes", "attachments", "appearance"]
+    # MODIFIED: Added "effort" to test if Effort tab has layout issues in Category editor too
+    allPageNames = ["subject", "notes", "effort", "attachments", "appearance"]
     domainObject = "category"
 
     def create_subject_page(self):

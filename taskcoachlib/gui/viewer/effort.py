@@ -553,7 +553,8 @@ class EffortViewer(
             )
         )
         return (
-            self.aggregationUICommand,
+            # REMOVED: Temporarily commenting out aggregation dropdown to isolate layout issue
+            # self.aggregationUICommand,
             self.roundingUICommand,
             self.alwaysRoundUpUICommand,
             self.consolidateEffortsPerTaskUICommand,
