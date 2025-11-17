@@ -975,7 +975,7 @@ class EffortPage(PageWithViewer):
     pageIcon = "clock_icon"
 
     def createViewer(self, taskFile, settings, settingsSection):
-        effort_viewer = viewer.EffortViewer(
+        return viewer.EffortViewer(
             self,
             taskFile,
             settings,
@@ -983,11 +983,6 @@ class EffortPage(PageWithViewer):
             use_separate_settings_section=False,
             tasksToShowEffortFor=task.TaskList(self.items),
         )
-        # Override the viewer's minimum size to prevent layout breaking
-        # The EffortViewer has many columns that sum to 1879px, which is too wide
-        # for the dialog. Set a reasonable minimum and let it scroll horizontally.
-        effort_viewer.SetMinSize((400, 200))
-        return effort_viewer
 
     def entries(self):
         if hasattr(self, "viewer"):
