@@ -343,23 +343,16 @@ class _BaseCtrlWithColumnsMixin(object):
         newMap.append((columnIndex, column))
         self.__indexMap = newMap
 
-        requested_width = column.width
         self.InsertColumn(
             columnIndex,
             column.header() if column.headerImageIndex() == -1 else "",
             format=column.alignment(),
-            width=requested_width,
+            width=column.width,
         )
 
         columnInfo = self.GetColumn(columnIndex)
         columnInfo.SetImage(column.headerImageIndex())
         self.SetColumn(columnIndex, columnInfo)
-
-        actual_width = self.GetColumnWidth(columnIndex)
-        if actual_width != requested_width:
-            print(f"[COLUMN INSERT] Column '{column.header()}' requested: {requested_width}px, got: {actual_width}px (diff: {actual_width - requested_width}px)")
-        else:
-            print(f"[COLUMN INSERT] Column '{column.header()}' width: {actual_width}px")
 
     def _deleteColumn(self, columnIndex):
         newMap = []
