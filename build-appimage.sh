@@ -15,8 +15,9 @@ APP_DIR="AppDir"
 VERSION=$(python3 -c "from taskcoachlib import meta; print(meta.version)")
 ARCH=$(uname -m)
 UBUNTU_VERSION="${UBUNTU_VERSION:-ubuntu22.04}"
+COMMIT_SHA="${COMMIT_SHA:-dev}"
 
-echo "Building TaskCoach AppImage version $VERSION for $ARCH (${UBUNTU_VERSION})"
+echo "Building TaskCoach AppImage version $VERSION for $ARCH (${UBUNTU_VERSION}-${COMMIT_SHA})"
 
 # Clean up previous builds
 rm -rf "$APP_DIR"
@@ -119,6 +120,9 @@ python3 -m pip install --no-cache-dir --target="$APP_DIR/usr/lib/python-deps" \
     numpy \
     lockfile>=0.12.2 \
     gntp>=1.0.3 \
+    pyOpenSSL \
+    cryptography \
+    cffi \
     || echo "Warning: Some dependencies may have failed to install"
 
 # Install wxPython separately using pre-built wheels (much faster)
@@ -156,11 +160,15 @@ cat > "$APP_DIR/usr/bin/taskcoach" << 'WRAPPER_EOF2'
 # Get the directory where the AppImage is mounted
 APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")/../..}"
 
-# Set Python path to include bundled modules
-export PYTHONPATH="$APPDIR/usr/lib/python-deps:$APPDIR/usr/lib:$PYTHONPATH"
+# CRITICAL: Set PYTHONPATH to use bundled packages BEFORE system packages
+# This prevents version conflicts with system pyOpenSSL, cryptography, etc.
+export PYTHONPATH="$APPDIR/usr/lib/python-deps:$APPDIR/usr/lib"
 
 # Add bundled libraries to library path (IMPORTANT: put at beginning for priority)
 export LD_LIBRARY_PATH="$APPDIR/usr/lib/x86_64-linux-gnu:$APPDIR/usr/lib:$LD_LIBRARY_PATH"
+
+# Disable system site-packages to avoid mixing bundled and system packages
+export PYTHONNOUSERSITE=1
 
 # Ensure GTK and other GUI libraries can be found
 export GDK_PIXBUF_MODULEDIR="$APPDIR/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders"
@@ -168,7 +176,7 @@ export GDK_PIXBUF_MODULE_FILE="$APPDIR/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2
 
 # Run TaskCoach
 cd "$APPDIR/usr/lib"
-exec python3 taskcoach.py "$@"
+exec python3 -s taskcoach.py "$@"
 WRAPPER_EOF2
 chmod +x "$APP_DIR/usr/bin/taskcoach"
 
@@ -184,7 +192,7 @@ fi
 
 # Build AppImage
 echo "Building AppImage..."
-APPIMAGE_NAME="TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}.AppImage"
+APPIMAGE_NAME="TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-${COMMIT_SHA}.AppImage"
 ARCH=$ARCH ./appimagetool-${ARCH}.AppImage "$APP_DIR" "$APPIMAGE_NAME"
 
 # Make it executable

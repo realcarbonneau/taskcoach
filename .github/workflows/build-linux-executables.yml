@@ -39,7 +39,7 @@ jobs:
             libatk1.0-dev \
             libgdk-pixbuf2.0-dev \
             libnotify-dev \
-            libsdl2-dev \
+            libsdl2-2.0-0 \
             libjpeg-dev \
             libtiff-dev \
             libpng-dev
@@ -88,12 +88,14 @@ jobs:
           VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
           ARCH=$(uname -m)
           UBUNTU_VERSION="ubuntu22.04"
+          COMMIT_SHA="${GITHUB_SHA:0:7}"
           cd dist
-          tar czf "TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-pyinstaller.tar.gz" taskcoach/
+          tar czf "TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-${COMMIT_SHA}-pyinstaller.tar.gz" taskcoach/
           cd ..
-          echo "TARBALL_NAME=TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-pyinstaller.tar.gz" >> $GITHUB_ENV
+          echo "TARBALL_NAME=TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-${COMMIT_SHA}-pyinstaller.tar.gz" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "UBUNTU_VERSION=${UBUNTU_VERSION}" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
 
       - name: Test executable
         run: |
@@ -106,14 +108,14 @@ jobs:
       - name: Upload PyInstaller artifact
         uses: actions/upload-artifact@v4
         with:
-          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-pyinstaller-tarball
+          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-${{ env.COMMIT_SHA }}-pyinstaller-tarball
           path: dist/${{ env.TARBALL_NAME }}
           retention-days: 90
 
       - name: Upload executable directory (for testing)
         uses: actions/upload-artifact@v4
         with:
-          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-pyinstaller-dir
+          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-${{ env.COMMIT_SHA }}-pyinstaller-dir
           path: dist/taskcoach/
           retention-days: 30
 
@@ -141,7 +143,7 @@ jobs:
             libatk1.0-dev \
             libgdk-pixbuf2.0-dev \
             libnotify-dev \
-            libsdl2-dev \
+            libsdl2-2.0-0 \
             libjpeg-dev \
             libtiff-dev \
             libpng-dev \
@@ -158,20 +160,22 @@ jobs:
         run: |
           VERSION=$(python -c "from taskcoachlib import meta; print(meta.version)")
           UBUNTU_VERSION="ubuntu22.04"
+          COMMIT_SHA="${GITHUB_SHA:0:7}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "UBUNTU_VERSION=${UBUNTU_VERSION}" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Build AppImage
         run: |
           chmod +x build-appimage.sh
-          UBUNTU_VERSION=${{ env.UBUNTU_VERSION }} ./build-appimage.sh
+          UBUNTU_VERSION=${{ env.UBUNTU_VERSION }} COMMIT_SHA=${{ env.COMMIT_SHA }} ./build-appimage.sh
 
       - name: List AppImage
         run: |
           ls -lh TaskCoach-*.AppImage
           ARCH=$(uname -m)
-          echo "APPIMAGE_NAME=TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}.AppImage" >> $GITHUB_ENV
+          echo "APPIMAGE_NAME=TaskCoach-${VERSION}-${ARCH}-${UBUNTU_VERSION}-${COMMIT_SHA}.AppImage" >> $GITHUB_ENV
 
       - name: Test AppImage
         run: |
@@ -186,7 +190,7 @@ jobs:
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: taskcoach-appimage-${{ env.VERSION }}
+          name: taskcoach-${{ env.VERSION }}-${{ env.UBUNTU_VERSION }}-${{ env.COMMIT_SHA }}-appimage
           path: TaskCoach-*.AppImage
           retention-days: 90
 
