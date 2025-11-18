@@ -541,3 +541,70 @@ class DatesTest(DatesTestBase):
             self.yesterday.toordinal(),
             places=2,
         )
+
+
+class QuickCloseTest(test.wxTestCase):
+    """Test that closing the editor quickly doesn't crash."""
+
+    def setUp(self):
+        super().setUp()
+        task.Task.settings = self.settings = config.Settings(load=False)
+        self.taskFile = persistence.TaskFile()
+        self.taskList = self.taskFile.tasks()
+        self.task = task.Task("Task to edit")
+        self.taskList.append(self.task)
+
+    def tearDown(self):
+        if operating_system.isGTK():
+            wx.Yield()
+        super().tearDown()
+        self.taskFile.close()
+        self.taskFile.stop()
+
+    def testQuickClose(self):
+        """Test closing editor immediately after opening - should not crash."""
+        editor = gui.dialog.editor.TaskEditor(
+            self.frame,
+            [self.task],
+            self.settings,
+            self.taskList,
+            self.taskFile,
+        )
+        editor.Show()
+        # Close immediately without waiting
+        editor.Close()
+        # Process pending events
+        wx.Yield()
+        # If we get here without crashing, test passed
+
+    def testMultipleQuickCloses(self):
+        """Test multiple rapid open/close cycles - should not crash."""
+        for i in range(5):
+            editor = gui.dialog.editor.TaskEditor(
+                self.frame,
+                [self.task],
+                self.settings,
+                self.taskList,
+                self.taskFile,
+            )
+            editor.Show()
+            editor.Close()
+            wx.Yield()
+        # If we get here without crashing, test passed
+
+    def testQuickCloseWithESC(self):
+        """Simulate ESC key press to close dialog - should not crash."""
+        editor = gui.dialog.editor.TaskEditor(
+            self.frame,
+            [self.task],
+            self.settings,
+            self.taskList,
+            self.taskFile,
+        )
+        editor.Show()
+        # Simulate ESC key press
+        event = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+        event.SetKeyCode(wx.WXK_ESCAPE)
+        editor.GetEventHandler().ProcessEvent(event)
+        wx.Yield()
+        # If we get here without crashing, test passed
