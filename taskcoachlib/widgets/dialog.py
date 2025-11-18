@@ -147,16 +147,14 @@ class Dialog(sized_controls.SizedDialog):
         return buttonSizer
 
     def ok(self, event=None):
-        if event:
-            event.Skip()
+        # Don't call event.Skip() - we're closing so no need to propagate
         self.Close(True)
         # Note: Don't call Destroy() here - EVT_CLOSE handler is responsible
         # for destruction. Calling both Close() and Destroy() causes double
         # destruction which crashes on GTK.
 
     def cancel(self, event=None):
-        if event:
-            event.Skip()
+        # Don't call event.Skip() - we're closing so no need to propagate
         self.Close(True)
         # Note: Don't call Destroy() here - EVT_CLOSE handler is responsible
         # for destruction. Calling both Close() and Destroy() causes double
