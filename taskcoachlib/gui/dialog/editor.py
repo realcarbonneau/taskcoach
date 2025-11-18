@@ -1985,17 +1985,14 @@ class Editor(BalloonTipManager, widgets.Dialog):
             self.__timer.Stop()
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
-        # Hide immediately to give visual feedback, then defer destruction
-        # to allow GTK to complete any pending layout/rendering work.
-        # CallLater with 100ms delay is necessary because GTK's internal
-        # event processing isn't exposed - we can't know when it's truly ready.
-        # CallAfter alone doesn't work because it only waits for the next
-        # event loop iteration, not for GTK's render pass to complete.
+        # Hide immediately for visual feedback
         self.Hide()
-        def _safe_destroy():
-            if self and not self.IsBeingDeleted():
-                self.Destroy()
-        wx.CallLater(100, _safe_destroy)
+        # Process all pending events (including our guarded SetFocus callback)
+        # before destruction. This is the standard wxPython/GTK pattern -
+        # the same approach used in the test suite tearDown.
+        if operating_system.isGTK():
+            wx.YieldIfNeeded()
+        self.Destroy()
 
     def on_activate(self, event):
         event.Skip()
