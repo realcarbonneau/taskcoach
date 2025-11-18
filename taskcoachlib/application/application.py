@@ -211,10 +211,27 @@ class Application(object, metaclass=patterns.Singleton):
         """Call this to start the Application."""
         # pylint: disable=W0201
         from taskcoachlib import meta
+        import sys
+        import platform
+        import wx
 
-        # Log version info at startup
+        # Log version info at startup for debugging
         print(f"Task Coach {meta.version_with_patch} (commit {meta.git_commit_hash})" if meta.git_commit_hash
               else f"Task Coach {meta.version}")
+        print(f"Python {sys.version}")
+        print(f"wxPython {wx.version()}")
+        print(f"Platform: {platform.platform()}")
+
+        # Log GTK/glibc info on Linux
+        if platform.system() == 'Linux':
+            try:
+                import ctypes
+                libc = ctypes.CDLL('libc.so.6')
+                gnu_get_libc_version = libc.gnu_get_libc_version
+                gnu_get_libc_version.restype = ctypes.c_char_p
+                print(f"glibc {gnu_get_libc_version().decode()}")
+            except:
+                pass
 
         if self.settings.getboolean("version", "notify"):
             self.__version_checker = meta.VersionChecker(self.settings)
