@@ -1894,6 +1894,9 @@ class Editor(BalloonTipManager, widgets.Dialog):
                 eventSource=self._items[0],
             )
         self.Bind(wx.EVT_CLOSE, self.on_close_editor)
+        # Intercept ESC key to handle close ourselves, bypassing GTK's default
+        # dialog close behavior which can race with our custom handler
+        self.Bind(wx.EVT_CHAR_HOOK, self.__on_char_hook)
 
         if operating_system.isMac():
             # Sigh. On OS X, if you open an editor, switch back to the main window, open
@@ -1920,6 +1923,15 @@ class Editor(BalloonTipManager, widgets.Dialog):
     def __on_timer(self, event):
         if not self.IsShown():
             self.Close()
+
+    def __on_char_hook(self, event):
+        """Intercept ESC key to handle close ourselves."""
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            # Don't let the default dialog ESC handler run - it can race
+            # with our custom close handler causing GTK crashes
+            self.Close()
+        else:
+            event.Skip()
 
     def __create_ui_commands(self):
         # FIXME: keyboard shortcuts are hardcoded here, but they can be
