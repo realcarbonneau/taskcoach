@@ -1969,10 +1969,14 @@ class Editor(BalloonTipManager, widgets.Dialog):
             self.__timer.Stop()
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
-        # Delete pending events to prevent CallAfter callbacks from executing
-        # on a destroyed window (causes GTK/pixman crash)
-        self.DeletePendingEvents()
-        self.Destroy()
+        # Hide immediately to give visual feedback, then defer destruction
+        # to allow GTK to complete any pending layout/rendering work.
+        # This prevents pixman crashes from destroying widgets with 0 dimensions.
+        self.Hide()
+        def _safe_destroy():
+            if self and not self.IsBeingDeleted():
+                self.Destroy()
+        wx.CallAfter(_safe_destroy)
 
     def on_activate(self, event):
         event.Skip()
