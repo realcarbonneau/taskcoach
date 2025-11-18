@@ -1876,6 +1876,7 @@ class Editor(BalloonTipManager, widgets.Dialog):
         column_name = kwargs.pop("columnName", "")
         self.__call_after = kwargs.get("call_after", wx.CallAfter)
         self.__closing = False  # Guard against double-close
+        self.__initialized = False  # Block close until init complete
         _debug_log("  calling Dialog super().__init__")
         super().__init__(
             parent, self.__title(), buttonTypes=wx.ID_CLOSE, *args, **kwargs
@@ -1931,7 +1932,15 @@ class Editor(BalloonTipManager, widgets.Dialog):
                 self, settings, self._interior.settings_section()
             )
         )
+        # Mark as initialized after all pending wx.CallAfter events complete.
+        # This ensures the dialog won't close until GTK layout is finished.
+        wx.CallAfter(self.__mark_initialized)
         _debug_log(f"Editor.__init__ END: {self.__class__.__name__}")
+
+    def __mark_initialized(self):
+        """Mark the editor as fully initialized and ready to be closed."""
+        _debug_log("Editor marked as initialized")
+        self.__initialized = True
 
     def __on_timer(self, event):
         if not self.IsShown():
@@ -1977,12 +1986,21 @@ class Editor(BalloonTipManager, widgets.Dialog):
 
     def on_close_editor(self, event):
         _debug_log("on_close_editor START")
+        # Block close until initialization is complete. This prevents crashes
+        # when ESC is pressed before pending wx.CallAfter events (like SetFocus)
+        # from Dialog.__init__ have completed.
+        if not self.__initialized:
+            _debug_log("  not initialized yet, vetoing close")
+            event.Veto()
+            return
+
         # Guard against double-close which causes segfault
         if self.__closing:
             _debug_log("  already closing, ignoring duplicate close event")
             return
         self.__closing = True
 
+        event.Skip()
         _debug_log("  closing edit book")
         self._interior.close_edit_book()
         _debug_log("  removing observers")
@@ -1995,13 +2013,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
         if self.__timer is not None:
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
-        _debug_log("  calling wx.CallLater(100, self.Destroy)")
-        # Use CallLater with a delay to allow GTK to finish pending layout
-        # calculations before destroying the window. CallAfter alone is not
-        # sufficient as GTK may still be processing layout events. This prevents
-        # crashes when the dialog is closed very quickly (e.g., ESC pressed
-        # before GTK initialization finishes).
-        wx.CallLater(100, self.Destroy)
+        _debug_log("  calling self.Destroy()")
+        self.Destroy()
         _debug_log("on_close_editor END")
 
     def on_activate(self, event):
