@@ -1482,6 +1482,11 @@ class EditBook(widgets.Notebook):
         for page in self:
             page.close()
         self.__save_perspective()
+        # Clean up AUI manager's pushed event handlers before window destruction
+        # to prevent "pushed event handlers must have been removed" assertion
+        mgr = self.GetAuiManager()
+        if mgr:
+            mgr.UnInit()
 
 
 class TaskEditBook(EditBook):
@@ -1951,7 +1956,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
         )
 
     def on_close_editor(self, event):
-        event.Skip()
+        # Do cleanup first, then destroy. Don't call event.Skip() since we're
+        # handling destruction ourselves with Destroy().
         self._interior.close_edit_book()
         patterns.Publisher().removeObserver(self.on_item_removed)
         patterns.Publisher().removeObserver(self.on_subject_changed)
@@ -1960,8 +1966,12 @@ class Editor(BalloonTipManager, widgets.Dialog):
         if operating_system.isMac():
             self._interior.SetFocusIgnoringChildren()
         if self.__timer is not None:
+            self.__timer.Stop()
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
+        # Delete pending events to prevent CallAfter callbacks from executing
+        # on a destroyed window (causes GTK/pixman crash)
+        self.DeletePendingEvents()
         self.Destroy()
 
     def on_activate(self, event):

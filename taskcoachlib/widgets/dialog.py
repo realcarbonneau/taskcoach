@@ -73,7 +73,12 @@ class Dialog(sized_controls.SizedDialog):
         self.CentreOnParent()
         if not operating_system.isGTK():
             wx.CallAfter(self.Raise)
-        wx.CallAfter(self._panel.SetFocus)
+        # Guard the SetFocus callback against window being destroyed before
+        # it executes. This prevents crashes when ESC is pressed quickly.
+        def _safe_set_focus():
+            if self and not self.IsBeingDeleted():
+                self._panel.SetFocus()
+        wx.CallAfter(_safe_set_focus)
 
     def SetExtraStyle(self, exstyle):
         # SizedDialog's constructor calls this to set WS_EX_VALIDATE_RECURSIVELY. We don't need
