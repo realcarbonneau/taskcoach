@@ -195,3 +195,14 @@ class Notebook(BookMixin, aui.AuiNotebook):
             & ~aui.AUI_NB_MIDDLE_CLICK_CLOSE
         )
         super().__init__(*args, **kwargs)
+
+    def cleanup_aui(self):
+        """Clean up AUI resources before destruction.
+
+        AuiNotebook uses an internal AuiManager that pushes event handlers.
+        These must be cleaned up before the window is destroyed to avoid
+        'any pushed event handlers must have been removed' assertion failures.
+        """
+        mgr = self.GetAuiManager()
+        if mgr:
+            mgr.UnInit()

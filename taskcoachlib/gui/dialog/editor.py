@@ -1498,6 +1498,8 @@ class EditBook(widgets.Notebook):
         for page in self:
             page.close()
         self.__save_perspective()
+        # Clean up AUI resources to prevent 'pushed event handlers' assertion
+        self.cleanup_aui()
 
 
 class TaskEditBook(EditBook):
