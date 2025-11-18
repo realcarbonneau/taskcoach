@@ -25,11 +25,13 @@ import wx.html
 from wx.lib import sized_controls
 import os
 import sys
+import time
 from ..tools import wxhelper
 
 def _debug_log(msg):
     """Debug logging for dialog initialization tracking."""
-    print(f"[DIALOG DEBUG] {msg}", file=sys.stderr, flush=True)
+    timestamp = time.time()
+    print(f"[DIALOG DEBUG] {timestamp:.6f} {msg}", file=sys.stderr, flush=True)
 
 
 class Dialog(sized_controls.SizedDialog):
@@ -90,7 +92,14 @@ class Dialog(sized_controls.SizedDialog):
         self.CentreOnParent()
         if not operating_system.isGTK():
             wx.CallAfter(self.Raise)
-        wx.CallAfter(self._panel.SetFocus)
+
+        def _set_focus_callback():
+            _debug_log("  CallAfter SetFocus executing")
+            if self._panel:
+                self._panel.SetFocus()
+            _debug_log("  CallAfter SetFocus done")
+
+        wx.CallAfter(_set_focus_callback)
         _debug_log(f"Dialog.__init__ END: {title}")
 
     def SetExtraStyle(self, exstyle):

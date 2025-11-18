@@ -32,11 +32,13 @@ from taskcoachlib.thirdparty import smartdatetimectrl as sdtc
 from taskcoachlib.help.balloontips import BalloonTipManager
 import os.path
 import sys
+import time
 import wx
 
 def _debug_log(msg):
     """Debug logging for editor initialization tracking."""
-    print(f"[EDITOR DEBUG] {msg}", file=sys.stderr, flush=True)
+    timestamp = time.time()
+    print(f"[EDITOR DEBUG] {timestamp:.6f} {msg}", file=sys.stderr, flush=True)
 
 
 class Page(patterns.Observer, widgets.BookPage):
