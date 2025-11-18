@@ -1866,6 +1866,10 @@ class Editor(BalloonTipManager, widgets.Dialog):
         super().__init__(
             parent, self.__title(), buttonTypes=wx.ID_CLOSE, *args, **kwargs
         )
+        # Set minimum size to prevent GTK pixman crash from 0-dimension widgets.
+        # This doesn't affect the resizing fix since pages can still flex within
+        # this minimum boundary.
+        self.SetMinSize((400, 300))
         if not column_name:
             if self._interior.perspective() and hasattr(
                 self._interior, "GetSelection"
