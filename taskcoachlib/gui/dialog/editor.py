@@ -1962,7 +1962,10 @@ class Editor(BalloonTipManager, widgets.Dialog):
         if self.__timer is not None:
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
-        self.Destroy()
+        # Use CallAfter to defer destruction until pending events (including
+        # layout calculations) complete. This prevents crashes when the dialog
+        # is closed very quickly (e.g., ESC pressed before initialization finishes).
+        wx.CallAfter(self.Destroy)
 
     def on_activate(self, event):
         event.Skip()
