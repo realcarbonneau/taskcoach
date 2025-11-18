@@ -1975,12 +1975,15 @@ class Editor(BalloonTipManager, widgets.Dialog):
         IdProvider.put(self.__new_effort_id)
         # Hide immediately to give visual feedback, then defer destruction
         # to allow GTK to complete any pending layout/rendering work.
-        # This prevents pixman crashes from destroying widgets with 0 dimensions.
+        # CallLater with 100ms delay is necessary because GTK's internal
+        # event processing isn't exposed - we can't know when it's truly ready.
+        # CallAfter alone doesn't work because it only waits for the next
+        # event loop iteration, not for GTK's render pass to complete.
         self.Hide()
         def _safe_destroy():
             if self and not self.IsBeingDeleted():
                 self.Destroy()
-        wx.CallAfter(_safe_destroy)
+        wx.CallLater(100, _safe_destroy)
 
     def on_activate(self, event):
         event.Skip()
