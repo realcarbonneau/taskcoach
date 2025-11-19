@@ -1987,16 +1987,14 @@ class Editor(BalloonTipManager, widgets.Dialog):
         IdProvider.put(self.__new_effort_id)
         # Hide immediately for visual feedback
         self.Hide()
-        # Defer destruction to allow GTK to complete its layout work.
-        # Use CallAfter to schedule destruction for after the current event
-        # processing completes. The SafeYield ensures all pending events
-        # are processed before destruction.
+        # Defer destruction with a minimal timer to allow GTK to complete
+        # its layout work. This is necessary because GTK doesn't provide a
+        # "ready" callback - the only reliable way to know layout is complete
+        # is to let GTK's event loop run for a brief moment.
         def _deferred_destroy():
-            if operating_system.isGTK():
-                wx.SafeYield()
             if self and not self.IsBeingDeleted():
                 self.Destroy()
-        wx.CallAfter(_deferred_destroy)
+        wx.CallLater(10, _deferred_destroy)
 
     def on_activate(self, event):
         event.Skip()
