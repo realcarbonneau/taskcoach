@@ -1026,14 +1026,15 @@ class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
                 return True
         return False
 
-    def onCheck(self, event, final):
-        """Here we keep track of the items checked by the user so that these
-        items remain checked when refreshing the viewer."""
-        if final:
-            category = self.widget.GetItemPyData(event.GetItem())
-            command.ToggleCategoryCommand(
-                None, self.__items, category=category
-            ).do()
+    # REMOVED: onCheck method to isolate crash
+    # def onCheck(self, event, final):
+    #     """Here we keep track of the items checked by the user so that these
+    #     items remain checked when refreshing the viewer."""
+    #     if final:
+    #         category = self.widget.GetItemPyData(event.GetItem())
+    #         command.ToggleCategoryCommand(
+    #             None, self.__items, category=category
+    #         ).do()
 
     def createCategoryPopupMenu(self):  # pylint: disable=W0221
         return super().createCategoryPopupMenu(True)
