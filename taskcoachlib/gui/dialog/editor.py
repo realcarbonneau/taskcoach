@@ -1032,6 +1032,10 @@ class LocalCategoryViewer(
         # Skip SearchFilter creation - just return presentation directly
         return presentation
 
+    def createToolBarUICommands(self):
+        # Skip search UICommand - go directly to TreeViewer
+        return viewer.base.TreeViewer.createToolBarUICommands(self)
+
     def createWidget(self):
         # Use simple HyperTreeList
         from wx.lib.agw.hypertreelist import HyperTreeList
