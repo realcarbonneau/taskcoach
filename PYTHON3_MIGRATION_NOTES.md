@@ -5,9 +5,10 @@ This document captures technical issues, fixes, and refactorings discovered duri
 ## Table of Contents
 
 1. [Widget Resizing Issues](#widget-resizing-issues)
-2. [wxPython Compatibility](#wxpython-compatibility)
-3. [Known Issues](#known-issues)
-4. [Future Work](#future-work)
+2. [wx.Timer Crash During Window Destruction](#wxtimer-crash-during-window-destruction)
+3. [wxPython Compatibility](#wxpython-compatibility)
+4. [Known Issues](#known-issues)
+5. [Future Work](#future-work)
 
 ---
 
@@ -133,6 +134,112 @@ When working on sizing issues in the future, test:
 
 ---
 
+## wx.Timer Crash During Window Destruction
+
+### Problem Overview
+
+**Date Fixed:** November 2025
+**Affected Components:** Edit Task/Categories dialog, any viewer with SearchCtrl
+**Root Cause:** wx.Timer firing after window destruction causes segfault
+
+### Symptoms
+
+1. **Crash on Quick Close:** Closing the Edit Task or Edit Categories dialog quickly (e.g., pressing ESC immediately after opening) causes a segmentation fault
+2. **GTK-specific:** The crash primarily occurs on GTK/Linux platforms
+3. **No Python Traceback:** The crash occurs in C++ code with no useful Python error message
+
+### Root Cause Analysis
+
+The crash was caused by the **SearchCtrl widget's timer** continuing to run after window destruction:
+
+1. **SearchCtrl creates a timer** in `__init__` that delays search filtering (0.5 second delay)
+2. **User closes dialog quickly** before timer fires
+3. **Window is destroyed** but timer continues running
+4. **Timer fires** and tries to call callback on destroyed objects
+5. **Segfault occurs** in wxWidgets C++ code
+
+This is a **known wxPython issue**:
+- [Phoenix Issue #429](https://github.com/wxWidgets/Phoenix/issues/429): Timer causes hard crash during shutdown
+- [Phoenix Issue #632](https://github.com/wxWidgets/Phoenix/issues/632): Crash if wx.Timer isn't stopped before window closes
+
+### The Fix
+
+#### 1. Add cleanup() method to SearchCtrl (searchctrl.py:157-161)
+
+```python
+def cleanup(self):
+    """Stop the timer and clear callback to prevent crashes during window destruction."""
+    if self.__timer.IsRunning():
+        self.__timer.Stop()
+    self.__callback = lambda *args, **kwargs: None  # Replace with no-op
+```
+
+#### 2. Call cleanup() in Search.unbind() (uicommand.py:2915-2919)
+
+```python
+def unbind(self, window, id_):
+    self.__bound = False
+    if hasattr(self, 'searchControl') and self.searchControl:
+        self.searchControl.cleanup()
+    super().unbind(window, id_)
+```
+
+### Why This Fixes the Issue
+
+1. **Timer.Stop()** prevents the timer from firing after window destruction
+2. **No-op callback** provides a fallback in case the timer fires before Stop() takes effect
+3. **Called during unbind()** ensures cleanup happens during the normal widget teardown process
+
+### Key Learnings
+
+1. **wx.Timer must be explicitly stopped:** Unlike child windows, timers are not automatically stopped when their parent window is destroyed. The timer's "owner" is really just the target for events, not a true parent-child relationship.
+
+2. **Callbacks hold references:** The timer's callback holds a reference to the Search UICommand, which holds a reference to the viewer, which prevents proper cleanup during destruction.
+
+3. **GTK async cleanup:** GTK performs asynchronous cleanup that can crash if we destroy windows while timers are still running.
+
+4. **This is a wxWidgets "wontfix":** The wxWidgets team considers this the application's responsibility, not a bug to fix in the framework.
+
+### Pattern for Future Timer Usage
+
+When using wx.Timer in wxPython, always:
+
+```python
+class MyWidget(wx.Window):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.__timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.onTimer, self.__timer)
+        # ... timer.Start() somewhere
+
+    def cleanup(self):
+        """Call this before window destruction."""
+        if self.__timer.IsRunning():
+            self.__timer.Stop()
+
+    # OR bind to EVT_WINDOW_DESTROY:
+    def __init__(self, parent):
+        # ...
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.onDestroy)
+
+    def onDestroy(self, event):
+        if self.__timer.IsRunning():
+            self.__timer.Stop()
+        event.Skip()
+```
+
+### Testing Checklist
+
+When working with wx.Timer in the future, test:
+
+- [ ] Open dialog and close immediately with ESC
+- [ ] Open dialog, type in search, close quickly before search executes
+- [ ] Open dialog, wait for timer to fire, then close
+- [ ] Rapid open/close cycles (10+ times quickly)
+- [ ] Test on GTK/Linux (most prone to this issue)
+
+---
+
 ## wxPython Compatibility
 
 ### wxPython 4.2.0 Issues
@@ -157,6 +264,7 @@ See [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) for details on the 
 
 - ✅ Widget resizing stuck at large sizes (November 2025)
 - ✅ wxPython 4.2.0 category background coloring (Documented in CRITICAL_WXPYTHON_PATCH.md)
+- ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
 
 ---
 
@@ -197,4 +305,4 @@ When adding new technical notes:
 
 ---
 
-**Last Updated:** November 17, 2025
+**Last Updated:** November 19, 2025

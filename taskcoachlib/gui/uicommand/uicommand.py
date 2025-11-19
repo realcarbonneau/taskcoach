@@ -2914,6 +2914,8 @@ class Search(ViewerCommand, settings_uicommand.SettingsCommand):
 
     def unbind(self, window, id_):
         self.__bound = False
+        if hasattr(self, 'searchControl') and self.searchControl:
+            self.searchControl.cleanup()
         super().unbind(window, id_)
 
     def onViewerKeyDown(self, event):
