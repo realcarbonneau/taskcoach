@@ -20,6 +20,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import sys
+import faulthandler
+
+# Enable faulthandler to get Python tracebacks on segfaults
+# This helps debug crashes in wxPython/GTK C++ code by showing which
+# Python code was executing when the crash occurred
+faulthandler.enable()
 
 # Workaround for a bug in Ubuntu 10.10
 os.environ["XLIB_SKIP_ARGB_VISUALS"] = "1"

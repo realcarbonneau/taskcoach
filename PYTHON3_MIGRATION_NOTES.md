@@ -228,6 +228,42 @@ class MyWidget(wx.Window):
         event.Skip()
 ```
 
+### Debugging Segfaults with Faulthandler
+
+**Date Implemented:** November 2025
+
+To help diagnose segfaults that occur in wxPython/GTK C++ code, we've enabled Python's `faulthandler` module in `taskcoach.py`:
+
+```python
+import faulthandler
+faulthandler.enable()
+```
+
+**What this provides:**
+
+- Python traceback on segfaults showing the exact Python code that was executing
+- Stack trace for all Python threads at the time of the crash
+- Output to stderr (visible in terminal when running from command line)
+
+**How to use:**
+
+1. Run Task Coach from terminal: `python taskcoach.py`
+2. Reproduce the crash
+3. Check terminal output for the faulthandler traceback
+4. The traceback will show the Python call stack leading to the segfault
+
+**Example output:**
+```
+Fatal Python error: Segmentation fault
+
+Current thread 0x00007f8b4c7fe700 (most recent call first):
+  File "/taskcoachlib/gui/dialog/editor.py", line 964, in close
+  File "/taskcoachlib/widgets/searchctrl.py", line 166, in onFind
+  ...
+```
+
+This makes it much easier to identify which timer, callback, or widget is causing crashes during window destruction.
+
 ### Testing Checklist
 
 When working with wx.Timer in the future, test:
@@ -237,6 +273,7 @@ When working with wx.Timer in the future, test:
 - [ ] Open dialog, wait for timer to fire, then close
 - [ ] Rapid open/close cycles (10+ times quickly)
 - [ ] Test on GTK/Linux (most prone to this issue)
+- [ ] Check faulthandler output if crashes occur
 
 ---
 
@@ -265,6 +302,7 @@ See [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) for details on the 
 - ✅ Widget resizing stuck at large sizes (November 2025)
 - ✅ wxPython 4.2.0 category background coloring (Documented in CRITICAL_WXPYTHON_PATCH.md)
 - ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
+- ✅ Hacky close delay patches removed after root cause fix (November 2025)
 
 ---
 
