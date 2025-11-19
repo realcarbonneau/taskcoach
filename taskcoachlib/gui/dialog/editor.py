@@ -1067,14 +1067,19 @@ class CategoriesPage(PageWithViewer):
         #     self.registerObserver(
         #         self.onCategoryChanged, eventType=eventType, eventSource=item
         #     )
-        return LocalCategoryViewer(
-            self.items,
-            self,
-            taskFile,
-            settings,
-            settingsSection=settingsSection,
-            use_separate_settings_section=False,
-        )
+        # TEMPORARY: Return placeholder to isolate if LocalCategoryViewer causes crash
+        placeholder = wx.StaticText(self, label="Categories placeholder for debugging")
+        # Add dummy methods that PageWithViewer.close() expects
+        placeholder.detach = lambda: None
+        return placeholder
+        # return LocalCategoryViewer(
+        #     self.items,
+        #     self,
+        #     taskFile,
+        #     settings,
+        #     settingsSection=settingsSection,
+        #     use_separate_settings_section=False,
+        # )
 
     def onCategoryChanged(self, event):
         self.viewer.refreshItems(*list(event.values()))
