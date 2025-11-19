@@ -1012,8 +1012,14 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: Inherit from TreeViewer directly, skip all mixins
-class LocalCategoryViewer(viewer.base.TreeViewer):  # pylint: disable=W0223
+# BINARY SEARCH: Add first half of mixins back
+class LocalCategoryViewer(
+    viewer.mixin.AttachmentDropTargetMixin,
+    viewer.mixin.FilterableViewerMixin,
+    viewer.mixin.SortableViewerForCategoriesMixin,
+    viewer.mixin.SearchableViewerMixin,
+    viewer.base.TreeViewer
+):  # pylint: disable=W0223
     def __init__(self, items, parent, taskFile, settings, **kwargs):
         self.__items = items
         kwargs.setdefault("settingsSection", "categoryviewer")
