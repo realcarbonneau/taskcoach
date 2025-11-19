@@ -162,3 +162,12 @@ class wxScheduler(wxSchedulerCore, scrolled.ScrolledPanel):
 
     def GetShowNow(self):
         return self._showNow
+
+    def Destroy(self):
+        """Stop timers before destroying to prevent timer callbacks from executing
+        after widget is destroyed (see PYTHON3_MIGRATION_NOTES.md)"""
+        if self._sizeTimer.IsRunning():
+            self._sizeTimer.Stop()
+        if self._refreshTimer.IsRunning():
+            self._refreshTimer.Stop()
+        super().Destroy()
