@@ -954,9 +954,11 @@ class PageWithViewer(Page):
 
     def addEntries(self):
         # pylint: disable=W0201
+        _debug_log(f"  PageWithViewer.addEntries(): creating viewer for {self.__class__.__name__}")
         self.viewer = self.createViewer(
             self.__taskFile, self.__settings, self.__settingsSection
         )
+        _debug_log(f"  PageWithViewer.addEntries(): created {self.viewer.__class__.__name__}")
         self.addEntry(self.viewer, growable=True, flags=[wx.EXPAND])
 
     def createViewer(self, taskFile, settings, settingsSection):
@@ -965,12 +967,15 @@ class PageWithViewer(Page):
     def close(self):
         # Detach viewer to stop it from receiving notifications
         if hasattr(self, "viewer"):
+            _debug_log(f"  PageWithViewer.close(): detaching viewer {self.viewer.__class__.__name__}")
             self.viewer.detach()
+            _debug_log(f"  PageWithViewer.close(): deleting viewer reference")
             # Don't use CallAfter to delete viewer - it causes crashes when
             # the dialog is being destroyed quickly. The viewer will be
             # destroyed automatically when its parent window is destroyed.
             # Just delete the reference to help with garbage collection.
             del self.viewer
+            _debug_log(f"  PageWithViewer.close(): viewer deleted")
         super().close()
 
 
