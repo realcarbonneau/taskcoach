@@ -1020,6 +1020,18 @@ class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
         # for item in self.domainObjectsToView():
         #     item.expand(context=self.settingsSection(), notify=False)
 
+    def createWidget(self):
+        # BINARY SEARCH: Skip CheckTreeCtrl creation, use simple HyperTreeList
+        from wx.lib.agw.hypertreelist import HyperTreeList
+        widget = HyperTreeList(self, agwStyle=wx.TR_DEFAULT_STYLE)
+        widget.AddColumn("Category")
+        widget.AddRoot("Root")
+        # Add minimal methods needed by viewer
+        widget.RefreshAllItems = lambda count=0: None
+        widget.GetItemCount = lambda: 0
+        widget.curselection = lambda: []
+        return widget
+
     def getIsItemChecked(self, category):  # pylint: disable=W0621
         for item in self.__items:
             if category in item.categories():
