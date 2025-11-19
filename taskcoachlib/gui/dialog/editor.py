@@ -1012,12 +1012,13 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: Add FilterableViewerMixin
+# BINARY SEARCH: Add SearchableViewerMixin
 from taskcoachlib.domain import category as categoryModule
 
 class LocalCategoryViewer(
     viewer.mixin.FilterableViewerMixin,
     viewer.mixin.SortableViewerForCategoriesMixin,
+    viewer.mixin.SearchableViewerMixin,
     viewer.base.TreeViewer
 ):  # pylint: disable=W0223
     SorterClass = categoryModule.CategorySorter  # Required by mixin
