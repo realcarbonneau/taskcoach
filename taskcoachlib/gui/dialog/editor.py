@@ -1012,7 +1012,7 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: Add SearchableViewerMixin with custom detach
+# BINARY SEARCH: Override createFilter to skip SearchFilter creation
 from taskcoachlib.domain import category as categoryModule
 
 class LocalCategoryViewer(
@@ -1028,20 +1028,9 @@ class LocalCategoryViewer(
         kwargs.setdefault("settingsSection", "categoryviewer")
         super().__init__(parent, taskFile, settings, **kwargs)
 
-    def detach(self):
-        # Call CollectionDecorator.detach() on the presentation chain
-        # to properly unregister observers before destruction
-        try:
-            presentation = self.presentation()
-            while hasattr(presentation, 'detach'):
-                presentation.detach()
-                if hasattr(presentation, 'observable'):
-                    presentation = presentation.observable()
-                else:
-                    break
-        except Exception:
-            pass
-        super().detach()
+    def createFilter(self, presentation):
+        # Skip SearchFilter creation - just pass through to parent
+        return viewer.mixin.FilterableViewerMixin.createFilter(self, presentation)
 
     def createWidget(self):
         # Use simple HyperTreeList
