@@ -1012,11 +1012,12 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: Add back BaseCategoryViewer with simple HyperTreeList widget
-class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
-    def __init__(self, items, *args, **kwargs):
+# BINARY SEARCH: Inherit from TreeViewer directly, skip all mixins
+class LocalCategoryViewer(viewer.base.TreeViewer):  # pylint: disable=W0223
+    def __init__(self, items, parent, taskFile, settings, **kwargs):
         self.__items = items
-        super().__init__(*args, **kwargs)
+        kwargs.setdefault("settingsSection", "categoryviewer")
+        super().__init__(parent, taskFile, settings, **kwargs)
 
     def createWidget(self):
         # Use simple HyperTreeList instead of CheckTreeCtrl
@@ -1029,6 +1030,9 @@ class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
         widget.GetItemCount = lambda: 0
         widget.curselection = lambda: []
         return widget
+
+    def domainObjectsToView(self):
+        return self.taskFile.categories()
 
     def getIsItemChecked(self, category):  # pylint: disable=W0621
         for item in self.__items:
