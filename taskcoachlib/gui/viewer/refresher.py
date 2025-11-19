@@ -78,6 +78,10 @@ class SecondRefresher(patterns.Observer, wx.EvtHandler):
         self.setTrackedItems(self.trackedItems(self.__presentation))
 
     def removeInstance(self):
+        # Stop timer before cleanup to prevent timer callbacks from executing
+        # after viewer is destroyed (see PYTHON3_MIGRATION_NOTES.md)
+        if self.__timer.IsRunning():
+            self.__timer.Stop()
         IdProvider.put(self.__timer.GetId())
         super().removeInstance()
 

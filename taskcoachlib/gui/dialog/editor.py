@@ -1959,7 +1959,11 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # destroyed...
         if operating_system.isMac():
             self._interior.SetFocusIgnoringChildren()
+        # Stop timer before destroying window to prevent timer callbacks
+        # from executing after window is destroyed (see PYTHON3_MIGRATION_NOTES.md)
         if self.__timer is not None:
+            if self.__timer.IsRunning():
+                self.__timer.Stop()
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
         self.Destroy()

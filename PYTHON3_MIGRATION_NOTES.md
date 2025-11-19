@@ -265,6 +265,15 @@ See [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) for details on the 
 - ✅ Widget resizing stuck at large sizes (November 2025)
 - ✅ wxPython 4.2.0 category background coloring (Documented in CRITICAL_WXPYTHON_PATCH.md)
 - ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
+- ✅ Editor dialog crash when closing sub-windows quickly (November 2025)
+  - Problem: Opening sub-windows (effort, prerequisites, attachments) from Edit Task and closing quickly with ESC caused segfault
+  - Root cause: Multiple wx.Timer instances not being stopped before window destruction:
+    - Editor.__timer (Mac only, line 1895) - polling timer for editor state
+    - EffortRefresher.__timer (line 65) - clock for effort tracking
+  - Fix: Added Timer.Stop() calls in cleanup methods:
+    - Editor.on_close_editor() now stops timer before calling Destroy()
+    - EffortRefresher.removeInstance() now stops timer before cleanup
+  - Same pattern as SearchCtrl timer fix - timers must be explicitly stopped, they are not automatically cleaned up
 
 ---
 
