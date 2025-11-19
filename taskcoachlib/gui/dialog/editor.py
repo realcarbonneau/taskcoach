@@ -1987,12 +1987,16 @@ class Editor(BalloonTipManager, widgets.Dialog):
         IdProvider.put(self.__new_effort_id)
         # Hide immediately for visual feedback
         self.Hide()
-        # Process all pending events (including our guarded SetFocus callback)
-        # before destruction. This is the standard wxPython/GTK pattern -
-        # the same approach used in the test suite tearDown.
-        if operating_system.isGTK():
-            wx.Yield()
-        self.Destroy()
+        # Defer destruction to allow GTK to complete its layout work.
+        # Use CallAfter to schedule destruction for after the current event
+        # processing completes. The SafeYield ensures all pending events
+        # are processed before destruction.
+        def _deferred_destroy():
+            if operating_system.isGTK():
+                wx.SafeYield()
+            if self and not self.IsBeingDeleted():
+                self.Destroy()
+        wx.CallAfter(_deferred_destroy)
 
     def on_activate(self, event):
         event.Skip()
