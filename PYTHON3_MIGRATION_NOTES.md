@@ -280,6 +280,17 @@ See [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) for details on the 
   - Proper fix: Bind to EVT_CHAR_HOOK and intercept ESC key to call Close() explicitly
   - This ensures EVT_CLOSE fires properly and pending changes are saved
   - **Testing note:** This fix needs verification on macOS (developed on Linux)
+- ✅ Editor dialog crash on fast close during initialization (November 2025)
+  - Problem: Pressing ESC immediately after opening editor (or sub-windows like Categories, Effort) causes segfault
+  - Root cause: Dialog.__init__ queues wx.CallAfter(SetFocus) and other GTK layout events that execute after __init__ returns.
+    Closing before these complete causes callbacks to execute on destroyed widgets.
+  - Fix: Deferred close pattern:
+    - Added `__initialized = False` flag and `__close_pending = False` flag
+    - Call `wx.CallAfter(self.__mark_initialized)` at end of __init__
+    - In `on_close_editor()`, if not initialized, set `__close_pending = True` and return
+    - When `__mark_initialized()` runs (after all pending wx.CallAfter events), check `__close_pending` and execute close if needed
+  - This ensures the dialog won't close until all wxWidgets initialization events have completed
+  - Applies to all Editor subclasses: TaskEditor, CategoryEditor, EffortEditor, AttachmentEditor, NoteEditor
 
 ---
 

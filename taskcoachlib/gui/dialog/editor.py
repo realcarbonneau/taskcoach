@@ -1858,6 +1858,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
         self.__items_are_new = kwargs.pop("items_are_new", False)
         column_name = kwargs.pop("columnName", "")
         self.__call_after = kwargs.get("call_after", wx.CallAfter)
+        self.__initialized = False  # Track init state for deferred close
+        self.__close_pending = False  # Close requested before init complete
         super().__init__(
             parent, self.__title(), buttonTypes=wx.ID_CLOSE, *args, **kwargs
         )
@@ -1904,6 +1906,18 @@ class Editor(BalloonTipManager, widgets.Dialog):
             )
         )
 
+        # Mark as initialized after all pending wx.CallAfter events complete.
+        # This ensures the dialog won't close until initialization is finished,
+        # preventing crashes when ESC is pressed too quickly after opening.
+        wx.CallAfter(self.__mark_initialized)
+
+    def __mark_initialized(self):
+        """Mark the editor as fully initialized. If a close was requested
+        during initialization, execute it now that it's safe."""
+        self.__initialized = True
+        if self.__close_pending:
+            self.Close()
+
     def __create_ui_commands(self):
         # FIXME: keyboard shortcuts are hardcoded here, but they can be
         # changed in the translations
@@ -1943,6 +1957,14 @@ class Editor(BalloonTipManager, widgets.Dialog):
         )
 
     def on_close_editor(self, event):
+        # Defer close until initialization is complete. This prevents crashes
+        # when ESC is pressed before pending wx.CallAfter events (like SetFocus)
+        # from Dialog.__init__ have completed. The close will execute automatically
+        # once __mark_initialized runs.
+        if not self.__initialized:
+            self.__close_pending = True
+            return
+
         event.Skip()
         self._interior.close_edit_book()
         patterns.Publisher().removeObserver(self.on_item_removed)
