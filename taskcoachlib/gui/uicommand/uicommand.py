@@ -2872,16 +2872,15 @@ class Search(ViewerCommand, settings_uicommand.SettingsCommand):
             )
 
     def appendToToolBar(self, toolbar):
-        # BINARY SEARCH: Skip everything to isolate crash
-        pass
-        # self.__bound = True
-        # (
-        #     searchString,
-        #     matchCase,
-        #     includeSubItems,
-        #     searchDescription,
-        #     regularExpression,
-        # ) = self.viewer.getSearchFilter()
+        self.__bound = True
+        (
+            searchString,
+            matchCase,
+            includeSubItems,
+            searchDescription,
+            regularExpression,
+        ) = self.viewer.getSearchFilter()
+        # BINARY SEARCH: Skip SearchCtrl creation
         # # pylint: disable=W0201
         # self.searchControl = widgets.SearchCtrl(
         #     toolbar,
@@ -2894,9 +2893,8 @@ class Search(ViewerCommand, settings_uicommand.SettingsCommand):
         #     callback=self.onFind,
         # )
         # toolbar.AddControl(self.searchControl)
-        # # BINARY SEARCH: Skip bindings to isolate crash
-        # # self.bindKeyDownInViewer()
-        # # self.bindKeyDownInSearchCtrl()
+        # self.bindKeyDownInViewer()
+        # self.bindKeyDownInSearchCtrl()
 
     def bindKeyDownInViewer(self):
         """Bind wx.EVT_KEY_DOWN to self.onViewerKeyDown so we can catch
