@@ -1503,16 +1503,17 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
+    # Testing with simple pages + categories (was working before)
     allPageNames = [
         "subject",
         "dates",
-        "prerequisites",
+        # "prerequisites",  # Has embedded viewer
         "progress",
-        "categories",
+        "categories",  # Has embedded viewer - was working
         "budget",
-        "effort",
-        "notes",
-        "attachments",
+        # "effort",  # Has embedded viewer
+        # "notes",  # Has embedded viewer
+        # "attachments",  # Has embedded viewer
         "appearance",
     ]
     domainObject = "task"
