@@ -1887,16 +1887,12 @@ class Editor(BalloonTipManager, widgets.Dialog):
         self.Bind(wx.EVT_CLOSE, self.on_close_editor)
 
         if operating_system.isMac():
-            # Sigh. On OS X, if you open an editor, switch back to the main window, open
-            # another editor, then hit Escape twice, the second editor disappears without any
-            # notification (EVT_CLOSE, EVT_ACTIVATE), so poll for this, because there might
-            # be pending changes...
-            id_ = IdProvider.get()
-            self.__timer = wx.Timer(self, id_)
-            self.Bind(wx.EVT_TIMER, self.__on_timer, id=id_)
-            self.__timer.Start(1000, False)
-        else:
-            self.__timer = None
+            # On macOS, hitting ESC can cause the dialog to disappear without
+            # firing EVT_CLOSE (wxWidgets internally handles ESC via EVT_CHAR_HOOK).
+            # Intercept ESC key to ensure Close() is called properly, which fires
+            # EVT_CLOSE and allows pending changes to be saved.
+            # See PYTHON3_MIGRATION_NOTES.md for details.
+            self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
 
         # Position and size handling is done by WindowSizeAndPositionTracker
         # which will center on parent if no saved position exists, or
@@ -1907,10 +1903,6 @@ class Editor(BalloonTipManager, widgets.Dialog):
                 self, settings, self._interior.settings_section()
             )
         )
-
-    def __on_timer(self, event):
-        if not self.IsShown():
-            self.Close()
 
     def __create_ui_commands(self):
         # FIXME: keyboard shortcuts are hardcoded here, but they can be
@@ -1959,14 +1951,21 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # destroyed...
         if operating_system.isMac():
             self._interior.SetFocusIgnoringChildren()
-        # Stop timer before destroying window to prevent timer callbacks
-        # from executing after window is destroyed (see PYTHON3_MIGRATION_NOTES.md)
-        if self.__timer is not None:
-            if self.__timer.IsRunning():
-                self.__timer.Stop()
-            IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
         self.Destroy()
+
+    def on_char_hook(self, event):
+        """Intercept ESC key on macOS to ensure proper close sequence.
+
+        On macOS, wxWidgets internally handles ESC key via EVT_CHAR_HOOK
+        and can cause the dialog to disappear without firing EVT_CLOSE.
+        By intercepting ESC here, we ensure Close() is called, which
+        triggers EVT_CLOSE and allows pending changes to be saved.
+        """
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            self.Close()
+            return  # Don't propagate ESC
+        event.Skip()  # Allow other keys to propagate normally
 
     def on_activate(self, event):
         event.Skip()
