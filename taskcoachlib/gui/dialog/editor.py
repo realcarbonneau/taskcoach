@@ -31,14 +31,7 @@ from pubsub import pub
 from taskcoachlib.thirdparty import smartdatetimectrl as sdtc
 from taskcoachlib.help.balloontips import BalloonTipManager
 import os.path
-import sys
-import time
 import wx
-
-def _debug_log(msg):
-    """Debug logging for editor initialization tracking."""
-    timestamp = time.time()
-    print(f"[EDITOR DEBUG] {timestamp:.6f} {msg}", file=sys.stderr, flush=True)
 
 
 class Page(patterns.Observer, widgets.BookPage):
@@ -954,11 +947,9 @@ class PageWithViewer(Page):
 
     def addEntries(self):
         # pylint: disable=W0201
-        _debug_log(f"  PageWithViewer.addEntries(): creating viewer for {self.__class__.__name__}")
         self.viewer = self.createViewer(
             self.__taskFile, self.__settings, self.__settingsSection
         )
-        _debug_log(f"  PageWithViewer.addEntries(): created {self.viewer.__class__.__name__}")
         self.addEntry(self.viewer, growable=True, flags=[wx.EXPAND])
 
     def createViewer(self, taskFile, settings, settingsSection):
@@ -967,12 +958,10 @@ class PageWithViewer(Page):
     def close(self):
         # Detach viewer to stop it from receiving notifications
         if hasattr(self, "viewer"):
-            _debug_log(f"  PageWithViewer.close(): detaching viewer {self.viewer.__class__.__name__}")
             self.viewer.detach()
             # Unbind all event handlers from the viewer's widget to prevent
             # GTK from sending events during destruction that crash the app
             # (wxPython Phoenix issue #1500)
-            _debug_log(f"  PageWithViewer.close(): unbinding viewer widget events")
             if hasattr(self.viewer, 'widget'):
                 widget = self.viewer.widget
                 try:
@@ -985,9 +974,7 @@ class PageWithViewer(Page):
                     widget.Unbind(wx.EVT_LIST_COL_CLICK)
                 except Exception:
                     pass  # Ignore errors if events weren't bound
-            _debug_log(f"  PageWithViewer.close(): deleting viewer reference")
             del self.viewer
-            _debug_log(f"  PageWithViewer.close(): viewer deleted")
         super().close()
 
 
@@ -1012,41 +999,30 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: Override createFilter to skip SearchFilter creation
-from taskcoachlib.domain import category as categoryModule
-
-class LocalCategoryViewer(
-    viewer.mixin.FilterableViewerMixin,
-    viewer.mixin.SortableViewerForCategoriesMixin,
-    viewer.mixin.SearchableViewerMixin,
-    viewer.base.TreeViewer
-):  # pylint: disable=W0223
-    SorterClass = categoryModule.CategorySorter  # Required by mixin
-
-    def __init__(self, items, parent, taskFile, settings, **kwargs):
+class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
+    def __init__(self, items, *args, **kwargs):
         self.__items = items
-        kwargs.setdefault("settingsSection", "categoryviewer")
-        super().__init__(parent, taskFile, settings, **kwargs)
-
-    def createWidget(self):
-        # Use simple HyperTreeList
-        from wx.lib.agw.hypertreelist import HyperTreeList
-        widget = HyperTreeList(self, agwStyle=wx.TR_DEFAULT_STYLE)
-        widget.AddColumn("Category")
-        widget.AddRoot("Root")
-        widget.RefreshAllItems = lambda count=0: None
-        widget.GetItemCount = lambda: 0
-        widget.curselection = lambda: []
-        return widget
-
-    def domainObjectsToView(self):
-        return self.taskFile.categories()
+        super().__init__(*args, **kwargs)
+        for item in self.domainObjectsToView():
+            item.expand(context=self.settingsSection(), notify=False)
 
     def getIsItemChecked(self, category):  # pylint: disable=W0621
         for item in self.__items:
             if category in item.categories():
                 return True
         return False
+
+    def onCheck(self, event, final):
+        """Here we keep track of the items checked by the user so that these
+        items remain checked when refreshing the viewer."""
+        if final:
+            category = self.widget.GetItemPyData(event.GetItem())
+            command.ToggleCategoryCommand(
+                None, self.__items, category=category
+            ).do()
+
+    def createCategoryPopupMenu(self):  # pylint: disable=W0221
+        return super().createCategoryPopupMenu(True)
 
 
 class CategoriesPage(PageWithViewer):
@@ -1068,16 +1044,15 @@ class CategoriesPage(PageWithViewer):
             self.fit()
 
     def createViewer(self, taskFile, settings, settingsSection):
-        # Temporarily disabled observer registration to debug crash
-        # assert len(self.items) == 1
-        # item = self.items[0]
-        # for eventType in (
-        #     item.categoryAddedEventType(),
-        #     item.categoryRemovedEventType(),
-        # ):
-        #     self.registerObserver(
-        #         self.onCategoryChanged, eventType=eventType, eventSource=item
-        #     )
+        assert len(self.items) == 1
+        item = self.items[0]
+        for eventType in (
+            item.categoryAddedEventType(),
+            item.categoryRemovedEventType(),
+        ):
+            self.registerObserver(
+                self.onCategoryChanged, eventType=eventType, eventSource=item
+            )
         return LocalCategoryViewer(
             self.items,
             self,
@@ -1282,18 +1257,11 @@ class EditBook(widgets.Notebook):
     domainObject = "subclass responsibility"
 
     def __init__(self, parent, items, taskFile, settings, items_are_new):
-        _debug_log(f"EditBook.__init__ START: {self.__class__.__name__}")
         self.items = items
         self.settings = settings
-        _debug_log("  calling Notebook super().__init__")
         super().__init__(parent)
-        _debug_log("  Notebook super().__init__ done")
-        _debug_log("  calling addPages()")
         self.addPages(taskFile, items_are_new)
-        _debug_log("  addPages() done")
-        _debug_log("  calling __load_perspective()")
         self.__load_perspective(items_are_new)
-        _debug_log(f"EditBook.__init__ END: {self.__class__.__name__}")
 
     def NavigateBook(self, forward):
         curSel = self.GetSelection()
@@ -1303,13 +1271,9 @@ class EditBook(widgets.Notebook):
 
     def addPages(self, task_file, items_are_new):
         page_names = self.settings.getlist(self.settings_section(), "pages")
-        _debug_log(f"    addPages: pages to create: {page_names}")
         for page_name in page_names:
-            _debug_log(f"    creating page: {page_name}")
             page = self.createPage(page_name, task_file, items_are_new)
-            _debug_log(f"    page created, calling AddPage: {page_name}")
             self.AddPage(page, page.pageTitle, page.pageIcon)
-            _debug_log(f"    AddPage done: {page_name}")
         # DISABLED: SetMinSize was locking entire notebook to max page size
         # width, height = self.__get_minimum_page_size()
         # self.SetMinSize((width, self.GetHeightForPageHeight(height)))
@@ -1532,9 +1496,17 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
-    # Testing with ONLY categories to isolate crash
     allPageNames = [
-        "categories",  # Has embedded viewer - isolating this
+        "subject",
+        "dates",
+        "prerequisites",
+        "progress",
+        "categories",
+        "budget",
+        "effort",
+        "notes",
+        "attachments",
+        "appearance",
     ]
     domainObject = "task"
 
@@ -1891,7 +1863,6 @@ class Editor(BalloonTipManager, widgets.Dialog):
     def __init__(
         self, parent, items, settings, container, task_file, *args, **kwargs
     ):
-        _debug_log(f"Editor.__init__ START: {self.__class__.__name__}")
         self._items = items
         self._settings = settings
         self._taskFile = task_file
@@ -1901,11 +1872,9 @@ class Editor(BalloonTipManager, widgets.Dialog):
         self.__closing = False  # Guard against double-close
         self.__initialized = False  # Track init state for deferred close
         self.__close_pending = False  # Close requested before init complete
-        _debug_log("  calling Dialog super().__init__")
         super().__init__(
             parent, self.__title(), buttonTypes=wx.ID_CLOSE, *args, **kwargs
         )
-        _debug_log("  Dialog super().__init__ done")
         if not column_name:
             if self._interior.perspective() and hasattr(
                 self._interior, "GetSelection"
@@ -1916,10 +1885,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
             else:
                 column_name = "subject"
         if column_name:
-            _debug_log(f"  setting focus on column: {column_name}")
             self._interior.setFocus(column_name)
 
-        _debug_log("  registering observers")
         patterns.Publisher().registerObserver(
             self.on_item_removed,
             eventType=container.removeItemEventType(),
@@ -1948,9 +1915,7 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # Position and size handling is done by WindowSizeAndPositionTracker
         # which will center on parent if no saved position exists, or
         # restore the last saved position
-        _debug_log("  creating UI commands")
         self.__create_ui_commands()
-        _debug_log("  creating dimensions tracker")
         self.__dimensions_tracker = (
             windowdimensionstracker.WindowSizeAndPositionTracker(
                 self, settings, self._interior.settings_section()
@@ -1963,12 +1928,10 @@ class Editor(BalloonTipManager, widgets.Dialog):
         def _after_layout():
             wx.CallAfter(self.__mark_initialized)
         wx.CallAfter(_after_layout)
-        _debug_log(f"Editor.__init__ END: {self.__class__.__name__}")
 
     def __mark_initialized(self):
         """Mark the editor as fully initialized. If a close was requested
         during initialization, execute it now that it's safe."""
-        _debug_log("Editor marked as initialized")
         # Ensure GTK has fully processed the window by yielding to process
         # any remaining idle events. This prevents the pixman crash caused by
         # destroying widgets with 0 size (wxWidgets issue #16996).
@@ -1976,7 +1939,6 @@ class Editor(BalloonTipManager, widgets.Dialog):
             wx.GetApp().ProcessPendingEvents()
         self.__initialized = True
         if self.__close_pending:
-            _debug_log("  executing pending close")
             self.Close()
 
     def __on_timer(self, event):
@@ -2022,19 +1984,16 @@ class Editor(BalloonTipManager, widgets.Dialog):
         )
 
     def on_close_editor(self, event):
-        _debug_log("on_close_editor START")
         # Defer close until initialization is complete. This prevents crashes
         # when ESC is pressed before pending wx.CallAfter events (like SetFocus)
         # from Dialog.__init__ have completed. The close will execute automatically
         # once initialization finishes.
         if not self.__initialized:
-            _debug_log("  not initialized yet, deferring close")
             self.__close_pending = True
             return
 
         # Guard against double-close which causes segfault
         if self.__closing:
-            _debug_log("  already closing, ignoring duplicate close event")
             return
         self.__closing = True
 
@@ -2042,9 +2001,7 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # Access the name-mangled private attribute
         self._BalloonTipManager__shutdown = True
 
-        _debug_log("  closing edit book")
         self._interior.close_edit_book()
-        _debug_log("  removing observers")
         patterns.Publisher().removeObserver(self.on_item_removed)
         patterns.Publisher().removeObserver(self.on_subject_changed)
         # On Mac OS X, the text control does not lose focus when
@@ -2055,7 +2012,6 @@ class Editor(BalloonTipManager, widgets.Dialog):
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
 
-        _debug_log("  unbinding event handlers")
         # Unbind event handlers to prevent GTK from calling them during destruction
         try:
             self.Unbind(wx.EVT_CLOSE)
@@ -2065,7 +2021,6 @@ class Editor(BalloonTipManager, widgets.Dialog):
         except Exception:
             pass  # Ignore errors if handlers weren't bound
 
-        _debug_log("  scheduling window destruction")
         # Hide immediately so user sees instant feedback
         self.Hide()
         # Use CallLater with a small delay to allow GTK to fully process its
@@ -2074,16 +2029,12 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # complex widgets (like TreeViewer) are involved.
         # See wxPython Phoenix issues #679, #1500 for related GTK cleanup issues.
         wx.CallLater(50, self._do_destroy)
-        _debug_log("on_close_editor END")
 
     def _do_destroy(self):
         """Actually destroy the window. Called via CallAfter to ensure
         AUI cleanup has completed first."""
-        _debug_log("_do_destroy START")
         if self:  # Check window still exists
-            _debug_log("  calling Destroy()")
             self.Destroy()
-        _debug_log("_do_destroy END")
 
     def on_activate(self, event):
         event.Skip()
