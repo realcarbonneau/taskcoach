@@ -975,13 +975,14 @@ class PageWithViewer(Page):
             _debug_log(f"  PageWithViewer.close(): unbinding viewer widget events")
             if hasattr(self.viewer, 'widget'):
                 widget = self.viewer.widget
-                # Use the widget's unbindEventHandlers method if available
-                if hasattr(widget, 'unbindEventHandlers'):
-                    widget.unbindEventHandlers()
-                # Also unbind TreeViewer-level events
                 try:
+                    # Unbind all events from the widget
+                    widget.Unbind(wx.EVT_TREE_SEL_CHANGED)
+                    widget.Unbind(wx.EVT_TREE_SEL_CHANGING)
                     widget.Unbind(wx.EVT_TREE_ITEM_EXPANDED)
                     widget.Unbind(wx.EVT_TREE_ITEM_COLLAPSED)
+                    widget.Unbind(wx.EVT_TREE_ITEM_ACTIVATED)
+                    widget.Unbind(wx.EVT_LIST_COL_CLICK)
                 except Exception:
                     pass  # Ignore errors if events weren't bound
             _debug_log(f"  PageWithViewer.close(): deleting viewer reference")
@@ -1017,6 +1018,10 @@ class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
         super().__init__(*args, **kwargs)
         for item in self.domainObjectsToView():
             item.expand(context=self.settingsSection(), notify=False)
+
+    def createWidget(self):
+        # TEMPORARY: Return simple widget instead of CheckTreeCtrl to isolate crash
+        return wx.StaticText(self, label="LocalCategoryViewer placeholder")
 
     def getIsItemChecked(self, category):  # pylint: disable=W0621
         for item in self.__items:
