@@ -238,11 +238,6 @@ When working with wx.Timer in the future, test:
 - [ ] Rapid open/close cycles (10+ times quickly)
 - [ ] Test on GTK/Linux (most prone to this issue)
 
-### Related Issues
-
-- The deferred initialization pattern in Editor (`__initialized`, `__close_pending`) was added to handle a related issue where SetFocus CallAfter events were racing with window closure
-- Both issues stem from wxPython's async event processing during window destruction
-
 ---
 
 ## wxPython Compatibility
