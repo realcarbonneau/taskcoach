@@ -1029,8 +1029,8 @@ class LocalCategoryViewer(
         super().__init__(parent, taskFile, settings, **kwargs)
 
     def createFilter(self, presentation):
-        # Skip SearchFilter creation - just pass through to parent
-        return viewer.mixin.FilterableViewerMixin.createFilter(self, presentation)
+        # Skip SearchFilter creation - just return presentation directly
+        return presentation
 
     def createWidget(self):
         # Use simple HyperTreeList
