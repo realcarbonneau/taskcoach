@@ -1012,33 +1012,28 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: TreeViewer only BUT with CheckTreeCtrl widget
-# This tests if the problem is in the widget or in the mixins
-class LocalCategoryViewer(viewer.base.TreeViewer):  # pylint: disable=W0223
+# BINARY SEARCH: Test first 4 mixins with simple HyperTreeList
+class LocalCategoryViewer(
+    viewer.mixin.AttachmentDropTargetMixin,
+    viewer.mixin.FilterableViewerMixin,
+    viewer.mixin.SortableViewerForCategoriesMixin,
+    viewer.mixin.SearchableViewerMixin,
+    viewer.base.TreeViewer
+):  # pylint: disable=W0223
     def __init__(self, items, parent, taskFile, settings, **kwargs):
         self.__items = items
         kwargs.setdefault("settingsSection", "categoryviewer")
         super().__init__(parent, taskFile, settings, **kwargs)
 
     def createWidget(self):
-        # Use the actual CheckTreeCtrl but with TreeViewer only (no other mixins)
-        imageList = self.createImageList()  # Has side-effects
-        self._columns = self._createColumns()
-        widget = widgets.CheckTreeCtrl(
-            self,
-            self._columns,
-            self.onSelect,
-            self.onCheck,
-            uicommand.Edit(viewer=self),
-            uicommand.CategoryDragAndDrop(
-                viewer=self, categories=self.presentation()
-            ),
-            None,  # itemPopupMenu
-            None,  # columnPopupMenu
-            resizeableColumn=0,
-            validateDrag=False,
-        )
-        widget.AssignImageList(imageList)
+        # Use simple HyperTreeList
+        from wx.lib.agw.hypertreelist import HyperTreeList
+        widget = HyperTreeList(self, agwStyle=wx.TR_DEFAULT_STYLE)
+        widget.AddColumn("Category")
+        widget.AddRoot("Root")
+        widget.RefreshAllItems = lambda count=0: None
+        widget.GetItemCount = lambda: 0
+        widget.curselection = lambda: []
         return widget
 
     def domainObjectsToView(self):
@@ -1049,12 +1044,6 @@ class LocalCategoryViewer(viewer.base.TreeViewer):  # pylint: disable=W0223
             if category in item.categories():
                 return True
         return False
-
-    def getItemParentHasExclusiveChildren(self, item):
-        return False
-
-    def onCheck(self, event, final):
-        pass  # No-op for testing
 
 
 class CategoriesPage(PageWithViewer):
