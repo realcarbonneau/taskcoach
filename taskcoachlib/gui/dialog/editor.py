@@ -1016,8 +1016,9 @@ class LocalCategoryViewer(viewer.BaseCategoryViewer):  # pylint: disable=W0223
     def __init__(self, items, *args, **kwargs):
         self.__items = items
         super().__init__(*args, **kwargs)
-        for item in self.domainObjectsToView():
-            item.expand(context=self.settingsSection(), notify=False)
+        # REMOVED: item expansion loop to isolate crash
+        # for item in self.domainObjectsToView():
+        #     item.expand(context=self.settingsSection(), notify=False)
 
     def getIsItemChecked(self, category):  # pylint: disable=W0621
         for item in self.__items:
