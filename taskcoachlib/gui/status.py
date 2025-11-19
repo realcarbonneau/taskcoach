@@ -78,6 +78,10 @@ class StatusBar(wx.StatusBar):
     def Destroy(self):  # pylint: disable=W0221
         for eventType in self.wxEventTypes:
             self.parent.Unbind(eventType)
+        # Stop timer before destroying to prevent timer callbacks from executing
+        # after widget is destroyed (see PYTHON3_MIGRATION_NOTES.md)
+        if self.__timer.IsRunning():
+            self.__timer.Stop()
         if self.scheduledStatusDisplay:
             self.scheduledStatusDisplay.Stop()
         super().Destroy()

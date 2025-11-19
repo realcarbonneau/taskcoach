@@ -267,8 +267,11 @@ See [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) for details on the 
 - ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
 - ✅ Editor dialog crash when closing sub-windows quickly (November 2025)
   - Problem: Opening sub-windows (effort, prerequisites, attachments) from Edit Task and closing quickly with ESC caused segfault
-  - Root cause: wx.Timer in EffortRefresher not being stopped before window destruction
-  - Fix: Added Timer.Stop() call in EffortRefresher.removeInstance() before cleanup
+  - Root cause: Multiple wx.Timer instances not being stopped before widget destruction
+  - Timers fixed:
+    - EffortRefresher.__timer - Added Timer.Stop() in SecondRefresher.removeInstance()
+    - DateTimeCtrl.__timer - Added Timer.Stop() in smartdatetimectrl.Cleanup()
+    - StatusBar.__timer - Added Timer.Stop() in StatusBar.Destroy()
   - Same pattern as SearchCtrl timer fix - timers must be explicitly stopped, they are not automatically cleaned up
 - ✅ macOS: Editor dialog ESC key disappearing without EVT_CLOSE (November 2025)
   - Problem: On macOS, pressing ESC twice could cause editor dialog to disappear without firing EVT_CLOSE, losing unsaved changes

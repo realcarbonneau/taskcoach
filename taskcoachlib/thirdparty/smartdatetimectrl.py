@@ -445,6 +445,10 @@ class Entry(wx.Panel):
         )
 
     def Cleanup(self):
+        # Stop timer before cleanup to prevent timer callbacks from executing
+        # after widget is destroyed (see PYTHON3_MIGRATION_NOTES.md)
+        if self.__timer.IsRunning():
+            self.__timer.Stop()
         # It's complicated.
         try:
             self.DismissPopup()
