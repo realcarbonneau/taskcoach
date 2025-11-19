@@ -1012,14 +1012,16 @@ class EffortPage(PageWithViewer):
         return dict()
 
 
-# BINARY SEARCH: Test first 4 mixins with simple HyperTreeList
+# BINARY SEARCH: Test just SortableViewerForCategoriesMixin
+# This mixin has a detach() that unsubscribes from pypubsub
+from taskcoachlib.domain import category as categoryModule
+
 class LocalCategoryViewer(
-    viewer.mixin.AttachmentDropTargetMixin,
-    viewer.mixin.FilterableViewerMixin,
     viewer.mixin.SortableViewerForCategoriesMixin,
-    viewer.mixin.SearchableViewerMixin,
     viewer.base.TreeViewer
 ):  # pylint: disable=W0223
+    SorterClass = categoryModule.CategorySorter  # Required by mixin
+
     def __init__(self, items, parent, taskFile, settings, **kwargs):
         self.__items = items
         kwargs.setdefault("settingsSection", "categoryviewer")
