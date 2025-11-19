@@ -1056,6 +1056,21 @@ class CategoriesPage(PageWithViewer):
     def onCategoryChanged(self, event):
         self.viewer.refreshItems(*list(event.values()))
 
+    def close(self):
+        """Override close to unregister observers before destroying the page."""
+        # Unregister the category observers to prevent events during destruction
+        if self.__realized and len(self.items) == 1:
+            item = self.items[0]
+            for eventType in (
+                item.categoryAddedEventType(),
+                item.categoryRemovedEventType(),
+            ):
+                self.removeObserver(
+                    self.onCategoryChanged, eventType=eventType, eventSource=item
+                )
+        # Call parent close which will detach viewer and remove remaining observers
+        super().close()
+
     def entries(self):
         if self.__realized and hasattr(self, "viewer"):
             return dict(firstEntry=self.viewer, categories=self.viewer)
@@ -1112,6 +1127,19 @@ class AttachmentsPage(PageWithViewer):
         self.viewer.domainObjectsToView().clear()
         self.viewer.domainObjectsToView().extend(self.items[0].attachments())
 
+    def close(self):
+        """Override close to unregister observers before destroying the page."""
+        # Unregister the attachments observer to prevent events during destruction
+        if len(self.items) == 1:
+            item = self.items[0]
+            self.removeObserver(
+                self.onAttachmentsChanged,
+                eventType=item.attachmentsChangedEventType(),
+                eventSource=item,
+            )
+        # Call parent close which will detach viewer and remove remaining observers
+        super().close()
+
     def entries(self):
         if hasattr(self, "viewer"):
             return dict(firstEntry=self.viewer, attachments=self.viewer)
@@ -1163,6 +1191,19 @@ class NotesPage(PageWithViewer):
     def onNotesChanged(self, event):  # pylint: disable=W0613
         self.viewer.domainObjectsToView().clear()
         self.viewer.domainObjectsToView().extend(self.items[0].notes())
+
+    def close(self):
+        """Override close to unregister observers before destroying the page."""
+        # Unregister the notes observer to prevent events during destruction
+        if len(self.items) == 1:
+            item = self.items[0]
+            self.removeObserver(
+                self.onNotesChanged,
+                eventType=item.notesChangedEventType(),
+                eventSource=item,
+            )
+        # Call parent close which will detach viewer and remove remaining observers
+        super().close()
 
     def entries(self):
         if hasattr(self, "viewer"):
@@ -1232,6 +1273,17 @@ class PrerequisitesPage(PageWithViewer):
     def onPrerequisitesChanged(self, newValue, sender):
         if sender == self.items[0]:
             self.viewer.refreshItems(*newValue)
+
+    def close(self):
+        """Override close to unsubscribe from pubsub before destroying the page."""
+        # Unsubscribe from prerequisites changes to prevent events during destruction
+        if self.__realized and len(self.items) == 1:
+            pub.unsubscribe(
+                self.onPrerequisitesChanged,
+                self.items[0].prerequisitesChangedEventType(),
+            )
+        # Call parent close which will detach viewer and remove remaining observers
+        super().close()
 
     def entries(self):
         if self.__realized and hasattr(self, "viewer"):
