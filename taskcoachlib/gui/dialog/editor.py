@@ -965,15 +965,21 @@ class PageWithViewer(Page):
         raise NotImplementedError
 
     def close(self):
-        # Detach viewer to stop it from receiving notifications and destroy it
+        # Detach viewer to stop it from receiving notifications
         if hasattr(self, "viewer"):
             _debug_log(f"  PageWithViewer.close(): detaching viewer {self.viewer.__class__.__name__}")
             self.viewer.detach()
-            _debug_log(f"  PageWithViewer.close(): destroying viewer widget")
-            # Explicitly destroy the viewer widget to ensure any internal timers
-            # or callbacks are stopped before the parent window is destroyed.
-            # This prevents crashes from callbacks trying to access deleted widgets.
-            self.viewer.Destroy()
+            # Clear any tree controls to prevent events during destruction
+            # This is a workaround for wxPython Phoenix issue #1500 where
+            # TreeCtrl sends events after the tree is destroyed
+            _debug_log(f"  PageWithViewer.close(): clearing tree items if applicable")
+            if hasattr(self.viewer, 'widget'):
+                widget = self.viewer.widget
+                if hasattr(widget, 'DeleteAllItems'):
+                    try:
+                        widget.DeleteAllItems()
+                    except Exception:
+                        pass  # Ignore errors if already deleted
             _debug_log(f"  PageWithViewer.close(): deleting viewer reference")
             del self.viewer
             _debug_log(f"  PageWithViewer.close(): viewer deleted")
