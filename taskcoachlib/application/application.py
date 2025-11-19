@@ -249,6 +249,14 @@ class Application(object, metaclass=patterns.Singleton):
             )
             self.__message_checker.start()
         self.__copy_default_templates()
+
+        # Enable wxPython debug logging to capture events before crashes
+        # This helps identify which wx events/callbacks were active when segfaults occur
+        if operating_system.isGTK():
+            wx.Log.SetActiveTarget(wx.LogStderr())
+            wx.Log.SetLogLevel(wx.LOG_Info)
+            wx.Log.SetVerbose(True)
+
         self.mainwindow.Show()
         from twisted.internet import reactor
 

@@ -232,24 +232,27 @@ class MyWidget(wx.Window):
 
 **Date Implemented:** November 2025
 
-To help diagnose segfaults that occur in wxPython/GTK C++ code, we've enabled Python's `faulthandler` module in `taskcoach.py`:
+To help diagnose segfaults that occur in wxPython/GTK C++ code, we've enabled Python's `faulthandler` module in `taskcoach.py` with enhanced output:
 
 ```python
 import faulthandler
-faulthandler.enable()
+# Write to file to preserve crash logs
+_fault_log = open('/tmp/taskcoach_crash.log', 'w')
+faulthandler.enable(file=_fault_log, all_threads=True)
 ```
 
 **What this provides:**
 
 - Python traceback on segfaults showing the exact Python code that was executing
-- Stack trace for all Python threads at the time of the crash
-- Output to stderr (visible in terminal when running from command line)
+- Stack trace for ALL Python threads at the time of the crash (critical for threading issues)
+- Output written to `/tmp/taskcoach_crash.log` (persists after crash)
+- Also visible in terminal stderr when running from command line
 
 **How to use:**
 
 1. Run Task Coach from terminal: `python taskcoach.py`
 2. Reproduce the crash
-3. Check terminal output for the faulthandler traceback
+3. Check `/tmp/taskcoach_crash.log` for the faulthandler traceback
 4. The traceback will show the Python call stack leading to the segfault
 
 **Example output:**
@@ -257,12 +260,89 @@ faulthandler.enable()
 Fatal Python error: Segmentation fault
 
 Current thread 0x00007f8b4c7fe700 (most recent call first):
-  File "/taskcoachlib/gui/dialog/editor.py", line 964, in close
-  File "/taskcoachlib/widgets/searchctrl.py", line 166, in onFind
-  ...
+  File "/usr/lib/python3/dist-packages/wx/core.py", line 2262 in MainLoop
+  File "/usr/lib/python3/dist-packages/twisted/internet/wxreactor.py", line 151 in run
+  File "/taskcoachlib/application/application.py", line 255 in start
+  File "/taskcoach.py", line 89 in start
 ```
 
 This makes it much easier to identify which timer, callback, or widget is causing crashes during window destruction.
+
+### Getting Even Better Backtraces with GDB
+
+For crashes deep in wxPython/GTK C++ code (like `wx.core.MainLoop`), you need C++ level backtraces. Use GDB:
+
+#### **Method 1: Run under GDB**
+```bash
+# Install debug symbols first
+sudo apt-get install python3-dbg libwxgtk3.2-1-dbg gdb
+
+# Run under GDB
+gdb --args python3 taskcoach.py
+
+# In GDB:
+(gdb) run
+
+# When it crashes:
+(gdb) bt          # C++ backtrace
+(gdb) py-bt       # Python backtrace (if available)
+(gdb) thread apply all bt  # All threads C++ backtraces
+(gdb) info threads          # Show all active threads
+```
+
+#### **Method 2: Analyze Core Dumps**
+```bash
+# Enable core dumps
+ulimit -c unlimited
+
+# Run the app
+python3 taskcoach.py
+
+# After crash, analyze:
+gdb python3 core
+(gdb) bt
+(gdb) thread apply all bt
+```
+
+#### **Method 3: Attach to Running Process**
+```bash
+# Get process ID
+ps aux | grep taskcoach
+
+# Attach GDB to running process
+sudo gdb -p <PID>
+
+# Wait for crash or trigger it, then:
+(gdb) bt
+```
+
+### Interpreting the Crash from Your Example
+
+Your crash shows:
+```
+Current thread 0x00007fe7dac8d040 (most recent call first):
+  File "/usr/lib/python3/dist-packages/wx/core.py", line 2262 in MainLoop
+  File "/twisted/internet/wxreactor.py", line 151 in run
+```
+
+**Analysis:**
+- The crash is in `wx.core.MainLoop` (C++ event loop)
+- This is the **symptom**, not the root cause
+- The root cause is likely a timer/callback firing on a destroyed widget
+- Look at what happened BEFORE entering MainLoop (check wx debug logs)
+
+**Common causes for crashes in MainLoop:**
+1. Timer fires after widget destruction (SearchCtrl - already fixed)
+2. Event handler references destroyed object
+3. Callback holds reference to deleted C++ object
+4. GTK async cleanup race condition
+5. Thread accessing GUI from non-main thread
+
+**To debug this specific crash:**
+1. Check `/tmp/taskcoach_crash.log` for thread states
+2. Look for patterns: Does it crash on dialog close? On app exit?
+3. Run under GDB to get C++ backtrace showing which GTK/wx function crashed
+4. Enable wx debug logging (already done in application.py) to see events before crash
 
 ### Testing Checklist
 
