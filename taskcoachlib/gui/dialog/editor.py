@@ -1991,7 +1991,7 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # before destruction. This is the standard wxPython/GTK pattern -
         # the same approach used in the test suite tearDown.
         if operating_system.isGTK():
-            wx.YieldIfNeeded()
+            wx.Yield()
         self.Destroy()
 
     def on_activate(self, event):
