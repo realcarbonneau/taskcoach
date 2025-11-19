@@ -1863,6 +1863,9 @@ class Editor(BalloonTipManager, widgets.Dialog):
         self.__items_are_new = kwargs.pop("items_are_new", False)
         column_name = kwargs.pop("columnName", "")
         self.__call_after = kwargs.get("call_after", wx.CallAfter)
+        # Track initialization state - dialog is not ready until first idle event
+        self.__ready = False
+        self.__close_pending = False
         super().__init__(
             parent, self.__title(), buttonTypes=wx.ID_CLOSE, *args, **kwargs
         )
@@ -1897,6 +1900,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
         # Intercept ESC key to handle close ourselves, bypassing GTK's default
         # dialog close behavior which can race with our custom handler
         self.Bind(wx.EVT_CHAR_HOOK, self.__on_char_hook)
+        # Use EVT_IDLE to know when GTK has finished its layout work
+        self.Bind(wx.EVT_IDLE, self.__on_first_idle)
 
         if operating_system.isMac():
             # Sigh. On OS X, if you open an editor, switch back to the main window, open
@@ -1923,6 +1928,15 @@ class Editor(BalloonTipManager, widgets.Dialog):
     def __on_timer(self, event):
         if not self.IsShown():
             self.Close()
+
+    def __on_first_idle(self, event):
+        """Mark dialog as ready when GTK has finished its layout work."""
+        self.__ready = True
+        self.Unbind(wx.EVT_IDLE)  # Only need first idle
+        # If close was requested during initialization, execute it now
+        if self.__close_pending:
+            self.Close()
+        event.Skip()
 
     def __on_char_hook(self, event):
         """Intercept ESC key to handle close ourselves."""
@@ -1972,8 +1986,13 @@ class Editor(BalloonTipManager, widgets.Dialog):
         )
 
     def on_close_editor(self, event):
-        # Do cleanup first, then destroy. Don't call event.Skip() since we're
-        # handling destruction ourselves with Destroy().
+        # If dialog is not ready (GTK hasn't finished layout), defer the close
+        if not self.__ready:
+            self.__close_pending = True
+            self.Hide()  # Hide for visual feedback
+            return
+
+        # Do cleanup first, then destroy
         self._interior.close_edit_book()
         patterns.Publisher().removeObserver(self.on_item_removed)
         patterns.Publisher().removeObserver(self.on_subject_changed)
@@ -1985,16 +2004,7 @@ class Editor(BalloonTipManager, widgets.Dialog):
             self.__timer.Stop()
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
-        # Hide immediately for visual feedback
-        self.Hide()
-        # Defer destruction with a minimal timer to allow GTK to complete
-        # its layout work. This is necessary because GTK doesn't provide a
-        # "ready" callback - the only reliable way to know layout is complete
-        # is to let GTK's event loop run for a brief moment.
-        def _deferred_destroy():
-            if self and not self.IsBeingDeleted():
-                self.Destroy()
-        wx.CallLater(10, _deferred_destroy)
+        self.Destroy()
 
     def on_activate(self, event):
         event.Skip()
