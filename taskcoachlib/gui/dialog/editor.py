@@ -1067,19 +1067,14 @@ class CategoriesPage(PageWithViewer):
         #     self.registerObserver(
         #         self.onCategoryChanged, eventType=eventType, eventSource=item
         #     )
-        # TEMPORARY: Return placeholder to isolate if LocalCategoryViewer causes crash
-        placeholder = wx.StaticText(self, label="Categories placeholder for debugging")
-        # Add dummy methods that PageWithViewer.close() expects
-        placeholder.detach = lambda: None
-        return placeholder
-        # return LocalCategoryViewer(
-        #     self.items,
-        #     self,
-        #     taskFile,
-        #     settings,
-        #     settingsSection=settingsSection,
-        #     use_separate_settings_section=False,
-        # )
+        return LocalCategoryViewer(
+            self.items,
+            self,
+            taskFile,
+            settings,
+            settingsSection=settingsSection,
+            use_separate_settings_section=False,
+        )
 
     def onCategoryChanged(self, event):
         self.viewer.refreshItems(*list(event.values()))
@@ -1526,18 +1521,9 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
-    # Testing with simple pages + categories (was working before)
+    # Testing with ONLY categories to isolate crash
     allPageNames = [
-        "subject",
-        "dates",
-        # "prerequisites",  # Has embedded viewer
-        "progress",
-        "categories",  # Has embedded viewer - was working
-        "budget",
-        # "effort",  # Has embedded viewer
-        # "notes",  # Has embedded viewer
-        # "attachments",  # Has embedded viewer
-        "appearance",
+        "categories",  # Has embedded viewer - isolating this
     ]
     domainObject = "task"
 
