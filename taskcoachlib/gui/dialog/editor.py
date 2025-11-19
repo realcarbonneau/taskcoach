@@ -2067,6 +2067,11 @@ class Editor(BalloonTipManager, widgets.Dialog):
         _debug_log("_do_destroy START")
         if self:  # Check window still exists
             self.Hide()  # Hide first for better user experience
+            # Explicitly destroy all children first to prevent GTK from
+            # trying to clean them up with stale references
+            _debug_log("  destroying children")
+            self.DestroyChildren()
+            _debug_log("  destroying window")
             self.Destroy()
         _debug_log("_do_destroy END")
 
