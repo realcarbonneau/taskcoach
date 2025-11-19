@@ -238,7 +238,7 @@ class Application(object, metaclass=patterns.Singleton):
             import zeroconf
             print(f"zeroconf {zeroconf.__version__}")
         except ImportError:
-            pass
+            print("zeroconf Not Installed")
 
         if self.settings.getboolean("version", "notify"):
             self.__version_checker = meta.VersionChecker(self.settings)
