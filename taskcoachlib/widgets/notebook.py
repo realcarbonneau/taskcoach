@@ -203,6 +203,21 @@ class Notebook(BookMixin, aui.AuiNotebook):
         These must be cleaned up before the window is destroyed to avoid
         'any pushed event handlers must have been removed' assertion failures.
         """
+        # Stop any tooltip timers in the tab controls to prevent them from
+        # trying to access deleted widgets after destruction (crashes with
+        # "wrapped C/C++ object of type AuiTabCtrl has been deleted")
+        try:
+            # Access the internal tab container's tab controls
+            tabContainer = self._tabs
+            if hasattr(tabContainer, '_toolTipTimer') and tabContainer._toolTipTimer:
+                tabContainer._toolTipTimer.Stop()
+            # Also check for any child AuiTabCtrl windows
+            for child in self.GetChildren():
+                if hasattr(child, '_toolTipTimer') and child._toolTipTimer:
+                    child._toolTipTimer.Stop()
+        except Exception:
+            pass  # Ignore errors if internal structure is different
+
         mgr = self.GetAuiManager()
         if mgr:
             mgr.UnInit()
