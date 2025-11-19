@@ -1505,17 +1505,18 @@ class EditBook(widgets.Notebook):
 
 
 class TaskEditBook(EditBook):
+    # Simplified for debugging - only subject page
     allPageNames = [
         "subject",
-        "dates",
-        "prerequisites",
-        "progress",
-        "categories",
-        "budget",
-        "effort",
-        "notes",
-        "attachments",
-        "appearance",
+        # "dates",
+        # "prerequisites",
+        # "progress",
+        # "categories",
+        # "budget",
+        # "effort",
+        # "notes",
+        # "attachments",
+        # "appearance",
     ]
     domainObject = "task"
 
