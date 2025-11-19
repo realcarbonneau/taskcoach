@@ -120,6 +120,12 @@ class ToolTipMixin(object):
 
         event.Skip()
 
+    def cleanupTooltipTimer(self):
+        """Stop the tooltip timer to prevent crashes during widget destruction.
+        This should be called from the widget's Destroy() or cleanup method."""
+        if self.__timer and self.__timer.IsRunning():
+            self.__timer.Stop()
+
     def __OnTimer(self, event):  # pylint: disable=W0613
         self.ShowTip(*self.GetMainWindow().ClientToScreen(*self.__position))
 
