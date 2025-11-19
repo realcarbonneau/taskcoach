@@ -958,6 +958,12 @@ class PageWithViewer(Page):
     def close(self):
         # I guess this happens because of CallAfter in context of #1437...
         if hasattr(self, "viewer"):
+            # Stop SearchCtrl timer before detaching to prevent crash
+            # when window is destroyed before timer fires (GTK async cleanup issue)
+            if hasattr(self.viewer, 'getToolBarUICommands'):
+                for uiCommand in self.viewer.getToolBarUICommands():
+                    if hasattr(uiCommand, 'searchControl') and uiCommand.searchControl:
+                        uiCommand.searchControl.cleanup()
             self.viewer.detach()
             # Don't notify the viewer about any changes anymore, it's about
             # to be deleted, but don't delete it too soon.
