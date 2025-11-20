@@ -331,7 +331,7 @@ We have a comprehensive debugging infrastructure that helps diagnose timer crash
 |------|-----------|--------------|-------------|
 | faulthandler | ✅ Yes | ZERO (only outputs on crash) | Python-level crash diagnosis |
 | sys.tracebacklimit | ✅ Yes | ZERO (only affects errors) | Full stack traces on exceptions |
-| wx verbose logging | ⚠️ Conditional | HIGH (constant output) | Debugging wx events/widget lifecycle |
+| wx verbose logging | ✅ Yes (GTK only) | Console output only | Debugging wx events/widget lifecycle |
 | .gdbinit_taskcoach | Manual | ZERO (only when using GDB) | C++ level crash diagnosis |
 
 #### 1. Faulthandler (Always Enabled)
@@ -367,36 +367,32 @@ Current thread 0x00007f8b4c7fe700 (most recent call first):
   File "/taskcoach.py", line 89 in start
 ```
 
-#### 2. wxPython Verbose Logging (Conditional)
+#### 2. wxPython Verbose Logging (Always Enabled on GTK)
 
-For debugging wx event sequencing and widget lifecycle issues, enable verbose logging:
-
-```bash
-# Enable wx debug logging (GTK only)
-export TASKCOACH_DEBUG=1
-python taskcoach.py
-```
+wxPython verbose logging is automatically enabled on GTK/Linux to help diagnose crashes:
 
 **What this provides:**
 - All wx events logged to console (EVT_PAINT, EVT_SIZE, etc.)
 - Widget creation/destruction messages
 - Timer events and bindings
 - Helpful for identifying which wx events occur before crashes
+- **Only visible when running from terminal** - GUI-only users never see this
 
-**Warning:** This produces **significant console output** and should only be enabled for debugging.
+**Example output when running from terminal:**
+```bash
+python taskcoach.py
 
-**Example output:**
-```
 07:35:49 PM: Debug: Adding duplicate image handler for 'Windows bitmap file'
 07:35:49 PM: Debug: Adding duplicate animation handler for '1' type
 ...
 ```
 
-**To disable:** Unset the environment variable:
-```bash
-unset TASKCOACH_DEBUG
-python taskcoach.py
-```
+**Why always-on:**
+- Task Coach is still in active development/refactoring
+- Only visible to developers running from terminal
+- GUI users (clicking the icon) never see console output
+- Provides automatic crash context when running under GDB or from terminal
+- No performance impact, only console output
 
 #### 3. GDB for C++ Level Backtraces
 
@@ -536,7 +532,7 @@ Current thread 0x00007f8b4c7fe700 (most recent call first):
 1. **Check faulthandler output** - Shows which Python code was executing
 2. **Look for patterns** - Does it crash on dialog close? On app exit? When typing?
 3. **Run under GDB** - Shows the actual NULL pointer and which timer crashed
-4. **Enable TASKCOACH_DEBUG** - Shows wx events before crash
+4. **Check wx verbose logs** - Shows wx events before crash (automatically enabled on GTK)
 5. **Search for timers** - Look for `wx.Timer` in the relevant widgets
 6. **Verify cleanup** - Ensure timer.Stop() is called in EVT_WINDOW_DESTROY
 
