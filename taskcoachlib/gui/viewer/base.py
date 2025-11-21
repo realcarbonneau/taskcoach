@@ -94,6 +94,14 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         wx.CallAfter(self.__DisplayBalloon)
 
     def __DisplayBalloon(self):
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction (e.g., closing nested dialogs)
+        try:
+            if not self or self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            return
         # AuiFloatingFrame is instantiated from framemanager, we can't derive it from BalloonTipManager
         if self.toolbar.IsShownOnScreen() and hasattr(
             wx.GetTopLevelParent(self), "AddBalloonTip"
@@ -304,6 +312,14 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
             pass
 
     def updateSelection(self, sendViewerStatusEvent=True):
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction (e.g., closing nested dialogs)
+        try:
+            if not self or self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            return
         newSelection = self.widget.curselection()
         if newSelection != self.__curselection:
             self.__curselection = newSelection
@@ -357,6 +373,14 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         wx.CallAfter(self.endOfSelectAll)
 
     def endOfSelectAll(self):
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction (e.g., closing nested dialogs)
+        try:
+            if not self or self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            return
         self.__curselection = self.presentation()
         self.__selectingAllItems = False
         # Pretend we received one selection event for the select_all() call:

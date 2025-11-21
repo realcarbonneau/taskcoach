@@ -105,6 +105,14 @@ class BaseTaskViewer(
         wx.CallAfter(self.__DisplayBalloon)
 
     def __DisplayBalloon(self):
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction (e.g., closing nested dialogs)
+        try:
+            if not self or self.IsBeingDeleted():
+                return
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            return
         if (
             self.toolbar.getToolIdByCommand("ViewerHideTasks_completed")
             != wx.ID_ANY
@@ -1067,7 +1075,16 @@ class CalendarViewer(
 
         if self.settings.getboolean("calendarviewer", "gradient"):
             # If called directly, we crash with a Cairo assert failing...
-            wx.CallAfter(widget.SetDrawer, wxFancyDrawer)
+            wx.CallAfter(self.__safeSetDrawer, widget, wxFancyDrawer)
+
+    def __safeSetDrawer(self, widget, drawer):
+        """Safely set the drawer on a widget, guarding against deleted C++ objects."""
+        try:
+            if widget:
+                widget.SetDrawer(drawer)
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
         return widget
 
@@ -2395,4 +2412,13 @@ else:
             )
             self.hbox.Clear(True)
             self.hbox.Add(graph_png_bm, 1, wx.ALL, 3)
-            wx.CallAfter(self.scrolled_panel.SendSizeEvent)
+            wx.CallAfter(self.__safeSendSizeEvent)
+
+    def __safeSendSizeEvent(self):
+        """Safely send size event to scrolled panel, guarding against deleted C++ objects."""
+        try:
+            if self.scrolled_panel:
+                self.scrolled_panel.SendSizeEvent()
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
