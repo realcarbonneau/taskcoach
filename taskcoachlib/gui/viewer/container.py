@@ -161,7 +161,17 @@ class ViewerContainer(object):
                 break
             window = window.GetParent()
         else:
-            wx.CallAfter(self.activeViewer().SetFocus)
+            wx.CallAfter(self.__safeSetFocusOnActiveViewer)
+
+    def __safeSetFocusOnActiveViewer(self):
+        """Safely set focus on active viewer, guarding against deleted C++ objects."""
+        try:
+            viewer = self.activeViewer()
+            if viewer:
+                viewer.SetFocus()
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
     def onPageClosed(self, event):
         if event.GetPane().IsToolbar():

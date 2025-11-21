@@ -198,12 +198,31 @@ class MainToolBar(ToolBar):
         # On Windows XP, the sizes are off by 1 pixel. I fear that this value depends
         # on the user's config so let's take some margin.
         if abs(event.GetSize()[0] - self.GetParent().GetClientSize()[0]) >= 10:
-            wx.CallAfter(self.GetParent().SendSizeEvent)
+            wx.CallAfter(self.__safeParentSendSizeEvent)
+
+    def __safeParentSendSizeEvent(self):
+        """Safely send size event to parent, guarding against deleted C++ objects."""
+        try:
+            parent = self.GetParent()
+            if parent:
+                parent.SendSizeEvent()
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
+
+    def __safeSetMinSize(self, size):
+        """Safely set min size, guarding against deleted C++ objects."""
+        try:
+            if self:
+                self.SetMinSize(size)
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
     def Realize(self):
         self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
         super().Realize()
         self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
-        wx.CallAfter(self.GetParent().SendSizeEvent)
+        wx.CallAfter(self.__safeParentSendSizeEvent)
         w, h = self.GetParent().GetClientSize()
-        wx.CallAfter(self.SetMinSize, (w, -1))
+        wx.CallAfter(self.__safeSetMinSize, (w, -1))

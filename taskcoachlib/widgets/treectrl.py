@@ -59,7 +59,16 @@ class HyperTreeList(draganddrop.TreeCtrlDragAndDropMixin, BaseHyperTreeList):
         # On Ubuntu, when the user has scrolled to the bottom of the tree
         # and collapses an item, the tree is not redrawn correctly. Refreshing
         # solves this. See http://trac.wxwidgets.org/ticket/11704
-        wx.CallAfter(self.MainWindow.Refresh)
+        wx.CallAfter(self.__safeRefresh)
+
+    def __safeRefresh(self):
+        """Safely refresh the main window, guarding against deleted C++ objects."""
+        try:
+            if self.MainWindow:
+                self.MainWindow.Refresh()
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
     def GetSelections(self):  # pylint: disable=C0103
         """If the root item is hidden, it should never be selected.
@@ -227,7 +236,13 @@ class TreeListCtrl(
         return self.ct_type
 
     def curselection(self):
-        return [self.GetItemPyData(item) for item in self.GetSelections()]
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction (e.g., closing nested dialogs)
+        try:
+            return [self.GetItemPyData(item) for item in self.GetSelections()]
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            return []
 
     def RefreshAllItems(self, count=0):  # pylint: disable=W0613
         self.Freeze()
@@ -368,8 +383,17 @@ class TreeListCtrl(
     def onSelect(self, event):
         # Use CallAfter to prevent handling the select while items are
         # being deleted:
-        wx.CallAfter(self.selectCommand)
+        wx.CallAfter(self.__safeSelectCommand)
         event.Skip()
+
+    def __safeSelectCommand(self):
+        """Safely call selectCommand, guarding against deleted C++ objects."""
+        try:
+            if self:
+                self.selectCommand()
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
     def onKeyDown(self, event):
         if event.GetKeyCode() == wx.WXK_RETURN:
@@ -389,8 +413,17 @@ class TreeListCtrl(
             self.GetItemPyData(drag_item) for drag_item in drag_items
         )
         wx.CallAfter(
-            self.dragAndDropCommand, drop_item, drag_items, part, column
+            self.__safeDragAndDropCommand, drop_item, drag_items, part, column
         )
+
+    def __safeDragAndDropCommand(self, drop_item, drag_items, part, column):
+        """Safely call dragAndDropCommand, guarding against deleted C++ objects."""
+        try:
+            if self:
+                self.dragAndDropCommand(drop_item, drag_items, part, column)
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
     def onItemExpanding(self, event):
         event.Skip()
