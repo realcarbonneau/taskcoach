@@ -52,7 +52,8 @@ Date: 2011-06-09
 Licence: LGPL v3 or later
 Source: https://github.com/bendyer/python-ntlm
 Copied on: 2012-07-31
-Changes for Task Coach: make __init__.py non-empty so that it gets packaged
+Changes for Task Coach: make __init__.py non-empty so that it gets packaged;
+    removed HTTPNtlmAuthHandler.py (unused Python 2 code, used urllib2)
 
 Component: customtreectrl.py
 Name: CustomTreeCtrl
