@@ -3309,7 +3309,15 @@ class ToggleAutoColumnResizing(
         wx.CallAfter(self.updateWidget)
 
     def updateWidget(self):
-        self.viewer.getWidget().ToggleAutoResizing(self.isSettingChecked())
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction
+        try:
+            widget = self.viewer.getWidget()
+            if widget:
+                widget.ToggleAutoResizing(self.isSettingChecked())
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            pass
 
     def isSettingChecked(self):
         return self.settings.getboolean(

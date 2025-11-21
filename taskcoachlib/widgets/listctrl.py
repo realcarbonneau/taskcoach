@@ -177,10 +177,16 @@ class VirtualListCtrl(
         return index, flags, column
 
     def curselection(self):
-        return [
-            self.getItemWithIndex(index)
-            for index in self.__curselection_indices()
-        ]
+        # Guard against deleted C++ object - can happen when wx.CallAfter
+        # callback executes after window destruction (e.g., closing nested dialogs)
+        try:
+            return [
+                self.getItemWithIndex(index)
+                for index in self.__curselection_indices()
+            ]
+        except RuntimeError:
+            # wrapped C/C++ object has been deleted
+            return []
 
     def select(self, items):
         indices = [self.__parent.getIndexOfItem(item) for item in items]
