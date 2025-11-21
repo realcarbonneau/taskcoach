@@ -428,9 +428,37 @@ class TaskEntry(wx.Panel):
             self, style=wx.CB_READONLY | wx.CB_SORT | wx.TAB_TRAVERSAL
         )
         self._comboTreeBox.Bind(wx.EVT_COMBOBOX, self.onTaskSelected)
+        # Override Popup to fix positioning when window moves between screens
+        self._comboTreeBox.Popup = self._createPopupOverride()
         boxSizer = wx.BoxSizer()
         boxSizer.Add(self._comboTreeBox, flag=wx.EXPAND, proportion=1)
         self.SetSizerAndFit(boxSizer)
+
+    def _createPopupOverride(self):
+        """Create a Popup method that recalculates position each time.
+
+        The default ComboTreeBox.Popup() may position incorrectly when
+        the parent window is moved to a different monitor. This override
+        ensures the popup position is calculated fresh each time.
+        """
+        comboBox = self._comboTreeBox
+
+        def popup():
+            popupFrame = comboBox._popupFrame
+            # Calculate current screen position of the combobox
+            x_position, y_position = comboBox.GetParent().ClientToScreen(
+                comboBox.GetPosition()
+            )
+            comboBoxSize = comboBox.GetSize()
+            y_position += comboBoxSize[1]
+            width = comboBoxSize[0]
+            height = 300
+            # Set the popup frame position and size
+            popupFrame.SetSize(x_position, y_position, width, height)
+            popupFrame.SetMinSize((width, height))
+            popupFrame.Show()
+
+        return popup
 
     def _addTasksRecursively(self, tasks, parentItem=None):
         """Add tasks to the ComboTreeBox and then recursively add their
