@@ -7,8 +7,9 @@ This document captures technical issues, fixes, and refactorings discovered duri
 1. [Widget Resizing Issues](#widget-resizing-issues)
 2. [wx.Timer Crash During Window Destruction](#wxtimer-crash-during-window-destruction)
 3. [wxPython Compatibility](#wxpython-compatibility)
-4. [Known Issues](#known-issues)
-5. [Future Work](#future-work)
+4. [Bundled Third-Party Library Cleanup](#bundled-third-party-library-cleanup)
+5. [Known Issues](#known-issues)
+6. [Future Work](#future-work)
 
 ---
 
@@ -586,6 +587,62 @@ See [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) for details on the 
 
 ---
 
+## Bundled Third-Party Library Cleanup
+
+During the Python 3 migration, several bundled third-party libraries were evaluated for removal or replacement. Task Coach historically bundled many libraries to ensure compatibility across platforms.
+
+### ntlm/ Module
+
+**Date Evaluated:** November 2025
+**Location:** `taskcoachlib/thirdparty/ntlm/`
+**Source:** https://github.com/bendyer/python-ntlm (2011)
+
+#### Analysis Results
+
+| File | Status | Notes |
+|------|--------|-------|
+| `IMAPNtlmAuthHandler.py` | **ACTIVELY USED** | Used in `thunderbird.py:394-406` for IMAP/NTLM auth |
+| `HTTPNtlmAuthHandler.py` | **REMOVED** | Python 2 urllib2-based, never imported anywhere |
+| `ntlm.py` | **REQUIRED** | Core NTLM protocol implementation |
+| `des*.py`, `U32.py` | **REQUIRED** | Dependencies for ntlm.py |
+
+#### Usage in Codebase
+
+The IMAP NTLM handler is used for Exchange/enterprise email authentication:
+
+```python
+# thunderbird.py:394-406
+elif "AUTH=NTLM" in imap.capabilities:
+    domain = wx.GetTextFromUser(
+        _("Please enter the domain for user %s") % self.user
+    )
+    domain_username = "\\".join([domain.upper(), str(self.user)])
+    response, dummy_parameters = imap.authenticate(
+        "NTLM",
+        IMAPNtlmAuthHandler.IMAPNtlmAuthHandler(domain_username, str(pwd)),
+    )
+```
+
+#### Why requests-ntlm Is NOT a Replacement
+
+The `requests-ntlm` PyPI package is for HTTP requests using the `requests` library, not for IMAP protocol authentication. The `IMAPNtlmAuthHandler` is purpose-built for Python's `imaplib.IMAP4.authenticate()` method and must be retained.
+
+#### Action Taken
+
+- **Removed:** `HTTPNtlmAuthHandler.py` (138 lines of dead Python 2 code using `urllib2`)
+- **Kept:** All other files (required for IMAP authentication)
+- **Updated:** `thirdparty/README.txt` to document the removal
+
+#### Potential Future Work
+
+The remaining ntlm module files contain some Python 2 patterns that could be modernized:
+- Print statements (though most are commented out)
+- String handling (`basestring` references)
+
+However, since the code works and is only used for IMAP authentication, these are low priority.
+
+---
+
 ## Known Issues
 
 ### Pending Issues
@@ -638,4 +695,4 @@ When adding new technical notes:
 
 ---
 
-**Last Updated:** November 19, 2025
+**Last Updated:** November 21, 2025
