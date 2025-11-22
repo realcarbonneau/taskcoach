@@ -1449,6 +1449,10 @@ class EditBook(widgets.Notebook):
         section = self.__settings_section_name()
         if not self.settings.has_section(section):
             self.__create_settings_section(section)
+        else:
+            # Ensure parent_offset exists for backward compatibility with old sections
+            if not self.settings.has_option(section, "parent_offset"):
+                self.settings.init(section, "parent_offset", "(-1, -1)")
         return section
 
     def __settings_section_name(self):

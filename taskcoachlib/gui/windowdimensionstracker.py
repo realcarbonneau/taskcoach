@@ -87,15 +87,23 @@ class WindowSizeAndPositionTracker(_Tracker):
                 if isinstance(self._window, wx.Dialog):
                     parent = self._window.GetParent()
                     if parent:
-                        parent_pos = parent.GetPosition()
-                        parent_monitor = wx.Display.GetFromWindow(parent)
-                        dialog_monitor = wx.Display.GetFromWindow(self._window)
+                        # Use GetScreenRect for consistency with restore logic
+                        parent_rect = parent.GetScreenRect()
+                        parent_monitor = wx.Display.GetFromPoint(
+                            wx.Point(parent_rect.x + parent_rect.width // 2,
+                                     parent_rect.y + parent_rect.height // 2)
+                        )
+                        dialog_rect = self._window.GetScreenRect()
+                        dialog_monitor = wx.Display.GetFromPoint(
+                            wx.Point(dialog_rect.x + dialog_rect.width // 2,
+                                     dialog_rect.y + dialog_rect.height // 2)
+                        )
 
                         # Only save offset if dialog is on same monitor as parent
                         # Wrapped in try/except for backward compatibility with old settings
                         try:
                             if parent_monitor != wx.NOT_FOUND and parent_monitor == dialog_monitor:
-                                offset = (pos.x - parent_pos.x, pos.y - parent_pos.y)
+                                offset = (pos.x - parent_rect.x, pos.y - parent_rect.y)
                                 self.set_setting("parent_offset", offset)
                             else:
                                 # Dialog on different monitor - save null offset to force re-center
