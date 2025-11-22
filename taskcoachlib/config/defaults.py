@@ -490,6 +490,7 @@ defaults = {
     "effortdialog": {
         "size": "(-1, -1)",  # Size of the dialogs, calculated by default
         "position": "(-1, -1)",  # Position of the dialog, undefined by default
+        "parent_offset": "(-1, -1)",  # Offset from parent window for multi-monitor support
         "maximized": "False",  # Don't open the dialog maximized by default
     },
     "file": {

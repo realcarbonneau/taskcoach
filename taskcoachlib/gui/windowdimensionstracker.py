@@ -79,7 +79,24 @@ class WindowSizeAndPositionTracker(_Tracker):
             if not self._window.IsIconized():
                 # Only save position when the window is not maximized
                 # *and* not minimized
-                self.set_setting("position", event.GetPosition())
+                pos = event.GetPosition()
+                self.set_setting("position", pos)
+
+                # For dialogs, also save offset from parent for multi-monitor support
+                if isinstance(self._window, wx.Dialog):
+                    parent = self._window.GetParent()
+                    if parent:
+                        parent_pos = parent.GetPosition()
+                        parent_monitor = wx.Display.GetFromWindow(parent)
+                        dialog_monitor = wx.Display.GetFromWindow(self._window)
+
+                        # Only save offset if dialog is on same monitor as parent
+                        if parent_monitor != wx.NOT_FOUND and parent_monitor == dialog_monitor:
+                            offset = (pos.x - parent_pos.x, pos.y - parent_pos.y)
+                            self.set_setting("parent_offset", offset)
+                        else:
+                            # Dialog on different monitor - save null offset to force re-center
+                            self.set_setting("parent_offset", (-1, -1))
         event.Skip()
 
     def on_maximize(self, event):
@@ -111,22 +128,49 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Set minimum size constraint on the window to prevent user from resizing too small
         self._window.SetMinSize((min_width, min_height))
 
-        # For dialogs, center on the same display as parent window
-        # This ensures dialogs appear on the correct screen in multi-monitor setups
+        # For dialogs, position relative to parent window with multi-monitor support
         if isinstance(self._window, wx.Dialog):
             parent = self._window.GetParent()
             if parent:
-                # Find which display the parent is on
+                parent_pos = parent.GetPosition()
                 parent_display_index = wx.Display.GetFromWindow(parent)
-                if parent_display_index != wx.NOT_FOUND:
-                    # Center dialog on parent's display
-                    display = wx.Display(parent_display_index)
-                    display_rect = display.GetGeometry()
-                    x = display_rect.x + (display_rect.width - width) // 2
-                    y = display_rect.y + (display_rect.height - height) // 2
-                else:
+
+                if parent_display_index == wx.NOT_FOUND:
                     # Parent not on any display, use safe default
                     x, y = 50, 50
+                else:
+                    display = wx.Display(parent_display_index)
+                    display_rect = display.GetGeometry()
+
+                    # Try to use saved parent_offset for positioning
+                    try:
+                        offset_x, offset_y = self.get_setting("parent_offset")
+                    except (KeyError, TypeError):
+                        # Old settings without parent_offset - use centered
+                        offset_x, offset_y = -1, -1
+
+                    if offset_x != -1 and offset_y != -1:
+                        # Calculate proposed position from parent + offset
+                        proposed_x = parent_pos.x + offset_x
+                        proposed_y = parent_pos.y + offset_y
+
+                        # Check if proposed position is on parent's monitor
+                        # Use center of proposed window for monitor detection
+                        test_x = proposed_x + width // 2
+                        test_y = proposed_y + height // 2
+                        proposed_monitor = wx.Display.GetFromPoint(wx.Point(test_x, test_y))
+
+                        if proposed_monitor == parent_display_index:
+                            # Same monitor as parent - use saved offset position
+                            x, y = proposed_x, proposed_y
+                        else:
+                            # Would be on different monitor - center on parent's monitor
+                            x = display_rect.x + (display_rect.width - width) // 2
+                            y = display_rect.y + (display_rect.height - height) // 2
+                    else:
+                        # No saved offset - center on parent's monitor
+                        x = display_rect.x + (display_rect.width - width) // 2
+                        y = display_rect.y + (display_rect.height - height) // 2
             elif x == -1 and y == -1:
                 # No parent, use safe default
                 x, y = 50, 50

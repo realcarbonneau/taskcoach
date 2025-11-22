@@ -1468,6 +1468,7 @@ class EditBook(widgets.Notebook):
                 pages=str(self.__pages_to_create()),
                 size="(-1, -1)",
                 position="(-1, -1)",
+                parent_offset="(-1, -1)",  # Offset from parent window for multi-monitor support
                 maximized="False",
             ).items()
         ):
