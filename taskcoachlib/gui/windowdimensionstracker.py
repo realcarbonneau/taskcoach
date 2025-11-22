@@ -216,8 +216,24 @@ class WindowSizeAndPositionTracker(_Tracker):
             self._window.SetClientSize((width, height))
         if self.get_setting("maximized"):
             self._window.Maximize()
-        # Check that the window is on a valid display and move if necessary:
-        display_index = wx.Display.GetFromWindow(self._window)
+
+        # Check that the window is on a valid display and move if necessary
+        # For main window with known saved_monitor, use that for validation
+        # (GetFromWindow can return wrong index before window is fully realized)
+        if not isinstance(self._window, wx.Dialog):
+            try:
+                saved_monitor = self.get_setting("monitor_index")
+                num_monitors = wx.Display.GetCount()
+                if saved_monitor >= 0 and saved_monitor < num_monitors:
+                    # Use the saved monitor for validation
+                    display_index = saved_monitor
+                else:
+                    display_index = wx.Display.GetFromWindow(self._window)
+            except (KeyError, TypeError, configparser.NoSectionError, configparser.NoOptionError):
+                display_index = wx.Display.GetFromWindow(self._window)
+        else:
+            display_index = wx.Display.GetFromWindow(self._window)
+
         if display_index == wx.NOT_FOUND:
             # Window is completely off-screen, use safe default position
             # Not (0, 0) because on OSX this hides the window bar...
