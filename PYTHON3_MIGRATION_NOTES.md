@@ -722,19 +722,50 @@ time_ref_present = pp.Tag("time_ref_present")
 | `setup_bookworm.sh` | Added `pyparsing>=3.1.3` to pip install |
 | `DEBIAN_BOOKWORM_SETUP.md` | Added note about pyparsing needing pip |
 
-### snarl.py Module (Pending Evaluation)
+### snarl.py Module
 
-**Location:** `taskcoachlib/thirdparty/snarl.py`
-**Status:** Python 2 only, abandoned upstream
+**Date Removed:** November 2025
+**Location:** `taskcoachlib/thirdparty/snarl.py` (removed)
+**Status:** **REMOVED**
 
-The Snarl notification bindings are used only for Windows notifications. Issues identified:
+#### Background
+
+Snarl was a third-party notification system for Windows, popular in the late 2000s/early 2010s (similar to Growl on Mac). Task Coach included Python bindings to integrate with Snarl for desktop notifications.
+
+#### Issues Identified
 
 - Uses deprecated `array.tostring()` (removed in Python 3.13)
 - Uses deprecated `inspect.getargspec()`
 - No maintained upstream (original author unreachable)
-- Snarl itself has minimal development activity
+- Snarl itself is essentially abandoned (minimal development since ~2015)
+- Windows 10+ has native toast notifications that supersede Snarl
+- Very few users have Snarl installed
 
-**Recommendation:** Consider replacing with modern Windows notification library (`win10toast`, `plyer`, or native Windows toast notifications).
+#### Why Removal is Safe
+
+Task Coach already has a **built-in fallback notification system** (`UniversalNotifier` in `notifier_universal.py`) that:
+- Works on all platforms (Windows, Mac, Linux)
+- Uses wxPython to create custom notification popup windows
+- Provides the same functionality (title, message, icon, timeout)
+
+The notification selection logic in `notifier.py` was:
+```python
+elif operating_system.isWindows():
+    return klass.get("Snarl") or klass.get("Task Coach")
+```
+
+With Snarl removed, Windows users automatically get the "Task Coach" (UniversalNotifier) notifications, which work identically.
+
+#### Files Removed
+
+| File | Description |
+|------|-------------|
+| `taskcoachlib/thirdparty/snarl.py` | Python Snarl bindings (256 lines) |
+| `taskcoachlib/notify/notifier_windows.py` | SnarlNotifier class (50 lines) |
+
+#### Other Updates
+
+- `COPYRIGHT.txt` - Removed snarl.py reference
 
 ---
 
