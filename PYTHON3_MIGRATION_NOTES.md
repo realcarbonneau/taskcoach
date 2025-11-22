@@ -766,8 +766,22 @@ The library was vendored (copied into the codebase) as a historical pattern from
 |------|--------|
 | `taskcoachlib/thirdparty/squaremap/` | Removed directory |
 | `setup.py` | Added `squaremap>=1.0.5` dependency |
-| `taskcoachlib/widgets/tcsquaremap.py` | Updated import path |
+| `taskcoachlib/widgets/tcsquaremap.py` | Updated import path, added `FontForLabels` override |
 | `setup_bookworm.sh` | Added `squaremap` to pip install list |
+
+#### PyPI squaremap Bug Workaround
+
+The PyPI squaremap 1.0.5 package has a bug in `FontForLabels()` where it passes a float to `Font.SetPointSize()` which requires an int:
+
+```python
+# Bug in squaremap 1.0.5:
+font.SetPointSize(scale * font.GetPointSize())  # float!
+
+# Fix (in TcSquareMap override):
+font.SetPointSize(int(scale * font.GetPointSize()))  # int
+```
+
+The `TcSquareMap` class overrides `FontForLabels()` to work around this bug until it's fixed upstream.
 
 ---
 

@@ -38,6 +38,17 @@ class TcSquareMap(tooltip.ToolTipMixin, squaremap.SquareMap):
         self.popupMenu = popupMenu
         self.Bind(wx.EVT_RIGHT_DOWN, self.onPopup)
 
+    def FontForLabels(self, dc):
+        """Return the default GUI font, scaled for printing if necessary.
+
+        Override to fix PyPI squaremap bug: SetPointSize requires int, not float.
+        See: https://github.com/mcfletch/squaremap/issues/X
+        """
+        font = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        scale = dc.GetPPI()[0] / wx.ScreenDC().GetPPI()[0]
+        font.SetPointSize(int(scale * font.GetPointSize()))
+        return font
+
     def RefreshAllItems(self, count):  # pylint: disable=W0613
         self.UpdateDrawing()
 
