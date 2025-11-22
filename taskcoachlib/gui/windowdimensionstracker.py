@@ -92,12 +92,17 @@ class WindowSizeAndPositionTracker(_Tracker):
                         dialog_monitor = wx.Display.GetFromWindow(self._window)
 
                         # Only save offset if dialog is on same monitor as parent
-                        if parent_monitor != wx.NOT_FOUND and parent_monitor == dialog_monitor:
-                            offset = (pos.x - parent_pos.x, pos.y - parent_pos.y)
-                            self.set_setting("parent_offset", offset)
-                        else:
-                            # Dialog on different monitor - save null offset to force re-center
-                            self.set_setting("parent_offset", (-1, -1))
+                        # Wrapped in try/except for backward compatibility with old settings
+                        try:
+                            if parent_monitor != wx.NOT_FOUND and parent_monitor == dialog_monitor:
+                                offset = (pos.x - parent_pos.x, pos.y - parent_pos.y)
+                                self.set_setting("parent_offset", offset)
+                            else:
+                                # Dialog on different monitor - save null offset to force re-center
+                                self.set_setting("parent_offset", (-1, -1))
+                        except (configparser.NoSectionError, configparser.NoOptionError):
+                            # Old settings section without parent_offset support - skip saving
+                            pass
         event.Skip()
 
     def on_maximize(self, event):
