@@ -93,7 +93,7 @@ class HTMLPrintout(wx.html.HtmlPrintout):
         super().__init__()
         self.SetHtmlText(html_text)
         self.SetFooter(_("Page") + " @PAGENUM@/@PAGESCNT@", wx.html.PAGE_ALL)
-        self.SetFonts("Arial", "Courier")
+        self.SetStandardFonts(normal_face="Arial", fixed_face="Courier")
         printer_settings = PrinterSettings(settings)
         left, top = printer_settings.pageSetupData.GetMarginTopLeft()
         right, bottom = printer_settings.pageSetupData.GetMarginBottomRight()
