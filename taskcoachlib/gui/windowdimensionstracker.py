@@ -134,6 +134,10 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Set minimum size constraint on the window to prevent user from resizing too small
         self._window.SetMinSize((min_width, min_height))
 
+        # Track the target monitor for validation later
+        # (GetFromWindow can return wrong index before window is fully realized)
+        target_monitor_for_validation = None
+
         # For dialogs, position relative to parent window with multi-monitor support
         if isinstance(self._window, wx.Dialog):
             parent = self._window.GetParent()
@@ -141,6 +145,13 @@ class WindowSizeAndPositionTracker(_Tracker):
                 # Use parent's screen rect directly for positioning
                 # This works correctly across monitors (like CentreOnParent does)
                 parent_rect = parent.GetScreenRect()
+
+                # Determine which monitor the parent is on
+                parent_monitor = wx.Display.GetFromPoint(
+                    wx.Point(parent_rect.x + parent_rect.width // 2,
+                             parent_rect.y + parent_rect.height // 2)
+                )
+                target_monitor_for_validation = parent_monitor
 
                 # Try to use saved parent_offset for positioning
                 try:
@@ -154,15 +165,10 @@ class WindowSizeAndPositionTracker(_Tracker):
                     proposed_x = parent_rect.x + offset_x
                     proposed_y = parent_rect.y + offset_y
 
-                    # Check if proposed position would place dialog reasonably on screen
-                    # by checking if the center point is on any display
+                    # Check if proposed position would place dialog on same monitor as parent
                     test_x = proposed_x + width // 2
                     test_y = proposed_y + height // 2
                     proposed_monitor = wx.Display.GetFromPoint(wx.Point(test_x, test_y))
-                    parent_monitor = wx.Display.GetFromPoint(
-                        wx.Point(parent_rect.x + parent_rect.width // 2,
-                                 parent_rect.y + parent_rect.height // 2)
-                    )
 
                     if proposed_monitor != wx.NOT_FOUND and proposed_monitor == parent_monitor:
                         # Same monitor as parent - use saved offset position
@@ -218,14 +224,16 @@ class WindowSizeAndPositionTracker(_Tracker):
             self._window.Maximize()
 
         # Check that the window is on a valid display and move if necessary
-        # For main window with known saved_monitor, use that for validation
+        # Use target_monitor_for_validation if set, otherwise fall back to GetFromWindow
         # (GetFromWindow can return wrong index before window is fully realized)
-        if not isinstance(self._window, wx.Dialog):
+        if target_monitor_for_validation is not None and target_monitor_for_validation != wx.NOT_FOUND:
+            display_index = target_monitor_for_validation
+        elif not isinstance(self._window, wx.Dialog):
+            # Main window - try to use saved_monitor
             try:
                 saved_monitor = self.get_setting("monitor_index")
                 num_monitors = wx.Display.GetCount()
                 if saved_monitor >= 0 and saved_monitor < num_monitors:
-                    # Use the saved monitor for validation
                     display_index = saved_monitor
                 else:
                     display_index = wx.Display.GetFromWindow(self._window)
