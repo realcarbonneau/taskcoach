@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import configparser
 import wx
 from taskcoachlib import operating_system
 
@@ -145,7 +146,7 @@ class WindowSizeAndPositionTracker(_Tracker):
                     # Try to use saved parent_offset for positioning
                     try:
                         offset_x, offset_y = self.get_setting("parent_offset")
-                    except (KeyError, TypeError):
+                    except (KeyError, TypeError, configparser.NoSectionError, configparser.NoOptionError):
                         # Old settings without parent_offset - use centered
                         offset_x, offset_y = -1, -1
 
@@ -186,6 +187,10 @@ class WindowSizeAndPositionTracker(_Tracker):
                 rect = primary.GetGeometry()
                 x = rect.x + (rect.width - width) // 2
                 y = rect.y + (rect.height - height) // 2
+            elif saved_monitor == -1:
+                # Monitor index unknown (first run after update or legacy settings)
+                # Use saved position - validation code below will handle if invalid
+                pass
             elif saved_monitor >= 0 and saved_monitor < num_monitors:
                 # Saved monitor still exists - use saved position
                 # (position validation happens later in this method)
