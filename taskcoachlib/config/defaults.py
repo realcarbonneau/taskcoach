@@ -480,7 +480,6 @@ defaults = {
         "maximized": "False",  # Don't start up maximized by default
         # Possible strticonized values: 'Never', 'Always', 'WhenClosedIconized'
         "starticonized": "WhenClosedIconized",
-        "splash": "True",  # Show a splash screen while starting up
         "hidewheniconized": "False",  # Don't hide the window from the task bar
         "hidewhenclosed": "False",  # Close window quits the application
         "tips": "True",  # Show tips after starting up
