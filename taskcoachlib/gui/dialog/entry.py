@@ -342,22 +342,68 @@ class ColorEntry(widgets.PanelWithBoxSizer):
 
 IconEntryEvent, EVT_ICONENTRY = newevent.NewEvent()
 
+# DEBUG: Logging for dropdown investigation
+import logging
+import traceback
+_dropdown_logger = logging.getLogger("dropdown_debug")
+_dropdown_logger.setLevel(logging.DEBUG)
+if not _dropdown_logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter('%(asctime)s DROPDOWN: %(message)s'))
+    _dropdown_logger.addHandler(_handler)
+
 
 class IconEntry(wx.adv.BitmapComboBox):
+    _instance_counter = 0
+
     def __init__(self, parent, currentIcon, *args, **kwargs):
+        IconEntry._instance_counter += 1
+        self._instance_id = IconEntry._instance_counter
+        _dropdown_logger.debug(f"IconEntry #{self._instance_id} INIT START - currentIcon={currentIcon!r}")
+        _dropdown_logger.debug(f"  parent={parent.__class__.__name__}, id={id(parent)}")
+
         kwargs["style"] = wx.CB_READONLY
         super().__init__(parent, *args, **kwargs)
+
         imageNames = sorted(artprovider.chooseableItemImages.keys())
         size = (16, 16)
+        _dropdown_logger.debug(f"  Adding {len(imageNames)} items...")
         for imageName in imageNames:
             label = artprovider.chooseableItemImages[imageName]
             bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, size)
             item = self.Append(label, bitmap)
             self.SetClientData(item, imageName)
-        self.SetSelection(imageNames.index(currentIcon))
+
+        initial_selection = imageNames.index(currentIcon)
+        _dropdown_logger.debug(f"  Setting initial selection to {initial_selection}")
+        self.SetSelection(initial_selection)
         self.Bind(wx.EVT_COMBOBOX, self.onIconPicked)
 
+        # Start a timer to periodically log state
+        self._log_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._logState, self._log_timer)
+        self._log_timer.Start(2000)  # Log every 2 seconds
+
+        _dropdown_logger.debug(f"IconEntry #{self._instance_id} INIT COMPLETE - selection={self.GetSelection()}, count={self.GetCount()}")
+
+    def _logState(self, event=None):
+        """Periodically log dropdown state to detect modifications."""
+        try:
+            sel = self.GetSelection()
+            count = self.GetCount()
+            _dropdown_logger.debug(f"IconEntry #{self._instance_id} STATE: selection={sel}, count={count}, size={self.GetSize()}, pos={self.GetPosition()}")
+        except RuntimeError:
+            # Widget destroyed
+            self._log_timer.Stop()
+
+    def SetSelection(self, n):
+        _dropdown_logger.debug(f"IconEntry #{self._instance_id} SetSelection({n}) called from:")
+        for line in traceback.format_stack()[-4:-1]:
+            _dropdown_logger.debug(f"  {line.strip()}")
+        super().SetSelection(n)
+
     def onIconPicked(self, event):
+        _dropdown_logger.debug(f"IconEntry #{self._instance_id} onIconPicked - selection now {self.GetSelection()}")
         event.Skip()
         wx.PostEvent(self, IconEntryEvent())
 
@@ -365,6 +411,9 @@ class IconEntry(wx.adv.BitmapComboBox):
         return self.GetClientData(self.GetSelection())
 
     def SetValue(self, newValue):
+        _dropdown_logger.debug(f"IconEntry #{self._instance_id} SetValue({newValue!r}) called from:")
+        for line in traceback.format_stack()[-4:-1]:
+            _dropdown_logger.debug(f"  {line.strip()}")
         for index in range(self.GetCount()):
             if newValue == self.GetClientData(index):
                 self.SetSelection(index)
@@ -375,7 +424,14 @@ ChoiceEntryEvent, EVT_CHOICEENTRY = newevent.NewEvent()
 
 
 class ChoiceEntry(wx.Choice):
+    _instance_counter = 0
+
     def __init__(self, parent, choices, currentChoiceValue, *args, **kwargs):
+        ChoiceEntry._instance_counter += 1
+        self._instance_id = ChoiceEntry._instance_counter
+        _dropdown_logger.debug(f"ChoiceEntry #{self._instance_id} INIT START - currentChoice={currentChoiceValue!r}")
+        _dropdown_logger.debug(f"  parent={parent.__class__.__name__}, choices count={len(choices)}")
+
         super().__init__(parent, *args, **kwargs)
         for choiceValue, choiceText in choices:
             self.Append(choiceText, choiceValue)
@@ -386,7 +442,31 @@ class ChoiceEntry(wx.Choice):
             self.SetSelection(0)
         self.Bind(wx.EVT_CHOICE, self.onChoice)
 
+        # Start a timer to periodically log state
+        self._log_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._logState, self._log_timer)
+        self._log_timer.Start(2000)  # Log every 2 seconds
+
+        _dropdown_logger.debug(f"ChoiceEntry #{self._instance_id} INIT COMPLETE - selection={self.GetSelection()}, count={self.GetCount()}")
+
+    def _logState(self, event=None):
+        """Periodically log dropdown state to detect modifications."""
+        try:
+            sel = self.GetSelection()
+            count = self.GetCount()
+            _dropdown_logger.debug(f"ChoiceEntry #{self._instance_id} STATE: selection={sel}, count={count}, size={self.GetSize()}, pos={self.GetPosition()}")
+        except RuntimeError:
+            # Widget destroyed
+            self._log_timer.Stop()
+
+    def SetSelection(self, n):
+        _dropdown_logger.debug(f"ChoiceEntry #{self._instance_id} SetSelection({n}) called from:")
+        for line in traceback.format_stack()[-4:-1]:
+            _dropdown_logger.debug(f"  {line.strip()}")
+        super().SetSelection(n)
+
     def onChoice(self, event):
+        _dropdown_logger.debug(f"ChoiceEntry #{self._instance_id} onChoice - selection now {self.GetSelection()}")
         event.Skip()
         wx.PostEvent(self, ChoiceEntryEvent())
 
@@ -394,6 +474,9 @@ class ChoiceEntry(wx.Choice):
         return self.GetClientData(self.GetSelection())
 
     def SetValue(self, newValue):
+        _dropdown_logger.debug(f"ChoiceEntry #{self._instance_id} SetValue({newValue!r}) called from:")
+        for line in traceback.format_stack()[-4:-1]:
+            _dropdown_logger.debug(f"  {line.strip()}")
         for index in range(self.GetCount()):
             if newValue == self.GetClientData(index):
                 self.SetSelection(index)
@@ -495,20 +578,34 @@ RecurrenceEntryEvent, EVT_RECURRENCEENTRY = newevent.NewEvent()
 class RecurrenceEntry(wx.Panel):
     horizontalSpace = (3, -1)
     verticalSpace = (-1, 3)
+    _instance_counter = 0
 
     def __init__(self, parent, recurrence, settings, *args, **kwargs):
+        RecurrenceEntry._instance_counter += 1
+        self._instance_id = RecurrenceEntry._instance_counter
+        _dropdown_logger.debug(f"RecurrenceEntry #{self._instance_id} INIT START")
+        _dropdown_logger.debug(f"  parent={parent.__class__.__name__}, id={id(parent)}")
+
         super().__init__(parent, *args, **kwargs)
         recurrenceFrequencyPanel = wx.Panel(self)
+
+        # TEST: Add 100 items to test scroll behavior
+        test_choices = [
+            _("None"),
+            _("Daily"),
+            _("Weekly"),
+            _("Monthly"),
+            _("Yearly"),
+        ]
+        for i in range(100):
+            test_choices.append(f"Test recurrence {i+1}")
+
         self._recurrencePeriodEntry = wx.Choice(
             recurrenceFrequencyPanel,
-            choices=[
-                _("None"),
-                _("Daily"),
-                _("Weekly"),
-                _("Monthly"),
-                _("Yearly"),
-            ],
+            choices=test_choices,
         )
+        _dropdown_logger.debug(f"  Recurrence dropdown created with {len(test_choices)} items")
+        _dropdown_logger.debug(f"  dropdown parent={recurrenceFrequencyPanel.__class__.__name__}, id={id(recurrenceFrequencyPanel)}")
         self._recurrencePeriodEntry.Bind(
             wx.EVT_CHOICE, self.onRecurrencePeriodEdited
         )
