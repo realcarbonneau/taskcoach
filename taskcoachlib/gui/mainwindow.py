@@ -239,9 +239,9 @@ class MainWindow(
             self.__restore_perspective()
         finally:
             self.Thaw()
-        # Start tracking window position/size changes AFTER AUI layout is restored.
-        # This avoids saving spurious resize/move events from LoadPerspective().
-        self.__dimensions_tracker.start_tracking()
+        # Note: Window position/size tracking uses debouncing to handle spurious
+        # events from AUI LoadPerspective() and GTK window realization.
+        # Events are bound immediately in __init__, no manual start needed.
 
     def __restore_perspective(self):
         perspective = self.settings.get("view", "perspective")
