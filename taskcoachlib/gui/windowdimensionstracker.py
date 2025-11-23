@@ -179,30 +179,29 @@ class WindowGeometryTracker:
         if is_icon:
             return
 
-        # If desired maximized
-        if self.maximized:
-            if is_max:
-                # Already maximized - we're ready
-                self._mark_ready()
+        # ERROR: Window is maximized before we're ready
+        # This means we cannot set restore geometry - OS opened window maximized
+        if is_max:
+            _log_debug(f"ERROR: Window is maximized before ready!")
+            _log_debug(f"  Cannot set restore position/size - OS/WM opened window maximized")
+            _log_debug(f"  Desired state was: pos={self.position} size={self.size} maximized={self.maximized}")
+            _log_debug(f"  Restore geometry will be wrong when user un-maximizes")
+            # Mark ready anyway - nothing we can do
+            self._mark_ready()
+            return
+
+        # Window is in normal state - try to achieve desired state
+        pos = self._window.GetPosition()
+        size = self._window.GetSize()
+        pos_ok = self._check_position(pos)
+        size_ok = self._check_size(size)
+
+        if pos_ok and size_ok and self.activated:
+            if self.maximized:
+                # Position/size correct, now maximize
+                _log_debug(f"check_and_correct: position/size correct, now maximizing")
+                self._window.Maximize()
             else:
-                # Not yet maximized - first ensure position/size correct, then maximize
-                pos = self._window.GetPosition()
-                size = self._window.GetSize()
-                pos_ok = self._check_position(pos)
-                size_ok = self._check_size(size)
-
-                if pos_ok and size_ok and self.activated:
-                    # Position/size correct, now maximize
-                    _log_debug(f"check_and_correct: position/size correct, now maximizing")
-                    self._window.Maximize()
-        else:
-            # Desired not maximized - ensure position/size correct
-            pos = self._window.GetPosition()
-            size = self._window.GetSize()
-            pos_ok = self._check_position(pos)
-            size_ok = self._check_size(size)
-
-            if pos_ok and size_ok and self.activated:
                 self._mark_ready()
 
     def _check_position(self, pos):
@@ -289,6 +288,9 @@ class WindowGeometryTracker:
         _log_debug(f"EVT_MAXIMIZE: IsMaximized={is_max}")
 
         if not self.ready:
+            if is_max:
+                _log_debug(f"ERROR: EVT_MAXIMIZE fired before window ready!")
+                _log_debug(f"  This is unexpected - OS/WM maximized window before we could set restore geometry")
             self.check_and_correct()
         else:
             self.cache_from_window()
