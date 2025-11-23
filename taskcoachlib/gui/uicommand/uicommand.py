@@ -2814,21 +2814,6 @@ class HelpTranslate(URLCommand):
         )
 
 
-class Donate(URLCommand):
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            menuText=_("&Donate..."),
-            helpText=_("Donate to support the development of %s") % meta.name,
-            bitmap="heart_icon",
-            url=meta.github_url,  # Placeholder - donation disabled
-            *args,
-            **kwargs
-        )
-
-    def enabled(self, event):  # pylint: disable=W0613
-        return False  # Greyed out - donation not currently available
-
-
 class CheckForUpdate(URLCommand):
     def __init__(self, *args, **kwargs):
         # Remove settings from kwargs if present (not needed for URLCommand)
