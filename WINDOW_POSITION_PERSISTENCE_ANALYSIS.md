@@ -320,6 +320,55 @@ class WindowGeometryTracker:
 
 ---
 
+## Dialog Windows (Subwindows)
+
+Dialogs have special positioning rules to ensure they stay with their parent:
+
+### Rules for Dialogs
+
+1. **Must be on same monitor as parent**: Saved position is only valid if on parent's monitor
+2. **Fallback to center**: If no saved position or invalid, center on parent with default size
+3. **No maximize**: Dialogs don't support maximized state
+
+### Implementation
+
+```python
+def __init__(self, window, settings, section, parent=None):
+    self._parent = parent  # Parent window for dialogs
+
+def _load_dialog_geometry(self, x, y, width, height, min_w, min_h):
+    """Load geometry for dialog (must be on same monitor as parent)."""
+    parent_display_idx = self._get_parent_display_index()
+
+    # No saved position or invalid → center on parent
+    if x == -1 and y == -1:
+        self._center_on_parent(min_w, min_h)
+        return
+
+    # Check position is on parent's monitor
+    work_area = wx.Display(parent_display_idx).GetClientArea()
+    if not self._is_on_display(x, y, width, height, work_area):
+        self._center_on_parent(min_w, min_h)
+        return
+
+    # Valid - use saved position
+    self.position = (x, y)
+    self.size = (width, height)
+    self.maximized = False  # Dialogs don't maximize
+```
+
+### Usage
+
+```python
+# For dialogs - pass parent window
+WindowGeometryTracker(dialog, settings, section, parent=main_window)
+
+# For main window - no parent
+WindowGeometryTracker(main_window, settings, section)
+```
+
+---
+
 ## Platform Considerations
 
 ### Linux/GTK (X11)
@@ -354,6 +403,7 @@ class WindowGeometryTracker:
 8. ✅ Caching: query IsMaximized(), only cache position/size in normal state
 9. ✅ Geometry validation: position on screen, size fits monitor
 10. ✅ Wayland detection: logs warning
+11. ✅ Dialog positioning: constrained to parent's monitor, centered if invalid
 
 ### For wxWidgets Project
 
