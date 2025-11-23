@@ -114,14 +114,13 @@ class WindowSizeAndPositionTracker(_Tracker):
         on every EVT_MOVE until EVT_ACTIVATE fires (window is ready for input).
         """
         pos = event.GetPosition()
-        _log_debug(f"_on_move: pos=({pos.x}, {pos.y}) activated={self._window_activated} target={self._target_position}")
 
         # Correct unplanned moves until window is activated (ready for input)
         # This handles GTK/WM moving window multiple times during setup
         if not self._window_activated and self._target_position is not None:
             target_x, target_y = self._target_position
             if pos.x != target_x or pos.y != target_y:
-                _log_debug(f"_on_move: UNPLANNED MOVE detected! Correcting ({pos.x}, {pos.y}) -> ({target_x}, {target_y})")
+                _log_debug(f"_on_move: UNPLANNED MOVE ({pos.x}, {pos.y}) -> correcting to ({target_x}, {target_y})")
                 self._window.SetPosition(wx.Point(target_x, target_y))
                 event.Skip()
                 return
@@ -129,6 +128,7 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Cache position for save (only after window is activated)
         if self._window_activated and not self._window.IsIconized() and not self._window.IsMaximized():
             self._cached_position = (pos.x, pos.y)
+            _log_debug(f"_on_move: pos=({pos.x}, {pos.y}) cached")
         event.Skip()
 
     def _on_size(self, event):
@@ -137,6 +137,8 @@ class WindowSizeAndPositionTracker(_Tracker):
             size = event.GetSize()
             if size.width > 100 and size.height > 100:
                 self._cached_size = (size.width, size.height)
+                if self._window_activated:
+                    _log_debug(f"_on_size: size=({size.width}, {size.height}) cached")
         event.Skip()
 
     def _on_maximize(self, event):
@@ -155,11 +157,19 @@ class WindowSizeAndPositionTracker(_Tracker):
         if event.GetActive() and not self._window_activated:
             self._window_activated = True
             pos = self._window.GetPosition()
-            _log_debug(f"_on_activate: WINDOW READY at ({pos.x}, {pos.y}) - stopping position corrections")
+            size = self._window.GetSize()
+            elapsed = time.time() - self._pos_log_start_time
+            _log_debug(f"WINDOW READY [{elapsed:.2f}s]: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
 
-            # Cache the final position
+            # Stop the position logging timer
+            if self._pos_log_timer:
+                self._pos_log_timer.Stop()
+                self._pos_log_timer = None
+
+            # Cache the final position and size
             if not self._window.IsIconized() and not self._window.IsMaximized():
                 self._cached_position = (pos.x, pos.y)
+                self._cached_size = (size.width, size.height)
 
             # Clear target - no longer needed
             self._target_position = None
@@ -171,26 +181,28 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._log_position_tick()
 
     def _log_position_tick(self):
-        """Log current position and schedule next tick."""
+        """Log current position until window is activated."""
         if not self._window:
+            return
+
+        # Stop logging once window is activated (final log is in _on_activate)
+        if self._window_activated:
+            self._pos_log_timer = None
             return
 
         elapsed = time.time() - self._pos_log_start_time
         pos = self._window.GetPosition()
         shown = self._window.IsShown()
 
-        _log_debug(f"POS_LOG [{elapsed:.2f}s]: ({pos.x}, {pos.y}) shown={shown} activated={self._window_activated}")
+        _log_debug(f"POS_LOG [{elapsed:.2f}s]: ({pos.x}, {pos.y}) shown={shown}")
 
-        self._pos_log_count += 1
-
-        # First 1 second: log every 10ms
-        # After that: log every 1000ms
+        # Schedule next tick - fast initially, slower after 1 second
         if elapsed < 1.0:
-            interval = 10
+            interval = 50  # 50ms for first second
         else:
-            interval = 1000
+            interval = 500  # 500ms after that
 
-        # Stop after 10 seconds total
+        # Stop after 10 seconds (failsafe if EVT_ACTIVATE never fires)
         if elapsed < 10.0:
             self._pos_log_timer = wx.CallLater(interval, self._log_position_tick)
 
