@@ -510,7 +510,11 @@ class RecurrenceEntry(wx.Panel):
 
     def __init__(self, parent, recurrence, settings, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        recurrenceFrequencyPanel = wx.Panel(self)
+
+        # First row: Period dropdown and frequency controls
+        # Create a horizontal sizer at the self level for the first row
+        firstRowSizer = wx.BoxSizer(wx.HORIZONTAL)
+
         # TEST: Long list of items to test scroll behavior
         test_choices = [
             _("None"),
@@ -522,55 +526,56 @@ class RecurrenceEntry(wx.Panel):
         # Add many test items to match icon dropdown length
         for i in range(80):
             test_choices.append(f"Test item {i+1}")
-        # Simple wx.Choice - matches working test dropdown pattern
-        self._recurrencePeriodEntry = wx.Choice(
-            recurrenceFrequencyPanel,
-            choices=test_choices,
-        )
+
+        # Period dropdown - parent is self, added to self's sizer
+        self._recurrencePeriodEntry = wx.Choice(self, choices=test_choices)
         self._recurrencePeriodEntry.Bind(
             wx.EVT_CHOICE, self.onRecurrencePeriodEdited
         )
+        firstRowSizer.Add(
+            self._recurrencePeriodEntry, flag=wx.ALIGN_CENTER_VERTICAL
+        )
+        firstRowSizer.Add(self.horizontalSpace)
+
+        # Frequency controls - also children of self for consistency
+        firstRowSizer.Add(
+            wx.StaticText(self, label=_(", every")),
+            flag=wx.ALIGN_CENTER_VERTICAL,
+        )
+        firstRowSizer.Add(self.horizontalSpace)
+
         self._recurrenceFrequencyEntry = widgets.SpinCtrl(
-            recurrenceFrequencyPanel, size=(120, -1), value=1, min=1
+            self, size=(120, -1), value=1, min=1
         )
         self._recurrenceFrequencyEntry.Bind(
             wx.EVT_SPINCTRL, self.onRecurrenceEdited
         )
-        self._recurrenceStaticText = wx.StaticText(
-            recurrenceFrequencyPanel, label="reserve some space"
+        firstRowSizer.Add(
+            self._recurrenceFrequencyEntry, flag=wx.ALIGN_CENTER_VERTICAL
         )
+        firstRowSizer.Add(self.horizontalSpace)
+
+        self._recurrenceStaticText = wx.StaticText(
+            self, label="reserve some space"
+        )
+        firstRowSizer.Add(
+            self._recurrenceStaticText, flag=wx.ALIGN_CENTER_VERTICAL
+        )
+        firstRowSizer.Add(self.horizontalSpace)
+
         self._recurrenceSameWeekdayCheckBox = wx.CheckBox(
-            recurrenceFrequencyPanel,
+            self,
             label=_("keeping dates on the same weekday"),
         )
         self._recurrenceSameWeekdayCheckBox.Bind(
             wx.EVT_CHECKBOX, self.onRecurrenceEdited
         )
-        panelSizer = wx.BoxSizer(wx.HORIZONTAL)
-        panelSizer.Add(
-            self._recurrencePeriodEntry, flag=wx.ALIGN_CENTER_VERTICAL
-        )
-        panelSizer.Add(self.horizontalSpace)
-        panelSizer.Add(
-            wx.StaticText(recurrenceFrequencyPanel, label=_(", every")),
-            flag=wx.ALIGN_CENTER_VERTICAL,
-        )
-        panelSizer.Add(self.horizontalSpace)
-        panelSizer.Add(
-            self._recurrenceFrequencyEntry, flag=wx.ALIGN_CENTER_VERTICAL
-        )
-        panelSizer.Add(self.horizontalSpace)
-        panelSizer.Add(
-            self._recurrenceStaticText, flag=wx.ALIGN_CENTER_VERTICAL
-        )
-        panelSizer.Add(self.horizontalSpace)
-        panelSizer.Add(
+        firstRowSizer.Add(
             self._recurrenceSameWeekdayCheckBox,
             proportion=1,
             flag=wx.EXPAND,
         )
-        recurrenceFrequencyPanel.SetSizerAndFit(panelSizer)
-        self._recurrenceSizer = panelSizer
+        self._recurrenceSizer = firstRowSizer
 
         maxPanel = wx.Panel(self)
         panelSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -661,14 +666,14 @@ class RecurrenceEntry(wx.Panel):
         panelSizer.Add(self.horizontalSpace)
         stopPanel.SetSizerAndFit(panelSizer)
 
-        panelSizer = wx.BoxSizer(wx.VERTICAL)
-        panelSizer.Add(recurrenceFrequencyPanel)
-        panelSizer.Add(self.verticalSpace)
-        panelSizer.Add(schedulePanel)
-        panelSizer.Add(self.verticalSpace)
-        panelSizer.Add(maxPanel)
-        panelSizer.Add(stopPanel)
-        self.SetSizerAndFit(panelSizer)
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
+        mainSizer.Add(firstRowSizer)
+        mainSizer.Add(self.verticalSpace)
+        mainSizer.Add(schedulePanel)
+        mainSizer.Add(self.verticalSpace)
+        mainSizer.Add(maxPanel)
+        mainSizer.Add(stopPanel)
+        self.SetSizerAndFit(mainSizer)
         self.SetValue(recurrence)
 
     def updateRecurrenceLabel(self):
