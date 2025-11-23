@@ -118,7 +118,9 @@ When wxPython shows a window:
 | Test | Method | Result | Flicker? |
 |------|--------|--------|----------|
 | `test_wx_pos_calllater.py` | `CallLater(50ms)` | ✓ Works | Yes |
-| **`test_wx_pos_unplanned_move.py`** | **EVT_MOVE detect + reset** | **✓ Works** | **No** |
+| `test_wx_pos_unplanned_move.py` | EVT_MOVE + EVT_ACTIVATE | ✓ Works | Yes* |
+
+*The EVT_MOVE solution has less flicker than CallLater, but there is still visible flicker when another window covers the WM's default placement area (upper-left corner). This is unavoidable without `GDK_HINT_USER_POS` support.
 
 ---
 
@@ -254,7 +256,11 @@ class MainWindow(wx.Frame):
 
 ### Flicker
 
-**There is still a visible flicker** if another window is positioned over the WM's default placement area (typically upper-left corner). The window briefly appears at the WM's chosen position before being corrected. This is unavoidable without proper `GDK_HINT_USER_POS` support in wxPython.
+**There is still a visible flicker** when:
+- Another window is positioned over the WM's default placement area (typically upper-left corner)
+- The window has complex content (heavier windows take longer to render, making the flicker more noticeable)
+
+The window briefly appears at the WM's chosen position before being corrected. This is unavoidable without proper `GDK_HINT_USER_POS` support in wxPython.
 
 **Note:** This is a workaround for wxPython's lack of `GDK_HINT_USER_POS` support. If wxPython exposed this GTK API, we could simply set the hint before `Show()` and avoid this event-based correction entirely.
 
