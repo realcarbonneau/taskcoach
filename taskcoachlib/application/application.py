@@ -390,6 +390,29 @@ class Application(object, metaclass=patterns.Singleton):
             )
 
     def __register_signal_handlers(self):
+        """Register signal handlers for clean shutdown.
+
+        On Unix with Twisted, we let Twisted handle SIGINT/SIGTERM and use
+        system event triggers to clean up wx properly.
+        """
+        from twisted.internet import reactor
+
+        def cleanup_wx():
+            """Clean up wx when reactor is shutting down."""
+            print("[DEBUG] cleanup_wx called - reactor is shutting down")
+            try:
+                # UnInit AUI manager to avoid event handler assertion
+                if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
+                    print("[DEBUG] Calling manager.UnInit()")
+                    self.mainwindow.manager.UnInit()
+                print("[DEBUG] cleanup_wx completed")
+            except Exception as e:
+                print(f"[DEBUG] cleanup_wx error: {e}")
+
+        # Register cleanup to run before reactor shutdown
+        reactor.addSystemEventTrigger('before', 'shutdown', cleanup_wx)
+        print("[DEBUG] Registered cleanup_wx as system event trigger")
+
         if operating_system.isWindows():
             import win32api  # pylint: disable=F0401
 
@@ -409,33 +432,8 @@ class Application(object, metaclass=patterns.Singleton):
                 return True
 
             win32api.SetConsoleCtrlHandler(quit_adapter, True)
-        else:
-            import signal
-
-            def quit_adapter(*args):
-                # On Unix, signal handlers run in the main thread.
-                # Close the window properly so onClose handler runs with AUI UnInit().
-                def do_quit():
-                    self.mainwindow.Close()
-                wx.CallAfter(do_quit)
-                # Wake up the event loop so it processes the CallAfter
-                if wx.GetApp():
-                    wx.WakeUpIdle()
-
-            # Handle SIGINT (Ctrl+C) to prevent KeyboardInterrupt and allow clean shutdown
-            signal.signal(signal.SIGINT, quit_adapter)
-            signal.signal(signal.SIGTERM, quit_adapter)
-            if hasattr(signal, "SIGHUP"):
-                def forced_quit(*args):
-                    def do_quit():
-                        self.mainwindow.setShutdownInProgress()
-                        self.mainwindow.Close()
-                    wx.CallAfter(do_quit)
-                    if wx.GetApp():
-                        wx.WakeUpIdle()
-                signal.signal(
-                    signal.SIGHUP, forced_quit
-                )  # pylint: disable=E1101
+        # On Unix, Twisted's reactor handles SIGINT/SIGTERM automatically
+        # and will call our cleanup_wx trigger before shutdown
 
     @staticmethod
     def __create_mutex():

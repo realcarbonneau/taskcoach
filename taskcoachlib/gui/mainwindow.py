@@ -344,11 +344,13 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 child.Close()
 
     def onClose(self, event):
+        print(f"[DEBUG] onClose called, __shutdown={self.__shutdown}")
         self.closeEditors()
 
         if self.__shutdown:
             # UnInit AUI manager before window destruction to avoid
             # wxAssertionError about pushed event handlers
+            print("[DEBUG] onClose: shutdown mode, calling manager.UnInit()")
             self.manager.UnInit()
             event.Skip()
             return
@@ -361,6 +363,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             if application.Application().quitApplication():
                 # UnInit AUI manager before window destruction to avoid
                 # wxAssertionError about pushed event handlers
+                print("[DEBUG] onClose: normal quit, calling manager.UnInit()")
                 self.manager.UnInit()
                 event.Skip()
                 self.taskFile.stop()
