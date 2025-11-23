@@ -46,11 +46,18 @@ class WindowGeometryTracker:
         maximized: bool - desired maximize state
 
     State (in-memory):
-        ready: bool - window matches desired state
-        activated: bool - EVT_ACTIVATE has fired
+        ready: bool - position/size achieved
+        position_confirmed: bool - SetPosition() result confirmed by EVT_MOVE
+        size_confirmed: bool - SetSize() result confirmed by EVT_SIZE
 
     Rules:
         - While not ready: keep trying to achieve desired state
+        - On mismatch: set confirmed=False, send correction
+        - On EVT_MOVE/EVT_SIZE: set respective confirmed=True
+        - On EVT_IDLE: check ready conditions
+        - Ready when: IsActive() AND position_confirmed AND size_confirmed
+                      AND (state empty OR position/size achieved)
+        - After ready: ONE maximize attempt (fire and forget)
         - After ready: cache window changes back to state
         - Only cache position/size when not maximized and not iconized
     """
@@ -66,8 +73,9 @@ class WindowGeometryTracker:
         self.maximized = False  # True if should be maximized
 
         # === In-memory state ===
-        self.ready = False      # Window matches desired state
-        self.activated = False  # EVT_ACTIVATE has fired
+        self.ready = False              # Position/size achieved
+        self.position_confirmed = True  # No pending SetPosition()
+        self.size_confirmed = True      # No pending SetSize()
 
         # Position logging timer
         self._pos_log_timer = None
@@ -92,7 +100,7 @@ class WindowGeometryTracker:
         self._window.Bind(wx.EVT_MOVE, self._on_move)
         self._window.Bind(wx.EVT_SIZE, self._on_size)
         self._window.Bind(wx.EVT_MAXIMIZE, self._on_maximize)
-        self._window.Bind(wx.EVT_ACTIVATE, self._on_activate)
+        self._window.Bind(wx.EVT_IDLE, self._on_idle)
 
         # Start position logging for debugging
         self._start_position_logging()
@@ -151,6 +159,9 @@ class WindowGeometryTracker:
         self.position = None
         self.size = None
         self.maximized = False
+        # Reset confirmed flags so ready check can proceed
+        self.position_confirmed = True
+        self.size_confirmed = True
         _log_debug(f"  State cleared: pos=None size=None maximized=False")
 
     def save(self):
@@ -172,17 +183,15 @@ class WindowGeometryTracker:
         return not self._window.IsMaximized() and not self._window.IsIconized()
 
     def check_and_correct(self):
-        """Try to make window match desired state. Called while not ready.
+        """Try to make window match desired state. Called on EVT_MOVE/EVT_SIZE.
 
         Rules:
         - Error (iconized, or maximized unexpectedly) → clear state only
-        - Mark ready when: activated AND (state empty OR position/size achieved)
-        - Ready is for position/size only, maximize is done after ready
+        - On mismatch: set confirmed=False, send correction
+        - Ready check happens in EVT_IDLE handler
         """
         if self.ready:
             return
-
-        state_empty = self.position is None and self.size is None
 
         # ERROR: Window is iconized before ready
         if self._window.IsIconized():
@@ -198,42 +207,34 @@ class WindowGeometryTracker:
             self._clear_state()
             return
 
-        # Window is in normal state - try to achieve position/size
-        position_size_achieved = False
-        if not state_empty:
+        # Window is in normal state - check and correct position/size
+        if self.position is not None or self.size is not None:
             pos = self._window.GetPosition()
             size = self._window.GetSize()
-            pos_ok = self._check_position(pos)
-            size_ok = self._check_size(size)
-            position_size_achieved = pos_ok and size_ok
-
-        # Mark ready when: activated AND (state empty OR position/size achieved)
-        if self.activated and (state_empty or position_size_achieved):
-            self._mark_ready()
+            self._check_position(pos)
+            self._check_size(size)
 
     def _check_position(self, pos):
-        """Check and correct position. Returns True if position is OK."""
+        """Check and correct position. Sets position_confirmed=False if correcting."""
         if self.position is None:
-            return True
+            return
 
         target_x, target_y = self.position
         if pos.x != target_x or pos.y != target_y:
             _log_debug(f"_check_position: ({pos.x}, {pos.y}) != target ({target_x}, {target_y}), correcting")
+            self.position_confirmed = False
             self._window.SetPosition(wx.Point(target_x, target_y))
-            return False
-        return True
 
     def _check_size(self, size):
-        """Check and correct size. Returns True if size is OK."""
+        """Check and correct size. Sets size_confirmed=False if correcting."""
         if self.size is None:
-            return True
+            return
 
         target_w, target_h = self.size
         if size.width != target_w or size.height != target_h:
             _log_debug(f"_check_size: ({size.width}, {size.height}) != target ({target_w}, {target_h}), correcting")
+            self.size_confirmed = False
             self._window.SetSize(target_w, target_h)
-            return False
-        return True
 
     def _mark_ready(self):
         """Mark window as ready - position/size achieved. Then maximize if needed."""
@@ -277,16 +278,18 @@ class WindowGeometryTracker:
     # === Event handlers ===
 
     def _on_move(self, event):
-        """Handle window move."""
+        """Handle window move. Confirms position change."""
         if not self.ready:
+            self.position_confirmed = True
             self.check_and_correct()
         else:
             self.cache_from_window()
         event.Skip()
 
     def _on_size(self, event):
-        """Handle window resize."""
+        """Handle window resize. Confirms size change."""
         if not self.ready:
+            self.size_confirmed = True
             self.check_and_correct()
         else:
             self.cache_from_window()
@@ -301,12 +304,41 @@ class WindowGeometryTracker:
             self.cache_from_window()
         event.Skip()
 
-    def _on_activate(self, event):
-        """Handle window activation."""
-        if event.GetActive() and not self.activated:
-            self.activated = True
-            _log_debug(f"EVT_ACTIVATE: Window activated")
-            self.check_and_correct()
+    def _on_idle(self, event):
+        """Handle idle event. Check ready conditions here.
+
+        Ready when: IsActive() AND position_confirmed AND size_confirmed
+                    AND (state empty OR position/size achieved)
+        """
+        if self.ready:
+            event.Skip()
+            return
+
+        # All conditions must be met
+        if not self._window.IsActive():
+            event.Skip()
+            return
+        if not self.position_confirmed or not self.size_confirmed:
+            event.Skip()
+            return
+
+        # Check for errors (iconized/maximized unexpectedly)
+        if self._window.IsIconized() or self._window.IsMaximized():
+            event.Skip()
+            return
+
+        # Check if state empty or position/size achieved
+        state_empty = self.position is None and self.size is None
+        if state_empty:
+            self._mark_ready()
+        else:
+            pos = self._window.GetPosition()
+            size = self._window.GetSize()
+            pos_ok = self.position is None or (pos.x == self.position[0] and pos.y == self.position[1])
+            size_ok = self.size is None or (size.width == self.size[0] and size.height == self.size[1])
+            if pos_ok and size_ok:
+                self._mark_ready()
+
         event.Skip()
 
     # === Geometry validation ===

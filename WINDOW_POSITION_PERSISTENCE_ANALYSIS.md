@@ -6,7 +6,7 @@ Task Coach on Linux/GTK fails to restore window position on startup. The window 
 
 **Root Cause:** wxWidgets/wxGTK does not set the `GDK_HINT_USER_POS` geometry hint when calling `gtk_window_move()`. Without this hint, the window manager ignores application-requested positions.
 
-**Working Solution:** Correct position/size on `EVT_MOVE`/`EVT_SIZE` until window is **ready** (activated AND position/size achieved). Then maximize if desired (fire and forget).
+**Working Solution:** Correct position/size on `EVT_MOVE`/`EVT_SIZE` until window is **ready** (active, confirmed, and achieved). Then maximize if desired (fire and forget).
 
 ---
 
@@ -23,8 +23,9 @@ maximized: bool             # Desired maximize state
 ### In-Memory State
 
 ```python
-ready: bool      # Position/size achieved (NOT maximized)
-activated: bool  # EVT_ACTIVATE has fired
+ready: bool               # Position/size achieved
+position_confirmed: bool  # SetPosition() result confirmed by EVT_MOVE (starts True)
+size_confirmed: bool      # SetSize() result confirmed by EVT_SIZE (starts True)
 ```
 
 ### Rules
@@ -33,16 +34,24 @@ activated: bool  # EVT_ACTIVATE has fired
    - Errors repeat until general rule marks ready
    - This is by design - exceptional cases need investigation
 
-2. **Mark ready when:** `activated` AND (`state empty` OR `position/size achieved`)
+2. **On mismatch:** set respective `confirmed=False`, send correction (SetPosition/SetSize)
+
+3. **On EVT_MOVE:** `position_confirmed = True`
+
+4. **On EVT_SIZE:** `size_confirmed = True`
+
+5. **Mark ready when (on EVT_IDLE):** `IsActive()` AND `position_confirmed` AND `size_confirmed` AND (`state empty` OR `position/size achieved`)
    - Ready is for position/size only, NOT maximized
+   - Using EVT_IDLE ensures GTK has fully processed geometry changes
 
-3. **After ready:** ONE maximize attempt if `state.maximized=True` (fire and forget)
+6. **After ready:** ONE maximize attempt if `state.maximized=True` (fire and forget)
+   - This ensures the restore geometry is properly stored before maximizing
 
-4. **Caching (after ready):**
+7. **Caching (after ready):**
    - Always: `maximized = IsMaximized()` (query window directly)
    - Only if normal state (not maximized, not iconized): cache position/size
 
-5. **State empty** → nothing to correct, WM decides, normal caching captures values
+8. **State empty** → nothing to correct, WM decides, normal caching captures values
 
 ---
 
@@ -59,30 +68,51 @@ Validate geometry (position on screen, size fits monitor)
     - Normal caching will capture values
 ```
 
-### 2. `check_and_correct()` - While Not Ready
+### 2. `check_and_correct()` - On EVT_MOVE/EVT_SIZE
 
 ```
-Called on EVT_MOVE, EVT_SIZE, EVT_MAXIMIZE, EVT_ACTIVATE
-
 If ready: return
 
 If iconized:
     ERROR - log and clear state
-    return (will repeat until general rule marks ready)
+    return (will repeat until ready)
 
 If maximized (unexpectedly):
     ERROR - log and clear state
-    return (will repeat until general rule marks ready)
+    return (will repeat until ready)
 
-If state empty:
-    Mark ready when activated
-else:
-    Correct position if wrong
-    Correct size if wrong
-    Mark ready when activated AND position/size OK
+If state not empty:
+    If position wrong: position_confirmed=False, SetPosition()
+    If size wrong: size_confirmed=False, SetSize()
 ```
 
-### 3. `_mark_ready()` - Position/Size Done
+### 3. `_on_move()` / `_on_size()` - Event Handlers
+
+```
+_on_move:
+    position_confirmed = True
+    check_and_correct()
+
+_on_size:
+    size_confirmed = True
+    check_and_correct()
+```
+
+### 4. `_on_idle()` - Check Ready Conditions
+
+```
+If ready: return
+
+If not IsActive(): return
+If not position_confirmed: return
+If not size_confirmed: return
+If iconized or maximized: return
+
+If state empty OR position/size achieved:
+    _mark_ready()
+```
+
+### 5. `_mark_ready()` - Position/Size Done
 
 ```
 Set ready = True
@@ -93,7 +123,7 @@ If state.maximized:
     Call Maximize() once (fire and forget)
 ```
 
-### 4. After Ready - Normal Caching
+### 6. After Ready - Normal Caching
 
 ```
 On EVT_MOVE, EVT_SIZE, EVT_MAXIMIZE:
@@ -104,7 +134,7 @@ On EVT_MOVE, EVT_SIZE, EVT_MAXIMIZE:
         Cache size from window (if reasonable)
 ```
 
-### 5. `save()` - On Close
+### 7. `save()` - On Close
 
 ```
 Write state (position, size, maximized) to settings file
@@ -116,11 +146,14 @@ Write state (position, size, maximized) to settings file
 
 1. **State = Desired State**: position, size, maximized represent what we want the window to be
 2. **Ready = Position/Size Only**: ready flag indicates position/size achieved, maximized is separate
-3. **Maximize After Ready**: ONE attempt to maximize after position/size done (fire and forget)
-4. **While Maximized**: WM manages the window, we don't attempt move/resize
-5. **Caching**: Query `IsMaximized()` directly, only cache position/size in normal state
-6. **Errors Clear State**: All startup errors clear state, let WM decide, normal caching captures values
-7. **Errors Repeat**: Startup errors repeat until ready, highlighting exceptional cases
+3. **Confirmed Flags**: Track that SetPosition/SetSize results have been received via events
+4. **EVT_IDLE for Ready**: Only mark ready during idle to ensure GTK has processed geometry
+5. **Maximize After Ready**: ONE attempt to maximize after position/size done (fire and forget)
+6. **Restore Geometry**: By waiting for EVT_IDLE before maximize, GTK stores correct restore geometry
+7. **While Maximized**: WM manages the window, we don't attempt move/resize
+8. **Caching**: Query `IsMaximized()` directly, only cache position/size in normal state
+9. **Errors Clear State**: All startup errors clear state, let WM decide, normal caching captures values
+10. **Errors Repeat**: Startup errors repeat until ready, highlighting exceptional cases
 
 ---
 
@@ -160,8 +193,18 @@ wxGTK calls `gtk_window_move()` but does NOT set `GDK_HINT_USER_POS`. Without th
 3. We detect wrong position/size via `EVT_MOVE`/`EVT_SIZE`
 4. We correct by calling `SetPosition()`/`SetSize()` again
 5. After window is mapped and visible, these calls ARE honored
-6. We keep correcting until activated AND position/size match
-7. Then we mark ready and do ONE maximize attempt if needed
+6. We track corrections via confirmed flags
+7. On EVT_IDLE, when active and all confirmed, we mark ready
+8. Then we do ONE maximize attempt if needed (with correct restore geometry)
+
+### Why Confirmed Flags and EVT_IDLE
+
+The maximize problem: When `Maximize()` is called immediately after `SetPosition()`/`SetSize()`, GTK hasn't finished internally storing the "restore geometry". The maximize captures a stale restore size.
+
+Solution:
+- Track that our SetPosition/SetSize corrections have been confirmed by receiving EVT_MOVE/EVT_SIZE
+- Only mark ready during EVT_IDLE, ensuring the event loop has processed all pending geometry changes
+- Then maximize - GTK now has the correct restore geometry stored
 
 ---
 
@@ -181,8 +224,9 @@ class WindowGeometryTracker:
         self.maximized = False
 
         # In-memory state
-        self.ready = False      # Position/size achieved
-        self.activated = False  # EVT_ACTIVATE fired
+        self.ready = False              # Position/size achieved
+        self.position_confirmed = True  # No pending SetPosition()
+        self.size_confirmed = True      # No pending SetSize()
 
         self.load()  # Load from settings
 
@@ -190,34 +234,56 @@ class WindowGeometryTracker:
         window.Bind(wx.EVT_MOVE, self._on_move)
         window.Bind(wx.EVT_SIZE, self._on_size)
         window.Bind(wx.EVT_MAXIMIZE, self._on_maximize)
-        window.Bind(wx.EVT_ACTIVATE, self._on_activate)
+        window.Bind(wx.EVT_IDLE, self._on_idle)
 
     def check_and_correct(self):
-        """Try to achieve desired state. Called while not ready."""
+        """Try to achieve desired state. Called on EVT_MOVE/EVT_SIZE."""
         if self.ready:
             return
 
-        state_empty = self.position is None and self.size is None
-
         # Startup errors - clear state
-        if self._window.IsIconized():
+        if self._window.IsIconized() or self._window.IsMaximized():
             self._clear_state()
             return
 
-        if self._window.IsMaximized():
-            self._clear_state()
+        # Correct position/size, setting confirmed=False
+        if self.position is not None or self.size is not None:
+            self._check_position()  # Sets position_confirmed=False if correcting
+            self._check_size()      # Sets size_confirmed=False if correcting
+
+    def _on_move(self, event):
+        self.position_confirmed = True
+        self.check_and_correct()
+        event.Skip()
+
+    def _on_size(self, event):
+        self.size_confirmed = True
+        self.check_and_correct()
+        event.Skip()
+
+    def _on_idle(self, event):
+        """Check ready conditions. Only mark ready during idle."""
+        if self.ready:
+            event.Skip()
             return
 
-        # Correct position/size
-        position_size_achieved = False
-        if not state_empty:
-            pos_ok = self._check_position()
-            size_ok = self._check_size()
-            position_size_achieved = pos_ok and size_ok
+        # All conditions must be met
+        if not self._window.IsActive():
+            event.Skip()
+            return
+        if not self.position_confirmed or not self.size_confirmed:
+            event.Skip()
+            return
+        if self._window.IsIconized() or self._window.IsMaximized():
+            event.Skip()
+            return
 
-        # Mark ready when: activated AND (empty OR achieved)
-        if self.activated and (state_empty or position_size_achieved):
+        # Check if state empty or achieved
+        state_empty = self.position is None and self.size is None
+        if state_empty or self._position_size_achieved():
             self._mark_ready()
+
+        event.Skip()
 
     def _mark_ready(self):
         """Position/size done. Maximize if needed (fire and forget)."""
@@ -229,7 +295,7 @@ class WindowGeometryTracker:
         self.position = (pos.x, pos.y)
         self.size = (size.width, size.height)
 
-        # ONE maximize attempt
+        # ONE maximize attempt - GTK now has correct restore geometry
         if self.maximized:
             self._window.Maximize()
 
@@ -248,6 +314,8 @@ class WindowGeometryTracker:
         self.position = None
         self.size = None
         self.maximized = False
+        self.position_confirmed = True
+        self.size_confirmed = True
 ```
 
 ---
@@ -257,7 +325,8 @@ class WindowGeometryTracker:
 ### Linux/GTK (X11)
 - EVT_MOVE/EVT_SIZE detection needed
 - Window manager may move window multiple times before ready
-- Correct position/size until activated AND achieved
+- Correct position/size until active, confirmed, and achieved
+- Wait for EVT_IDLE before maximize to ensure correct restore geometry
 
 ### Windows/macOS
 - Standard positioning works
@@ -276,12 +345,15 @@ class WindowGeometryTracker:
 ### For Task Coach (Implemented)
 
 1. ✅ State model: position, size, maximized as desired state
-2. ✅ Startup errors clear state, let WM decide
-3. ✅ Ready = activated AND (empty OR position/size achieved)
-4. ✅ After ready: ONE maximize attempt (fire and forget)
-5. ✅ Caching: query IsMaximized(), only cache position/size in normal state
-6. ✅ Geometry validation: position on screen, size fits monitor
-7. ✅ Wayland detection: logs warning
+2. ✅ Confirmed flags: position_confirmed, size_confirmed
+3. ✅ On mismatch: set confirmed=False, send correction
+4. ✅ On EVT_MOVE/EVT_SIZE: set respective confirmed=True
+5. ✅ On EVT_IDLE: check ready conditions
+6. ✅ Ready = IsActive() AND confirmed AND (empty OR achieved)
+7. ✅ After ready: ONE maximize attempt (fire and forget)
+8. ✅ Caching: query IsMaximized(), only cache position/size in normal state
+9. ✅ Geometry validation: position on screen, size fits monitor
+10. ✅ Wayland detection: logs warning
 
 ### For wxWidgets Project
 
