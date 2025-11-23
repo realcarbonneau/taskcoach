@@ -2738,21 +2738,6 @@ class HelpLicense(DialogCommand):
         )
 
 
-class CheckForUpdate(settings_uicommand.SettingsCommand):
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            menuText=_("Check for update"),
-            helpText=_("Check for the availability of a new version of %s")
-            % meta.name,
-            bitmap="box_icon",
-            *args,
-            **kwargs
-        )
-
-    def doCommand(self, event):
-        meta.VersionChecker(self.settings, verbose=True).start()
-
-
 class URLCommand(base_uicommand.UICommand):
     def __init__(self, *args, **kwargs):
         self.url = kwargs.pop("url")
@@ -2836,6 +2821,24 @@ class Donate(URLCommand):
             helpText=_("Donate to support the development of %s") % meta.name,
             bitmap="heart_icon",
             url=meta.donate_url,
+            *args,
+            **kwargs
+        )
+
+    def enabled(self, event):  # pylint: disable=W0613
+        return False  # Greyed out - donation not currently available
+
+
+class CheckForUpdate(URLCommand):
+    def __init__(self, *args, **kwargs):
+        # Remove settings from kwargs if present (not needed for URLCommand)
+        kwargs.pop("settings", None)
+        super().__init__(
+            menuText=_("Check for update"),
+            helpText=_("Check for the availability of a new version of %s")
+            % meta.name,
+            bitmap="box_icon",
+            url=meta.github_url,
             *args,
             **kwargs
         )

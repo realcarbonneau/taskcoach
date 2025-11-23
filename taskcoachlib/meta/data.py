@@ -22,33 +22,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Edit these for every release:
 
-version = "1.5.1"  # Current version number of the application
+version = "1.6.1"  # Current version number of the application
+version_patch = "123"  # Patch level (commit count at release)
+version_commit = "087c66f"  # Git commit hash at release
+version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.123
+
 tskversion = 37  # Current version number of the task file format, changed to 37 for release 1.3.23.
-release_day = "15"  # Day number of the release, 1-31, as string
+release_day = "23"  # Day number of the release, 1-31, as string
 release_month = "November"  # Month of the release in plain English
 release_year = "2025"  # Year of the release as string
 release_status = "stable"  # One of 'alpha', 'beta', 'stable'
 
-# Get git commit info for patch level
-def get_git_info():
-    """Get git commit count and hash for version identification."""
-    import subprocess, os
-    try:
-        commit_count = subprocess.check_output(['git', 'rev-list', '--count', 'HEAD'],
-                                               stderr=subprocess.DEVNULL,
-                                               cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))).decode().strip()
-        commit_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
-                                              stderr=subprocess.DEVNULL,
-                                              cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))).decode().strip()
-        return commit_count, commit_hash
-    except Exception:
-        return None, None
-
-git_commit_count, git_commit_hash = get_git_info()
-if git_commit_count:
-    version_with_patch = f"{version}.{git_commit_count}"
-else:
-    version_with_patch = version
+# Legacy: keep version_with_patch for backwards compatibility
+version_with_patch = version_full
+git_commit_hash = version_commit
+git_commit_count = version_patch
 
 # No editing needed below this line for doing a release.
 
@@ -126,6 +114,7 @@ filename = name.replace(" ", "")
 filename_lower = filename.lower()
 
 url = "http://taskcoach.org/"  # Don't remove the trailing slash, other code is assuming it will be there
+github_url = "https://github.com/realcarbonneau/taskcoach"  # GitHub repository
 screenshot = (
     url
     + "screenshots/Windows/0.71.2-Windows_XP-Tasks_categories_and_effort.png"
@@ -140,9 +129,9 @@ faq_url = "https://answers.launchpad.net/taskcoach/+faqs"
 sf_tracker_url = "https://sourceforge.net/tracker/"
 bug_report_url = sf_tracker_url + "?func=add&group_id=130831&atid=719134"
 known_bugs_url = sf_tracker_url + "?group_id=130831&atid=719134&status=1"
-support_request_url = sf_tracker_url + "?group_id=130831&atid=719135"
+support_request_url = github_url + "/issues"  # GitHub issues for support
 feature_request_url = "http://taskcoach.uservoice.com"
-translations_url = "https://translations.launchpad.net/taskcoach"
+translations_url = github_url + "/pulls"  # GitHub pull requests for translations
 donate_url = url + "givesupport.html"
 i18n_url = url + "i18n.html"
 
