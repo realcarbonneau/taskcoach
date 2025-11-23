@@ -2,16 +2,22 @@
 """
 Minimal wxPython window position test.
 Tests if GTK honors SetPosition/SetSize for a simple window.
+
+Key finding: Window managers ignore initial positions and use "Smart Placement".
+Position must be set AFTER window is mapped to trigger GDK_HINT_USER_POS.
 """
 
 import wx
 
+TARGET_POS = (100, 100)
+
 class TestFrame(wx.Frame):
     def __init__(self):
-        # Create frame with explicit position and size
-        super().__init__(None, title="Position Test", pos=(100, 100), size=(200, 150))
+        # Create frame - DON'T set position here (WM will ignore it)
+        super().__init__(None, title="Position Test", size=(200, 150))
 
         self.move_count = 0
+        self.position_applied = False
 
         # Add a panel with position info
         panel = wx.Panel(self)
@@ -37,7 +43,16 @@ class TestFrame(wx.Frame):
     def on_move(self, event):
         self.move_count += 1
         pos = event.GetPosition()
-        print(f"EVT_MOVE #{self.move_count}: position=({pos.x}, {pos.y})")
+        print(f"EVT_MOVE #{self.move_count}: position=({pos.x}, {pos.y}) applied={self.position_applied}")
+
+        # If WM moved us and we haven't applied our position yet, apply it now
+        if not self.position_applied:
+            self.position_applied = True
+            print(f"  -> Applying target position {TARGET_POS} via SetPosition...")
+            self.SetPosition(wx.Point(*TARGET_POS))
+            new_pos = self.GetPosition()
+            print(f"  -> After SetPosition: ({new_pos.x}, {new_pos.y})")
+
         self.update_position()
         event.Skip()
 
@@ -53,7 +68,7 @@ def main():
     print("Creating wx.App...")
     app = wx.App()
 
-    print("Creating TestFrame at pos=(100, 100), size=(200, 150)...")
+    print(f"Creating TestFrame (target position={TARGET_POS})...")
     frame = TestFrame()
 
     pos_before = frame.GetPosition()
@@ -65,7 +80,7 @@ def main():
     pos_after = frame.GetPosition()
     print(f"After Show(): position=({pos_after.x}, {pos_after.y})")
 
-    print("Starting MainLoop...")
+    print("Starting MainLoop... (WM will move window, then we apply position)")
     app.MainLoop()
 
 if __name__ == "__main__":
