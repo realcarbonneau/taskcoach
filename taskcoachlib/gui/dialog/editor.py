@@ -518,15 +518,16 @@ class TaskAppearancePage(Page):
                     break
         self._iconEntry.SetValue = setFreshIconValue
 
-        self._iconSync = attributesync.AttributeSync(
-            "icon",
-            self._iconEntry,
-            currentIcon,
-            self.items,
-            command.EditIconCommand,
-            wx.EVT_COMBOBOX,
-            self.items[0].appearanceChangedEventType(),
-        )
+        # TEST: Skip AttributeSync to see if it's causing the issue
+        # self._iconSync = attributesync.AttributeSync(
+        #     "icon",
+        #     self._iconEntry,
+        #     currentIcon,
+        #     self.items,
+        #     command.EditIconCommand,
+        #     wx.EVT_COMBOBOX,
+        #     self.items[0].appearanceChangedEventType(),
+        # )
         self.addEntry(
             _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
@@ -832,15 +833,16 @@ class ProgressPage(Page):
                 self._shouldMarkCompletedEntry.SetSelection(self._choiceValues.index(value))
         self._shouldMarkCompletedEntry.SetValue = setChoiceValue
 
-        self._shouldMarkCompletedSync = attributesync.AttributeSync(
-            "shouldMarkCompletedWhenAllChildrenCompleted",
-            self._shouldMarkCompletedEntry,
-            currentChoice,
-            self.items,
-            command.EditShouldMarkCompletedCommand,
-            wx.EVT_CHOICE,  # Use standard event, not custom
-            task.Task.shouldMarkCompletedWhenAllChildrenCompletedChangedEventType(),
-        )
+        # TEST: Skip AttributeSync to see if it's causing the issue
+        # self._shouldMarkCompletedSync = attributesync.AttributeSync(
+        #     "shouldMarkCompletedWhenAllChildrenCompleted",
+        #     self._shouldMarkCompletedEntry,
+        #     currentChoice,
+        #     self.items,
+        #     command.EditShouldMarkCompletedCommand,
+        #     wx.EVT_CHOICE,  # Use standard event, not custom
+        #     task.Task.shouldMarkCompletedWhenAllChildrenCompletedChangedEventType(),
+        # )
         self.addEntry(
             _("Mark task completed when all children are completed?"),
             self._shouldMarkCompletedEntry,
