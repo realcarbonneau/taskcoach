@@ -468,74 +468,77 @@ class TaskAppearancePage(Page):
     def addIconEntry(self):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
+        self._iconEntry = entry.IconEntry(self, currentIcon)
 
-        # TEST: Create completely fresh dropdown with unique identifiers
-        # Using exact same pattern as working test, but with real icon data
-        from taskcoachlib.gui import artprovider
+        # DEBUG: Log initial state
+        import logging
+        logger = logging.getLogger('dropdown_debug')
+        logger.setLevel(logging.DEBUG)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(asctime)s ICON: %(message)s'))
+            logger.addHandler(handler)
 
-        # Get icon data - use ASCII-safe labels to rule out encoding issues
-        iconData = []
-        for imageName in sorted(artprovider.chooseableItemImages.keys()):
-            # Use simple ASCII label to rule out translation/encoding issues
-            safeLabel = f"Icon_{len(iconData):03d}"
-            iconData.append((imageName, safeLabel))
+        def log_icon_state(context):
+            try:
+                logger.debug(f"{context}: selection={self._iconEntry.GetSelection()}, "
+                           f"count={self._iconEntry.GetCount()}, "
+                           f"size={self._iconEntry.GetSize()}, "
+                           f"bestSize={self._iconEntry.GetBestSize()}, "
+                           f"shown={self._iconEntry.IsShown()}")
+            except Exception as e:
+                logger.debug(f"{context}: ERROR - {e}")
 
-        # Create fresh combo with unique variable name
-        freshIconCombo = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
+        log_icon_state("CREATION")
 
-        # Populate with simple colored bitmaps (same as working test)
-        for idx, (imageName, label) in enumerate(iconData):
-            bmp = wx.Bitmap(16, 16)
-            dc = wx.MemoryDC(bmp)
-            r = (idx * 3) % 256
-            g = (idx * 7) % 256
-            b = (idx * 11) % 256
-            dc.SetBrush(wx.Brush(wx.Colour(r, g, b)))
-            dc.SetPen(wx.Pen(wx.Colour(0, 0, 0)))
-            dc.DrawRectangle(0, 0, 16, 16)
-            dc.SelectObject(wx.NullBitmap)
-            freshIconCombo.Append(label, bmp)
+        # Monitor dropdown events
+        def on_icon_dropdown(event):
+            log_icon_state("DROPDOWN_OPEN")
+            event.Skip()
 
-        freshIconCombo.SetSelection(40)  # Same as working test
+        def on_icon_closeup(event):
+            log_icon_state("DROPDOWN_CLOSE")
+            event.Skip()
 
-        # Store reference with unique name
-        self._freshIconComboData = iconData
-        self._iconEntry = freshIconCombo
+        def on_icon_paint(event):
+            log_icon_state("PAINT")
+            event.Skip()
 
-        # Add GetValue method for AttributeSync compatibility
-        def getFreshIconValue():
-            idx = freshIconCombo.GetSelection()
-            if idx >= 0 and idx < len(iconData):
-                return iconData[idx][0]  # Return imageName
-            return ""
-        self._iconEntry.GetValue = getFreshIconValue
+        self._iconEntry.Bind(wx.EVT_COMBOBOX_DROPDOWN, on_icon_dropdown)
+        self._iconEntry.Bind(wx.EVT_COMBOBOX_CLOSEUP, on_icon_closeup)
 
-        # Add SetValue method
-        def setFreshIconValue(value):
-            for idx, (imageName, label) in enumerate(iconData):
-                if imageName == value:
-                    freshIconCombo.SetSelection(idx)
-                    break
-        self._iconEntry.SetValue = setFreshIconValue
+        # Log periodically using a timer
+        def periodic_log():
+            log_icon_state("PERIODIC")
+            wx.CallLater(2000, periodic_log)  # Every 2 seconds
+        wx.CallLater(1000, periodic_log)
 
-        # TEST: Skip AttributeSync to see if it's causing the issue
-        # self._iconSync = attributesync.AttributeSync(
-        #     "icon",
-        #     self._iconEntry,
-        #     currentIcon,
-        #     self.items,
-        #     command.EditIconCommand,
-        #     wx.EVT_COMBOBOX,
-        #     self.items[0].appearanceChangedEventType(),
-        # )
+        self._iconSync = attributesync.AttributeSync(
+            "icon",
+            self._iconEntry,
+            currentIcon,
+            self.items,
+            command.EditIconCommand,
+            entry.EVT_ICONENTRY,
+            self.items[0].appearanceChangedEventType(),
+        )
+
+        log_icon_state("AFTER_SYNC")
+
         self.addEntry(
             _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
+
+        log_icon_state("AFTER_ADDENTRY")
 
     def addTestDropdowns(self):
         """TEST: Add test dropdowns to debug scroll position issue."""
         # Generate 85 test items (same as About dialog test)
         test_items = [(f"Item {i}", f"Test Item {i} - Label") for i in range(85)]
+
+        # DEBUG: Setup logger for test dropdowns
+        import logging
+        logger = logging.getLogger('dropdown_debug')
 
         # Test 1: BitmapComboBox
         test_bitmap_combo = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
@@ -543,18 +546,51 @@ class TaskAppearancePage(Page):
             bmp = self._createTestBitmap(i)
             test_bitmap_combo.Append(label, bmp)
         test_bitmap_combo.SetSelection(40)
+
+        def log_test_bitmap_state(context):
+            try:
+                logger.debug(f"TEST_BITMAP {context}: selection={test_bitmap_combo.GetSelection()}, "
+                           f"count={test_bitmap_combo.GetCount()}, "
+                           f"size={test_bitmap_combo.GetSize()}, "
+                           f"bestSize={test_bitmap_combo.GetBestSize()}, "
+                           f"shown={test_bitmap_combo.IsShown()}")
+            except Exception as e:
+                logger.debug(f"TEST_BITMAP {context}: ERROR - {e}")
+
+        log_test_bitmap_state("CREATION")
+
+        def on_test_bitmap_dropdown(event):
+            log_test_bitmap_state("DROPDOWN_OPEN")
+            event.Skip()
+        test_bitmap_combo.Bind(wx.EVT_COMBOBOX_DROPDOWN, on_test_bitmap_dropdown)
+
         self.addEntry(
             "TEST BitmapComboBox:", test_bitmap_combo,
             flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
+        log_test_bitmap_state("AFTER_ADDENTRY")
 
         # Test 2: wx.Choice
         test_choice = wx.Choice(self, choices=[item[1] for item in test_items])
         test_choice.SetSelection(40)
+
+        def log_test_choice_state(context):
+            try:
+                logger.debug(f"TEST_CHOICE {context}: selection={test_choice.GetSelection()}, "
+                           f"count={test_choice.GetCount()}, "
+                           f"size={test_choice.GetSize()}, "
+                           f"bestSize={test_choice.GetBestSize()}, "
+                           f"shown={test_choice.IsShown()}")
+            except Exception as e:
+                logger.debug(f"TEST_CHOICE {context}: ERROR - {e}")
+
+        log_test_choice_state("CREATION")
+
         self.addEntry(
             "TEST wx.Choice:", test_choice,
             flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
+        log_test_choice_state("AFTER_ADDENTRY")
 
     def _createTestBitmap(self, index):
         """Create a simple colored bitmap for testing."""
@@ -805,44 +841,18 @@ class ProgressPage(Page):
             if len(self.items) == 1
             else None
         )
-
-        # TEST: Use direct wx.Choice (no subclass) - same as working test pattern
-        choice_labels = [text for value, text in choices]
-        choice_values = [value for value, text in choices]
-
-        self._shouldMarkCompletedEntry = wx.Choice(self, choices=choice_labels)
-        self._choiceValues = choice_values  # Store for GetValue
-
-        # Set selection based on current choice
-        if currentChoice in choice_values:
-            self._shouldMarkCompletedEntry.SetSelection(choice_values.index(currentChoice))
-        else:
-            self._shouldMarkCompletedEntry.SetSelection(0)
-
-        # Add GetValue method for AttributeSync compatibility
-        def getChoiceValue():
-            idx = self._shouldMarkCompletedEntry.GetSelection()
-            if idx >= 0 and idx < len(self._choiceValues):
-                return self._choiceValues[idx]
-            return None
-        self._shouldMarkCompletedEntry.GetValue = getChoiceValue
-
-        # Add SetValue method
-        def setChoiceValue(value):
-            if value in self._choiceValues:
-                self._shouldMarkCompletedEntry.SetSelection(self._choiceValues.index(value))
-        self._shouldMarkCompletedEntry.SetValue = setChoiceValue
-
-        # TEST: Skip AttributeSync to see if it's causing the issue
-        # self._shouldMarkCompletedSync = attributesync.AttributeSync(
-        #     "shouldMarkCompletedWhenAllChildrenCompleted",
-        #     self._shouldMarkCompletedEntry,
-        #     currentChoice,
-        #     self.items,
-        #     command.EditShouldMarkCompletedCommand,
-        #     wx.EVT_CHOICE,  # Use standard event, not custom
-        #     task.Task.shouldMarkCompletedWhenAllChildrenCompletedChangedEventType(),
-        # )
+        self._shouldMarkCompletedEntry = entry.ChoiceEntry(
+            self, choices, currentChoice
+        )
+        self._shouldMarkCompletedSync = attributesync.AttributeSync(
+            "shouldMarkCompletedWhenAllChildrenCompleted",
+            self._shouldMarkCompletedEntry,
+            currentChoice,
+            self.items,
+            command.EditShouldMarkCompletedCommand,
+            entry.EVT_CHOICEENTRY,
+            task.Task.shouldMarkCompletedWhenAllChildrenCompletedChangedEventType(),
+        )
         self.addEntry(
             _("Mark task completed when all children are completed?"),
             self._shouldMarkCompletedEntry,
