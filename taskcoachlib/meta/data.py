@@ -21,11 +21,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # pylint: disable=C0103
 
 # Edit these for every release:
+# IMPORTANT: Always increment version_patch with each change/commit!
 
 version = "1.6.1"  # Current version number of the application
-version_patch = "123"  # Patch level (commit count at release)
+version_patch = "2"  # Patch level - INCREMENT THIS WITH EACH CHANGE!
 version_commit = "087c66f"  # Git commit hash at release
-version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.123
+version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.2
 
 tskversion = 37  # Current version number of the task file format, changed to 37 for release 1.3.23.
 release_day = "23"  # Day number of the release, 1-31, as string
