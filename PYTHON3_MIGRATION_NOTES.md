@@ -6,10 +6,11 @@ This document captures technical issues, fixes, and refactorings discovered duri
 
 1. [Widget Resizing Issues](#widget-resizing-issues)
 2. [wx.Timer Crash During Window Destruction](#wxtimer-crash-during-window-destruction)
-3. [wxPython Compatibility](#wxpython-compatibility)
-4. [Bundled Third-Party Library Cleanup](#bundled-third-party-library-cleanup)
-5. [Known Issues](#known-issues)
-6. [Future Work](#future-work)
+3. [Ctrl+C Crash with AUI Event Handler Assertion](#ctrlc-crash-with-aui-event-handler-assertion)
+4. [wxPython Compatibility](#wxpython-compatibility)
+5. [Bundled Third-Party Library Cleanup](#bundled-third-party-library-cleanup)
+6. [Known Issues](#known-issues)
+7. [Future Work](#future-work)
 
 ---
 
@@ -573,6 +574,103 @@ When working with wx.Timer in the future, test all timing scenarios:
 
 ---
 
+## Ctrl+C Crash with AUI Event Handler Assertion
+
+### Problem Overview
+
+**Date Fixed:** November 2025
+**Affected Components:** Application shutdown, signal handling
+**Root Cause:** AUI manager event handlers not cleaned up during Twisted reactor shutdown
+
+### Symptoms
+
+When pressing Ctrl+C in the console while Task Coach is running:
+
+```
+^CException ignored in atexit callback: <built-in function _wxPyCleanup>
+wx._core.wxAssertionError: C++ assertion "GetEventHandler() == this" failed at
+./src/common/wincmn.cpp(473) in ~wxWindowBase(): any pushed event handlers must have been removed
+```
+
+### Root Cause Analysis
+
+The problem was caused by the interaction between **Twisted reactor** and **wxPython AUI**:
+
+1. **Task Coach uses Twisted reactor** as its main event loop (not wx's MainLoop)
+2. **AUI (Advanced User Interface) manager** pushes event handlers onto windows for dock/float functionality
+3. When Ctrl+C is pressed, **Twisted handles SIGINT** and initiates `reactor.stop()`
+4. Previous fix attempts used `wx.CallAfter()` to schedule cleanup, but **wx events aren't processed during reactor shutdown**
+5. Without `manager.UnInit()`, wxPython's atexit handler finds windows with pushed event handlers → assertion error
+
+### Why Previous Approaches Failed
+
+| Approach | Why It Failed |
+|----------|---------------|
+| Custom SIGINT handler calling `quitApplication()` | wx.CallAfter not processed during reactor shutdown |
+| `wx.CallAfter()` + `wx.WakeUpIdle()` | Event loop not running to process CallAfter |
+| Direct `mainwindow.Close()` in signal handler | Signal handler returns before close event processed |
+| Recursive `PopEventHandler()` on all windows | Too late - runs after reactor shutdown initiated |
+
+### The Fix
+
+Use **Twisted's system event triggers** to hook into the reactor's shutdown sequence:
+
+```python
+# In application.py __register_signal_handlers()
+from twisted.internet import reactor
+
+def cleanup_wx():
+    """Clean up wx when reactor is shutting down."""
+    try:
+        if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
+            self.mainwindow.manager.UnInit()
+    except Exception:
+        pass  # Best effort cleanup
+
+# Register cleanup to run BEFORE reactor shutdown completes
+reactor.addSystemEventTrigger('before', 'shutdown', cleanup_wx)
+```
+
+**Why this works:**
+- Twisted's `addSystemEventTrigger('before', 'shutdown', ...)` runs **synchronously** during reactor shutdown
+- This happens **before** wxPython's atexit cleanup runs
+- `manager.UnInit()` properly pops all AUI event handlers
+- No reliance on wx event loop processing
+
+### Also Keep onClose() Cleanup
+
+For normal window close (clicking X button), keep `manager.UnInit()` in `mainwindow.onClose()`:
+
+```python
+def onClose(self, event):
+    # ... other cleanup ...
+    if application.Application().quitApplication():
+        self.manager.UnInit()  # Clean up AUI before window destruction
+        event.Skip()
+```
+
+### Key Lessons Learned
+
+1. **When using Twisted+wxPython**, use Twisted's mechanisms for shutdown cleanup, not wx's
+2. **AUI managers must call UnInit()** before window destruction to avoid assertion errors
+3. **wx.CallAfter() is unreliable** during reactor shutdown - the wx event loop may not be processing
+4. **System event triggers** (`addSystemEventTrigger`) provide synchronous hooks into reactor lifecycle
+
+### Testing Checklist
+
+- [ ] Start app, press Ctrl+C - should exit cleanly without assertion error
+- [ ] Start app, close via window X button - should exit cleanly
+- [ ] Start app, use File > Quit menu - should exit cleanly
+- [ ] Start app, send SIGTERM (`kill <pid>`) - should exit cleanly
+
+### References
+
+- [wxPythonAndTwisted wiki](https://wiki.wxpython.org/wxPythonAndTwisted)
+- [AUI error discussion](https://discuss.wxpython.org/t/aui-error-any-pushed-event-handlers-must-have-been-removed/34555)
+- [wxFormBuilder UnInit issue](https://github.com/wxFormBuilder/wxFormBuilder/issues/623)
+
+---
+
 ## wxPython Compatibility
 
 ### wxPython 4.2.0 Issues
@@ -844,6 +942,7 @@ With Snarl removed, Windows users automatically get the "Task Coach" (UniversalN
 - ✅ wxPython 4.2.0 category background coloring (Documented in CRITICAL_WXPYTHON_PATCH.md)
 - ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
 - ✅ Hacky close delay patches removed after root cause fix (November 2025)
+- ✅ Ctrl+C crash with AUI event handler assertion (November 2025)
 
 ---
 
@@ -884,4 +983,4 @@ When adding new technical notes:
 
 ---
 
-**Last Updated:** November 22, 2025
+**Last Updated:** November 23, 2025
