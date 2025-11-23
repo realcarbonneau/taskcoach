@@ -6,9 +6,9 @@ Task Coach on Linux/GTK fails to restore window position on startup. The window 
 
 **Root Cause:** wxWidgets/wxGTK does not set the `GDK_HINT_USER_POS` geometry hint when calling `gtk_window_move()`. Without this hint, the window manager ignores application-requested positions and uses its own placement algorithm.
 
-**Working Solution:** Detect unplanned window moves via `EVT_MOVE` and immediately reset to the target position **until `EVT_ACTIVATE` fires**. Then maximize if saved state was maximized. This works without visible flicker.
+**Working Solution:** Detect unplanned window moves/resizes via `EVT_MOVE`/`EVT_SIZE` and immediately correct to target values. Keep correcting until window is **ready** (activated AND position AND size match target). Then maximize if saved state was maximized.
 
-**Key Finding:** The window manager may move the window multiple times during setup. Keep correcting position on every `EVT_MOVE` until `EVT_ACTIVATE` (window gains focus) signals the window is ready for user input. Only then is it safe to maximize.
+**Key Finding:** `EVT_ACTIVATE` does NOT mean GTK/WM is done - it only means the window gained focus. GTK/WM may continue sending move/size events after `EVT_ACTIVATE`. Window is truly ready only when: activated AND position matches target AND size matches target.
 
 **Important:** Never save or restore iconized state - only maximize state persists.
 
@@ -294,13 +294,14 @@ class WindowTracker:
 
 ### Key Points
 
-1. **Deferred Maximize**: Don't maximize immediately - wait until `EVT_ACTIVATE`
-2. **Position Correction**: Keep correcting on every `EVT_MOVE` until window is activated
-3. **Cache = Restore Values**: Cached position/size are the "restore" values (for both save/restore and maximize/restore)
-4. **Never Cache When Maximized/Iconized**: Only update cached values when window is in normal state
-5. **Always Write Cached Values**: On close, always write cached position/size to file (they're always the restore values)
-6. **Monitor Derived From Position**: Monitor index is derived from cached position - no need to store separately
-7. **No Iconized State**: Never persist iconized state - only maximize state is written to file
+1. **Window Ready**: Window is ready when activated AND position AND size match target
+2. **Position/Size Correction**: Keep correcting on every `EVT_MOVE`/`EVT_SIZE` until window is ready
+3. **Deferred Maximize**: Don't maximize immediately - wait until window is ready
+4. **Cache = Restore Values**: Cached position/size are the "restore" values (for both save/restore and maximize/restore)
+5. **Never Cache When Maximized/Iconized**: Only update cached values when window is in normal state
+6. **Always Write Cached Values**: On close, always write cached position/size to file (they're always the restore values)
+7. **Monitor Derived From Position**: Monitor index is derived from cached position - no need to store separately
+8. **No Iconized State**: Never persist iconized state - only maximize state is written to file
 
 ### Terminology
 
@@ -312,11 +313,12 @@ class WindowTracker:
 
 1. 4-param `SetSize()` sets the window's internal position coordinates
 2. GTK/WM ignores this because wxPython cannot set the `GDK_HINT_USER_POS` hint (no API exposed)
-3. WM applies "smart placement" and may move the window multiple times (each triggers `EVT_MOVE`)
-4. We correct position on **every** unplanned move by calling `SetPosition()`
-5. After the window is mapped and visible, `SetPosition()` IS honored by the WM
-6. `EVT_ACTIVATE` signals the window is ready for user input - stop correcting
-7. **Deferred maximize**: Maximize only after window is at correct position ensures it maximizes on the correct monitor
+3. WM applies "smart placement" and may move/resize the window multiple times (triggers `EVT_MOVE`/`EVT_SIZE`)
+4. We correct position AND size on **every** unplanned change by calling `SetPosition()`/`SetSize()`
+5. After the window is mapped and visible, these calls ARE honored by the WM
+6. `EVT_ACTIVATE` only means window gained focus - GTK/WM may still send events after this
+7. **Window ready** = activated AND position matches AND size matches target
+8. **Deferred maximize**: Maximize only after window is ready ensures it maximizes on the correct monitor
 
 ### Flicker
 
@@ -357,13 +359,14 @@ On Wayland, window positioning is **disabled by design**:
 
 ### For Task Coach (Implemented)
 
-1. ✅ **EVT_MOVE detection** in `windowdimensionstracker.py` - correct position until EVT_ACTIVATE
-2. ✅ **4-param `SetSize(x, y, w, h)`** to set initial position
-3. ✅ **Deferred maximize** - wait for EVT_ACTIVATE, then maximize if saved state was maximized
-4. ✅ **Cache restore values** - only update cached position/size when not maximized/iconized
-5. ✅ **Always write cached values** - on close, always write cached position/size to file
-6. ✅ **No iconized persistence** - never save or restore iconized state
-7. ✅ **Wayland detection** - logs warning (positioning blocked by compositor)
+1. ✅ **EVT_MOVE/EVT_SIZE detection** - correct position AND size until window is ready
+2. ✅ **4-param `SetSize(x, y, w, h)`** to set initial position and size
+3. ✅ **Window ready** = activated AND position matches AND size matches target
+4. ✅ **Deferred maximize** - wait until window is ready, then maximize if saved state was maximized
+5. ✅ **Cache restore values** - only update cached position/size when not maximized/iconized
+6. ✅ **Always write cached values** - on close, always write cached position/size to file
+7. ✅ **No iconized persistence** - never save or restore iconized state
+8. ✅ **Wayland detection** - logs warning (positioning blocked by compositor)
 
 ### For wxWidgets Project
 
