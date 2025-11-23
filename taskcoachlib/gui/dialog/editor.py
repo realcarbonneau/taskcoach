@@ -469,37 +469,54 @@ class TaskAppearancePage(Page):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
 
-        # TEST: Use direct BitmapComboBox (no subclass) - same as working test pattern
+        # TEST: Create completely fresh dropdown with unique identifiers
+        # Using exact same pattern as working test, but with real icon data
         from taskcoachlib.gui import artprovider
-        imageNames = sorted(artprovider.chooseableItemImages.keys())
 
-        self._iconEntry = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
-        self._iconImageNames = imageNames  # Store for GetValue
+        # Get icon data - use ASCII-safe labels to rule out encoding issues
+        iconData = []
+        for imageName in sorted(artprovider.chooseableItemImages.keys()):
+            # Use simple ASCII label to rule out translation/encoding issues
+            safeLabel = f"Icon_{len(iconData):03d}"
+            iconData.append((imageName, safeLabel))
 
-        for imageName in imageNames:
-            label = artprovider.chooseableItemImages[imageName]
-            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
-            self._iconEntry.Append(label, bitmap)
+        # Create fresh combo with unique variable name
+        freshIconCombo = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
 
-        # Set selection based on current icon
-        if currentIcon in imageNames:
-            self._iconEntry.SetSelection(imageNames.index(currentIcon))
-        else:
-            self._iconEntry.SetSelection(0)
+        # Populate with simple colored bitmaps (same as working test)
+        for idx, (imageName, label) in enumerate(iconData):
+            bmp = wx.Bitmap(16, 16)
+            dc = wx.MemoryDC(bmp)
+            r = (idx * 3) % 256
+            g = (idx * 7) % 256
+            b = (idx * 11) % 256
+            dc.SetBrush(wx.Brush(wx.Colour(r, g, b)))
+            dc.SetPen(wx.Pen(wx.Colour(0, 0, 0)))
+            dc.DrawRectangle(0, 0, 16, 16)
+            dc.SelectObject(wx.NullBitmap)
+            freshIconCombo.Append(label, bmp)
+
+        freshIconCombo.SetSelection(40)  # Same as working test
+
+        # Store reference with unique name
+        self._freshIconComboData = iconData
+        self._iconEntry = freshIconCombo
 
         # Add GetValue method for AttributeSync compatibility
-        def getIconValue():
-            idx = self._iconEntry.GetSelection()
-            if idx >= 0 and idx < len(self._iconImageNames):
-                return self._iconImageNames[idx]
+        def getFreshIconValue():
+            idx = freshIconCombo.GetSelection()
+            if idx >= 0 and idx < len(iconData):
+                return iconData[idx][0]  # Return imageName
             return ""
-        self._iconEntry.GetValue = getIconValue
+        self._iconEntry.GetValue = getFreshIconValue
 
         # Add SetValue method
-        def setIconValue(value):
-            if value in self._iconImageNames:
-                self._iconEntry.SetSelection(self._iconImageNames.index(value))
-        self._iconEntry.SetValue = setIconValue
+        def setFreshIconValue(value):
+            for idx, (imageName, label) in enumerate(iconData):
+                if imageName == value:
+                    freshIconCombo.SetSelection(idx)
+                    break
+        self._iconEntry.SetValue = setFreshIconValue
 
         self._iconSync = attributesync.AttributeSync(
             "icon",
@@ -507,7 +524,7 @@ class TaskAppearancePage(Page):
             currentIcon,
             self.items,
             command.EditIconCommand,
-            wx.EVT_COMBOBOX,  # Use standard event, not custom
+            wx.EVT_COMBOBOX,
             self.items[0].appearanceChangedEventType(),
         )
         self.addEntry(
