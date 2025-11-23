@@ -251,7 +251,10 @@ class MainWindow(wx.Frame):
 4. We correct position on **every** unplanned move by calling `SetPosition()`
 5. After the window is mapped and visible, `SetPosition()` IS honored by the WM
 6. `EVT_ACTIVATE` signals the window is ready for user input - stop correcting
-7. Correction happens fast enough that user doesn't see flicker
+
+### Flicker
+
+**There is still a visible flicker** if another window is positioned over the WM's default placement area (typically upper-left corner). The window briefly appears at the WM's chosen position before being corrected. This is unavoidable without proper `GDK_HINT_USER_POS` support in wxPython.
 
 **Note:** This is a workaround for wxPython's lack of `GDK_HINT_USER_POS` support. If wxPython exposed this GTK API, we could simply set the hint before `Show()` and avoid this event-based correction entirely.
 
