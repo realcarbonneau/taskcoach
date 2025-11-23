@@ -1900,12 +1900,12 @@ class Editor(BalloonTipManager, widgets.Dialog):
         else:
             self.__timer = None
 
-        # Position and size handling is done by WindowSizeAndPositionTracker
+        # Position and size handling is done by WindowGeometryTracker
         # which will center on parent if no saved position exists, or
         # restore the last saved position
         self.__create_ui_commands()
         self.__dimensions_tracker = (
-            windowdimensionstracker.WindowSizeAndPositionTracker(
+            windowdimensionstracker.WindowGeometryTracker(
                 self, settings, self._interior.settings_section()
             )
         )
