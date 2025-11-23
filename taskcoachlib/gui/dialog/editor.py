@@ -468,24 +468,16 @@ class TaskAppearancePage(Page):
     def addIconEntry(self):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
-
-        # TEST: Add back real icons (wx.ArtProvider) - is this the issue?
-        from taskcoachlib.gui import artprovider
-        imageNames = sorted(artprovider.chooseableItemImages.keys())
-
-        self._iconEntry = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
-        for imageName in imageNames:
-            label = artprovider.chooseableItemImages[imageName]
-            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
-            self._iconEntry.Append(label, bitmap)
-        self._iconEntry.SetSelection(40)  # Keep selection at 40 for testing
-
-        # Dummy GetValue for now
-        def getIconValue():
-            return ""
-        self._iconEntry.GetValue = getIconValue
-
-        # Skip AttributeSync for now - just add the entry
+        self._iconEntry = entry.IconEntry(self, currentIcon)
+        self._iconSync = attributesync.AttributeSync(
+            "icon",
+            self._iconEntry,
+            currentIcon,
+            self.items,
+            command.EditIconCommand,
+            entry.EVT_ICONENTRY,
+            self.items[0].appearanceChangedEventType(),
+        )
         self.addEntry(
             _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
@@ -1018,19 +1010,6 @@ class EffortPage(PageWithViewer):
     pageName = "effort"
     pageTitle = _("Effort")
     pageIcon = "clock_icon"
-
-    def addEntries(self):
-        # TEST: Add test dropdown with 100 items to test scroll behavior
-        test_choices = [f"Effort test option {i+1}" for i in range(100)]
-        self._testEffortDropdown = wx.Choice(self, choices=test_choices)
-        self._testEffortDropdown.SetSelection(50)
-        self.addEntry(
-            "TEST Effort Dropdown:",
-            self._testEffortDropdown,
-            flags=[wx.ALIGN_RIGHT, wx.ALL],
-        )
-        # Call parent to add the viewer
-        super().addEntries()
 
     def createViewer(self, taskFile, settings, settingsSection):
         return viewer.EffortViewer(

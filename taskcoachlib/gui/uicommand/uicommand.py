@@ -3001,13 +3001,14 @@ class EffortViewerAggregationChoice(
     settings_uicommand.SettingsCommand,
     ViewerCommand,
 ):
+    # TEST: Add 100 items to test scroll behavior
     choiceLabels = [
         _("Effort details"),
         _("Effort per day"),
         _("Effort per week"),
         _("Effort per month"),
-    ]
-    choiceData = ["details", "day", "week", "month"]
+    ] + [f"Test aggregation {i+1}" for i in range(100)]
+    choiceData = ["details", "day", "week", "month"] + [f"test_{i}" for i in range(100)]
 
     def __init__(self, **kwargs):
         super().__init__(helpText=_("Aggregation mode"), **kwargs)
