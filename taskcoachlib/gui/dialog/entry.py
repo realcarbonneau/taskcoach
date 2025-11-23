@@ -346,6 +346,7 @@ class IconEntry(wx.adv.BitmapComboBox):
     def __init__(self, parent, currentIcon, *args, **kwargs):
         kwargs["style"] = wx.CB_READONLY
         super().__init__(parent, *args, **kwargs)
+        self._firstDropdown = True
         imageNames = sorted(artprovider.chooseableItemImages.keys())
         size = (16, 16)
         for imageName in imageNames:
@@ -355,6 +356,25 @@ class IconEntry(wx.adv.BitmapComboBox):
             self.SetClientData(item, imageName)
         self.SetSelection(imageNames.index(currentIcon))
         self.Bind(wx.EVT_COMBOBOX, self.onIconPicked)
+        self.Bind(wx.EVT_COMBOBOX_DROPDOWN, self.onDropdown)
+
+    def onDropdown(self, event):
+        """Fix scroll position on first dropdown.
+
+        BitmapComboBox has a bug where the dropdown list starts scrolled
+        to the middle with empty space at the top on first open.
+        """
+        event.Skip()
+        if self._firstDropdown:
+            self._firstDropdown = False
+            wx.CallAfter(self._fixDropdownScroll)
+
+    def _fixDropdownScroll(self):
+        """Reset scroll position by briefly selecting first item."""
+        currentSelection = self.GetSelection()
+        if currentSelection > 0:
+            self.SetSelection(0)
+            self.SetSelection(currentSelection)
 
     def onIconPicked(self, event):
         event.Skip()
