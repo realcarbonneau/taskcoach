@@ -390,6 +390,26 @@ class Application(object, metaclass=patterns.Singleton):
             )
 
     def __register_signal_handlers(self):
+        """Register signal handlers for clean shutdown.
+
+        On Unix with Twisted, we let Twisted handle SIGINT/SIGTERM and use
+        system event triggers to clean up wx properly.
+        """
+        from twisted.internet import reactor
+
+        def cleanup_wx():
+            """Clean up wx when reactor is shutting down."""
+            try:
+                # UnInit AUI manager to avoid wxAssertionError about
+                # pushed event handlers not being removed
+                if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
+                    self.mainwindow.manager.UnInit()
+            except Exception:
+                pass  # Best effort cleanup
+
+        # Register cleanup to run before reactor shutdown
+        reactor.addSystemEventTrigger('before', 'shutdown', cleanup_wx)
+
         if operating_system.isWindows():
             import win32api  # pylint: disable=F0401
 
@@ -409,18 +429,8 @@ class Application(object, metaclass=patterns.Singleton):
                 return True
 
             win32api.SetConsoleCtrlHandler(quit_adapter, True)
-        else:
-            import signal
-
-            def quit_adapter(*args):
-                return self.quitApplication()
-
-            signal.signal(signal.SIGTERM, quit_adapter)
-            if hasattr(signal, "SIGHUP"):
-                forced_quit = lambda *args: self.quitApplication(force=True)
-                signal.signal(
-                    signal.SIGHUP, forced_quit
-                )  # pylint: disable=E1101
+        # On Unix, Twisted's reactor handles SIGINT/SIGTERM automatically
+        # and will call our cleanup_wx trigger before shutdown
 
     @staticmethod
     def __create_mutex():
