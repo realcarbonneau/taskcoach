@@ -239,9 +239,35 @@ class WindowSizeAndPositionTracker(_Tracker):
         width = max(width, min_w) if width > 0 else min_w
         height = max(height, min_h) if height > 0 else min_h
 
-        # Set initial position and size. On GTK/Linux, the WM will likely ignore
-        # the position (wxPython cannot set GDK_HINT_USER_POS). Position is
-        # corrected via EVT_MOVE detection until EVT_ACTIVATE fires.
+        # Handle maximized state FIRST - don't set position targets that could interfere
+        # with positioning on the correct monitor
+        if maximized:
+            # Set size only (position will be set for the target monitor)
+            self._window.SetSize(width, height)
+
+            # Position window on the saved monitor before maximizing
+            if saved_monitor is not None and saved_monitor != wx.NOT_FOUND:
+                num_displays = wx.Display.GetCount()
+                if saved_monitor < num_displays:
+                    display = wx.Display(saved_monitor)
+                    geometry = display.GetGeometry()
+                    # Move to center of the target monitor before maximizing
+                    center_x = geometry.x + (geometry.width - width) // 2
+                    center_y = geometry.y + (geometry.height - height) // 2
+                    _log_debug(f"  Positioning on monitor {saved_monitor} at ({center_x}, {center_y}) before maximize")
+                    self._window.SetPosition(wx.Point(center_x, center_y))
+
+            self._window.Maximize()
+            self._target_position = None  # Don't correct position when maximized
+            self._target_size = None  # Don't correct size when maximized
+
+            # Initialize cache with saved non-maximized values (for restore)
+            self._cached_position = (x, y) if x != -1 and y != -1 else None
+            self._cached_size = (width, height)
+            _log_debug(f"  Maximized restore complete: cached_pos={self._cached_position} cached_size={self._cached_size}")
+            return
+
+        # Non-maximized case: set position and size, enable position correction
         if x == -1 and y == -1:
             # No saved position - just set size, let window manager place it
             self._window.SetSize(width, height)
@@ -265,23 +291,6 @@ class WindowSizeAndPositionTracker(_Tracker):
 
         # Store target size (AUI/GTK may reset it during initialization)
         self._target_size = (width, height)
-
-        # Handle maximized state - maximize on the correct monitor
-        if maximized:
-            # Position window on the saved monitor before maximizing
-            if saved_monitor is not None and saved_monitor != wx.NOT_FOUND:
-                num_displays = wx.Display.GetCount()
-                if saved_monitor < num_displays:
-                    display = wx.Display(saved_monitor)
-                    geometry = display.GetGeometry()
-                    # Move to center of the target monitor before maximizing
-                    center_x = geometry.x + (geometry.width - width) // 2
-                    center_y = geometry.y + (geometry.height - height) // 2
-                    _log_debug(f"  Positioning on monitor {saved_monitor} at ({center_x}, {center_y}) before maximize")
-                    self._window.SetPosition(wx.Point(center_x, center_y))
-            self._window.Maximize()
-            self._target_position = None  # Don't correct position when maximized
-            self._target_size = None  # Don't correct size when maximized
 
         # Initialize cache
         self._cached_size = (width, height)
