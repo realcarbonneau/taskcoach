@@ -321,62 +321,32 @@ class WindowSizeAndPositionTracker(_Tracker):
         return None
 
     def save_state(self):
-        """Save the current window state. Call when window is about to close."""
+        """Write window state to file. Call when window is about to close.
+
+        Always writes cached position/size (the restore values) and maximize flag.
+        Cached values are only updated when window is in normal state (not maximized/iconized),
+        so they always represent the correct restore position/size.
+        """
         maximized = self._window.IsMaximized()
 
-        current_pos = self._window.GetPosition()
-        current_size = self._window.GetSize()
-        monitor = wx.Display.GetFromWindow(self._window)
+        _log_debug(f"WRITE TO FILE: maximized={maximized}")
+        _log_debug(f"  Cached (restore values): pos={self._cached_position} size={self._cached_size}")
 
-        _log_debug(f"SAVE: maximized={maximized} monitor={monitor}")
-        _log_debug(f"  GetPosition()=({current_pos.x}, {current_pos.y}) GetSize()=({current_size.width}, {current_size.height})")
-        _log_debug(f"  Cached: pos={self._cached_position} size={self._cached_size}")
-
-        # When maximized, GetPosition() returns garbage - use cached position
-        # Also use cache if current looks corrupted (GTK bug)
-        if maximized and self._cached_position:
-            _log_debug(f"  Using cached position (maximized)")
-            save_pos = self._cached_position
-        elif current_pos.x < 100 and current_pos.y < 50:
-            if self._cached_position and (self._cached_position[0] > 100 or self._cached_position[1] > 50):
-                _log_debug(f"  Using cached position (GTK bug workaround)")
-                save_pos = self._cached_position
-            else:
-                save_pos = (current_pos.x, current_pos.y)
-        elif current_pos.y < 0:
-            # GTK sometimes returns negative y when maximized
-            if self._cached_position:
-                _log_debug(f"  Using cached position (negative y)")
-                save_pos = self._cached_position
-            else:
-                save_pos = (current_pos.x, current_pos.y)
-        else:
-            save_pos = (current_pos.x, current_pos.y)
-
-        save_size = self._cached_size if self._cached_size else (current_size.width, current_size.height)
-
+        # Always write maximize flag
         self.set_setting("maximized", maximized)
 
-        # When maximized, ONLY save the monitor - preserve last non-maximized position/size
-        # This is what "restore" will use when user un-maximizes
-        if maximized:
-            _log_debug(f"  SAVING: maximized=True monitor={monitor} (preserving non-maximized pos/size)")
-            if monitor != wx.NOT_FOUND:
-                self.set_setting("monitor_index", monitor)
-                _log_debug(f"  Saved monitor_index={monitor}")
-        else:
-            # Only save position/size when NOT maximized
-            _log_debug(f"  SAVING: pos={save_pos} size={save_size} monitor (from pos)")
-            self.set_setting("position", save_pos)
+        # Always write cached position/size (they're the restore values)
+        if self._cached_position:
+            self.set_setting("position", self._cached_position)
+            _log_debug(f"  Written position={self._cached_position}")
 
-            save_monitor = wx.Display.GetFromPoint(wx.Point(save_pos[0], save_pos[1]))
-            if save_monitor != wx.NOT_FOUND:
-                self.set_setting("monitor_index", save_monitor)
-                _log_debug(f"  Saved monitor_index={save_monitor}")
-
+        if self._cached_size:
             if operating_system.isMac():
-                save_size = (self._window.GetClientSize().width, self._window.GetClientSize().height)
-            self.set_setting("size", save_size)
+                # Mac uses client size
+                self.set_setting("size", self._cached_size)
+            else:
+                self.set_setting("size", self._cached_size)
+            _log_debug(f"  Written size={self._cached_size}")
 
 
 class WindowDimensionsTracker(WindowSizeAndPositionTracker):

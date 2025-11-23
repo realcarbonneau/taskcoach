@@ -282,29 +282,31 @@ class WindowTracker:
         event.Skip()
 
     def save_state(self):
-        """Save window state. Call on close."""
+        """Write window state to file. Call on close."""
         maximized = self._window.IsMaximized()
 
-        # Always save maximize state
+        # Always write maximize state and cached restore values
         settings.set("maximized", maximized)
-
-        if maximized:
-            # Only save monitor - preserve last non-maximized pos/size for restore
-            monitor = wx.Display.GetFromWindow(self._window)
-            settings.set("monitor_index", monitor)
-        else:
-            # Save position and size
-            settings.set("position", self._cached_position)
-            settings.set("size", self._cached_size)
+        settings.set("position", self._cached_position)
+        settings.set("size", self._cached_size)
+        # Monitor is derived from cached position when reading back
 ```
 
 ### Key Points
 
 1. **Deferred Maximize**: Don't maximize immediately - wait until `EVT_ACTIVATE`
 2. **Position Correction**: Keep correcting on every `EVT_MOVE` until window is activated
-3. **Cache Restore Values**: Cache position/size before maximizing (for restore button)
-4. **Save Logic**: When maximized, only save monitor index - preserve last non-maximized pos/size
-5. **No Iconized State**: Never save or restore iconized state
+3. **Cache = Restore Values**: Cached position/size are the "restore" values (for both save/restore and maximize/restore)
+4. **Never Cache When Maximized/Iconized**: Only update cached values when window is in normal state
+5. **Always Write Cached Values**: On close, always write cached position/size to file (they're always the restore values)
+6. **Monitor Derived From Position**: Monitor index is derived from cached position - no need to store separately
+7. **No Iconized State**: Never persist iconized state - only maximize state is written to file
+
+### Terminology
+
+- **Cached**: In-memory values (`_cached_position`, `_cached_size`)
+- **Write to file**: Persist to settings/ini file
+- **Restore values**: The non-maximized position/size used when clicking "restore" button
 
 ### Why This Works
 
