@@ -136,16 +136,15 @@ class WindowSizeAndPositionTracker(_Tracker):
         elapsed = time.time() - self._pos_log_start_time
         pos = self._window.GetPosition()
         shown = self._window.IsShown()
-        ms = int((elapsed % 1) * 1000)
 
-        _log_debug(f"POS_LOG [{elapsed:.1f}s]: ({pos.x}, {pos.y}) shown={shown} applied={self._position_applied}")
+        _log_debug(f"POS_LOG [{elapsed:.2f}s]: ({pos.x}, {pos.y}) shown={shown} applied={self._position_applied}")
 
         self._pos_log_count += 1
 
-        # First 2 seconds: log every 100ms (20 logs)
+        # First 1 second: log every 10ms
         # After that: log every 1000ms
-        if elapsed < 2.0:
-            interval = 100
+        if elapsed < 1.0:
+            interval = 10
         else:
             interval = 1000
 
