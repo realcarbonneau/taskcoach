@@ -360,8 +360,8 @@ On Wayland, window positioning is **disabled by design**:
 1. ✅ **EVT_MOVE detection** in `windowdimensionstracker.py` - correct position until EVT_ACTIVATE
 2. ✅ **4-param `SetSize(x, y, w, h)`** to set initial position
 3. ✅ **Deferred maximize** - wait for EVT_ACTIVATE, then maximize if saved state was maximized
-4. ✅ **Cache restore values** - position/size before maximize, used for restore button
-5. ✅ **Save logic** - when maximized, only save monitor index (preserve restore pos/size)
+4. ✅ **Cache restore values** - only update cached position/size when not maximized/iconized
+5. ✅ **Always write cached values** - on close, always write cached position/size to file
 6. ✅ **No iconized persistence** - never save or restore iconized state
 7. ✅ **Wayland detection** - logs warning (positioning blocked by compositor)
 
