@@ -468,7 +468,30 @@ class TaskAppearancePage(Page):
     def addIconEntry(self):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
-        self._iconEntry = entry.IconEntry(self, currentIcon)
+
+        # TEST: Create BitmapComboBox directly (like working test dropdown)
+        # instead of using IconEntry subclass to see if subclassing is the issue
+        from taskcoachlib.gui import artprovider
+        self._iconEntry = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
+        imageNames = sorted(artprovider.chooseableItemImages.keys())
+        for imageName in imageNames:
+            label = artprovider.chooseableItemImages[imageName]
+            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
+            item = self._iconEntry.Append(label, bitmap)
+            self._iconEntry.SetClientData(item, imageName)
+        if currentIcon in imageNames:
+            self._iconEntry.SetSelection(imageNames.index(currentIcon))
+        else:
+            self._iconEntry.SetSelection(0)
+
+        # Store imageNames for GetValue method
+        self._iconEntry._imageNames = imageNames
+
+        # Add GetValue method to the instance
+        def getIconValue():
+            return self._iconEntry.GetClientData(self._iconEntry.GetSelection())
+        self._iconEntry.GetValue = getIconValue
+
         self._iconSync = attributesync.AttributeSync(
             "icon",
             self._iconEntry,
