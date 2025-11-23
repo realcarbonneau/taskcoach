@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os
+
 from taskcoachlib import meta
 from taskcoachlib.i18n import _
 from .tips import showTips
@@ -1248,6 +1250,15 @@ helpHTML = (
 )
 
 
+def _get_splash_path():
+    """Get the path to the legacy splash screen image."""
+    splash_path = os.path.join(os.path.dirname(__file__), "..", "gui", "icons", "splash.png")
+    splash_path = os.path.normpath(splash_path)
+    if os.path.exists(splash_path):
+        return splash_path
+    return None
+
+
 aboutHTML = (
     _(
         """<h4>%(name)s - %(description)s</h4>
@@ -1260,3 +1271,14 @@ aboutHTML = (
     )
     % meta.metaDict
 )
+
+# Add legacy splash screen to About dialog
+# Note: wx.html.HtmlWindow doesn't support data URIs, so we use file:// path
+_splash_path = _get_splash_path()
+if _splash_path:
+    aboutHTML += """
+<hr>
+<h5>Legacy Splash Screen</h5>
+<p><i>This splash screen was displayed on startup in earlier versions of Task Coach.</i></p>
+<p><img src="file://%s" alt="Legacy Splash Screen" /></p>
+""" % _splash_path
