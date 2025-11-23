@@ -8,8 +8,9 @@ This document captures technical issues, fixes, and refactorings discovered duri
 2. [wx.Timer Crash During Window Destruction](#wxtimer-crash-during-window-destruction)
 3. [wxPython Compatibility](#wxpython-compatibility)
 4. [Bundled Third-Party Library Cleanup](#bundled-third-party-library-cleanup)
-5. [Known Issues](#known-issues)
-6. [Future Work](#future-work)
+5. [Twisted Framework Removal](#twisted-framework-removal)
+6. [Known Issues](#known-issues)
+7. [Future Work](#future-work)
 
 ---
 
@@ -832,6 +833,279 @@ With Snarl removed, Windows users automatically get the "Task Coach" (UniversalN
 
 ---
 
+## Twisted Framework Removal
+
+**Date Completed:** November 2024
+**Affected Components:** Core event loop, Scheduler, File monitoring, iPhone sync
+**Root Cause:** Legacy complexity from pre-asyncio era causing subtle bugs
+
+### Background
+
+Task Coach historically used the Twisted framework for asynchronous operations. This was a reasonable choice in the 2004-2010 era when:
+- Python had no `async/await` (added in Python 3.5, 2015)
+- wxPython's async support was limited
+- Twisted was the only mature async framework
+- iPhone sync was a major feature (pre-iCloud era)
+
+### Why Twisted Was Removed
+
+1. **Two event loops = subtle bugs**: The `wxreactor` bridged Twisted + wxPython, creating race conditions like shutdown issues
+2. **Modern alternatives exist**: wx.CallLater(), asyncio, watchdog, socketserver
+3. **Complexity without benefit**: For a desktop GUI app, wx's native event loop is sufficient
+4. **Maintenance burden**: Twisted is a large dependency with its own learning curve
+
+### Migration Summary
+
+| Original (Twisted) | Replacement | Location |
+|-------------------|-------------|----------|
+| `wxreactor.install()` + `reactor.run()` | `wx.App.MainLoop()` | application.py |
+| `reactor.callLater(seconds, fn)` | `wx.CallLater(milliseconds, fn)` | scheduler.py |
+| `twisted.internet.inotify.INotify` | `watchdog` library | fs_inotify.py |
+| `deferToThread()` + `@inlineCallbacks` | `concurrent.futures.ThreadPoolExecutor` | viewer/task.py |
+| `twisted.internet.defer.Deferred` | Custom `AsyncResult` class | bonjour.py |
+| `twisted.internet.protocol.Protocol` | `socketserver.BaseRequestHandler` | protocol.py |
+| `twisted.internet.protocol.ServerFactory` | `socketserver.ThreadingTCPServer` | protocol.py |
+| `reactor.listenTCP()` | `ThreadingTCPServer` in background thread | protocol.py |
+
+### Detailed Changes
+
+#### 1. Application Event Loop (application.py)
+
+**Before:**
+```python
+from twisted.internet import wxreactor
+wxreactor.install()
+# ... later ...
+from twisted.internet import reactor
+reactor.registerWxApp(self.__wx_app)
+reactor.run()
+```
+
+**After:**
+```python
+# No special initialization needed
+self.__wx_app.MainLoop()
+```
+
+The wxreactor was a bridge that allowed Twisted's reactor to coexist with wxPython's event loop. This is no longer needed since we use wx's native event loop exclusively.
+
+#### 2. Task Scheduling (scheduler.py)
+
+**Before:**
+```python
+from twisted.internet import reactor
+self.__nextCall = reactor.callLater(nextDuration / 1000, self.__callback)
+# Cancel with:
+self.__nextCall.cancel()
+```
+
+**After:**
+```python
+import wx
+self.__nextCall = wx.CallLater(nextDuration, self.__callback)
+# Cancel with:
+self.__nextCall.Stop()
+```
+
+**Important differences:**
+- `reactor.callLater()` takes **seconds** (float)
+- `wx.CallLater()` takes **milliseconds** (int)
+- Cancel method: `.cancel()` → `.Stop()`
+
+#### 3. File System Monitoring (fs_inotify.py)
+
+**Before:**
+```python
+from twisted.internet.inotify import INotify
+from twisted.python.filepath import FilePath
+
+self.notifier = INotify()
+self.notifier.startReading()
+self.notifier.watch(FilePath(path), callbacks=[self.onChange])
+```
+
+**After:**
+```python
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+class TaskFileEventHandler(FileSystemEventHandler):
+    def on_modified(self, event):
+        wx.CallAfter(self.notifier.onFileChanged)
+
+self._observer = Observer()
+self._observer.schedule(handler, path, recursive=False)
+self._observer.start()
+```
+
+**Benefits of watchdog:**
+- Cross-platform (Linux inotify, macOS FSEvents, Windows ReadDirectoryChangesW)
+- Pure Python, no Twisted reactor integration needed
+- Active maintenance and community
+
+#### 4. Background Threading (viewer/task.py)
+
+**Before:**
+```python
+from twisted.internet.threads import deferToThread
+from twisted.internet.defer import inlineCallbacks
+
+@inlineCallbacks
+def _refresh(self):
+    yield deferToThread(igraph.plot, graph, filename, **style)
+    # GUI update code here
+```
+
+**After:**
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+def _refresh(self):
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    def do_plot():
+        igraph.plot(graph, filename, **style)
+
+    def on_complete(future):
+        wx.CallAfter(update_gui)
+
+    future = executor.submit(do_plot)
+    future.add_done_callback(on_complete)
+```
+
+**Key pattern:** Always use `wx.CallAfter()` to update GUI from background threads.
+
+#### 5. Async Results (bonjour.py)
+
+**Before:**
+```python
+from twisted.internet.defer import Deferred
+from twisted.python.failure import Failure
+
+d = Deferred()
+d.callback(result)  # Success
+d.errback(Failure(error))  # Error
+return d
+```
+
+**After:**
+```python
+class AsyncResult:
+    def __init__(self):
+        self._callbacks = []
+        self._errbacks = []
+
+    def addCallback(self, cb): ...
+    def addErrback(self, eb): ...
+    def callback(self, result): ...
+    def errback(self, error): ...
+
+d = AsyncResult()
+d.callback(result)  # Success
+d.errback(error)  # Error (plain Exception, not Failure)
+return d
+```
+
+#### 6. Network Protocol (protocol.py)
+
+**Before:**
+```python
+from twisted.internet.protocol import Protocol, ServerFactory
+from twisted.internet import reactor
+
+class IPhoneHandler(Protocol):
+    def connectionMade(self): ...
+    def dataReceived(self, data): ...
+    def connectionLost(self, reason): ...
+
+class IPhoneAcceptor(ServerFactory):
+    protocol = IPhoneHandler
+
+    def __init__(self, ...):
+        self.__listening = reactor.listenTCP(port, self)
+```
+
+**After:**
+```python
+import socketserver
+import threading
+
+class IPhoneHandler:
+    def __init__(self, sock, ...):
+        self.transport = SocketTransport(sock)
+
+    def handle(self):
+        self.connectionMade()
+        while not closed:
+            data = sock.recv(4096)
+            self.dataReceived(data)
+        self.connectionLost(None)
+
+class IPhoneRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        handler = IPhoneHandler(self.request, ...)
+        handler.handle()
+
+class IPhoneAcceptor:
+    def __init__(self, ...):
+        self._server = socketserver.ThreadingTCPServer(('', port), IPhoneRequestHandler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+```
+
+### Testing Changes
+
+Tests that used `reactor.iterate()` to pump the event loop now use wx event processing:
+
+**Before:**
+```python
+from twisted.internet import reactor
+while time.time() - t0 < 2.0:
+    reactor.iterate()
+```
+
+**After:**
+```python
+while time.time() - t0 < 2.0:
+    wx.GetApp().Yield(True)
+    time.sleep(0.05)  # Prevent CPU spin
+```
+
+The `@test.skipOnTwistedVersions()` decorator is now a no-op but kept for backward compatibility.
+
+### Dependencies
+
+**Removed:**
+- `twisted` - The Twisted framework
+
+**Added:**
+- `watchdog>=3.0.0` - Cross-platform file system monitoring
+
+**Already Present (unchanged):**
+- `zeroconf>=0.50.0` - For Bonjour/mDNS service discovery (iPhone sync)
+
+### Code Locations with Design Notes
+
+All modified files contain `DESIGN NOTE (Twisted Removal - 2024):` comments explaining:
+- What the original Twisted code did
+- Why the replacement was chosen
+- Any compatibility considerations
+
+Search for these notes:
+```bash
+grep -r "DESIGN NOTE (Twisted Removal" taskcoachlib/
+```
+
+### Potential Issues and Solutions
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `wx.CallLater` not firing | wx event loop not running | Ensure `MainLoop()` is running, or use `wx.GetApp().Yield()` in tests |
+| GUI updates from background threads | wxPython is not thread-safe | Always wrap GUI updates in `wx.CallAfter()` |
+| Socket server not accepting connections | Server thread not started | Check that `serve_forever()` is running in a daemon thread |
+
+---
+
 ## Known Issues
 
 ### Pending Issues
@@ -844,6 +1118,7 @@ With Snarl removed, Windows users automatically get the "Task Coach" (UniversalN
 - ✅ wxPython 4.2.0 category background coloring (Documented in CRITICAL_WXPYTHON_PATCH.md)
 - ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
 - ✅ Hacky close delay patches removed after root cause fix (November 2025)
+- ✅ Twisted framework removed, replaced with native wxPython + stdlib (November 2024)
 
 ---
 
@@ -884,4 +1159,4 @@ When adding new technical notes:
 
 ---
 
-**Last Updated:** November 22, 2025
+**Last Updated:** November 23, 2025
