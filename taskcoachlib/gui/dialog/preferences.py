@@ -261,6 +261,9 @@ class SettingsPageBase(widgets.BookPage):
         currentIcon = self.gettext(iconSection, iconSetting)
         currentSelectionIndex = imageNames.index(currentIcon)
         iconEntry.SetSelection(currentSelectionIndex)  # pylint: disable=E1101
+        # Fix scroll position on first dropdown for long lists
+        iconEntry._firstDropdown = True
+        iconEntry.Bind(wx.EVT_COMBOBOX_DROPDOWN, self._onIconDropdown)
 
         self.addEntry(
             text,
@@ -288,6 +291,25 @@ class SettingsPageBase(widgets.BookPage):
         self._syncers.append(
             FontColorSyncer(fgColorButton, bgColorButton, fontButton)
         )
+
+    def _onIconDropdown(self, event):
+        """Fix scroll position on first dropdown for long lists."""
+        event.Skip()
+        iconEntry = event.GetEventObject()
+        if getattr(iconEntry, "_firstDropdown", False):
+            iconEntry._firstDropdown = False
+            wx.CallAfter(self._fixIconDropdownScroll, iconEntry)
+
+    def _fixIconDropdownScroll(self, iconEntry):
+        """Reset scroll position by dismissing and re-showing popup."""
+        try:
+            currentSelection = iconEntry.GetSelection()
+            iconEntry.Dismiss()
+            iconEntry.Popup()
+            if currentSelection >= 0:
+                iconEntry.SetSelection(currentSelection)
+        except (AttributeError, RuntimeError):
+            pass
 
     def addPathSetting(self, section, setting, text, helpText="", **kwargs):
         pathChooser = widgets.DirectoryChooser(self, wx.ID_ANY)
