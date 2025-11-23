@@ -263,6 +263,9 @@ class MainWindow(
                 perspective = ""
                 break
 
+        pos_before = self.GetPosition()
+        print(f"[DEBUG] __restore_perspective: BEFORE LoadPerspective pos=({pos_before.x}, {pos_before.y})")
+
         try:
             self.manager.LoadPerspective(perspective)
         except ValueError as reason:
@@ -285,6 +288,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             )
             self.manager.LoadPerspective("")
 
+        pos_after_load = self.GetPosition()
+        print(f"[DEBUG] __restore_perspective: AFTER LoadPerspective pos=({pos_after_load.x}, {pos_after_load.y})")
+
         for pane in self.manager.GetAllPanes():
             # Prevent zombie panes by making sure all panes are visible
             if not pane.IsShown():
@@ -294,6 +300,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
         self.manager.Update()
+
+        pos_after_update = self.GetPosition()
+        print(f"[DEBUG] __restore_perspective: AFTER manager.Update() pos=({pos_after_update.x}, {pos_after_update.y})")
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
         perspective = self.settings.get("view", "perspective")
