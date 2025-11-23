@@ -360,33 +360,27 @@ class IconEntry(wx.adv.BitmapComboBox):
         self.Bind(wx.EVT_COMBOBOX_DROPDOWN, self.onDropdown)
 
     def onDropdown(self, event):
-        """Fix scroll position on first dropdown for long lists."""
+        """Fix scroll position on first dropdown for long lists.
+
+        OwnerDrawnComboBox/BitmapComboBox uses a VListBox popup. Access the
+        popup control and scroll to ensure items display from the top.
+        """
         event.Skip()
         if self._firstDropdown:
             self._firstDropdown = False
-            # Use CallLater with a small delay to let the popup fully render
-            wx.CallLater(50, self._fixDropdownScroll)
+            wx.CallAfter(self._fixDropdownScroll)
 
     def _fixDropdownScroll(self):
-        """Reset scroll position by dismissing and re-showing popup.
-
-        BitmapComboBox/OwnerDrawnComboBox needs a different approach than
-        regular ComboBox - try multiple dismiss/popup cycles.
-        """
+        """Fix scroll position by scrolling the VListBox popup."""
         try:
-            currentSelection = self.GetSelection()
-            # Try dismiss and popup to force scroll recalculation
-            self.Dismiss()
-            wx.CallLater(10, self._reopenPopup, currentSelection)
-        except (AttributeError, RuntimeError):
-            pass
-
-    def _reopenPopup(self, selection):
-        """Reopen popup after dismiss."""
-        try:
-            self.Popup()
-            if selection >= 0:
-                self.SetSelection(selection)
+            popup = self.GetPopupControl()
+            if popup:
+                # VListBox - scroll to line 0 first to reset scroll position
+                popup.ScrollToLine(0)
+                # Then scroll to show selected item
+                selection = self.GetSelection()
+                if selection >= 0:
+                    popup.ScrollToLine(selection)
         except (AttributeError, RuntimeError):
             pass
 

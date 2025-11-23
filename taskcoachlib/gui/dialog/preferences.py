@@ -293,29 +293,28 @@ class SettingsPageBase(widgets.BookPage):
         )
 
     def _onIconDropdown(self, event):
-        """Fix scroll position on first dropdown for long lists."""
+        """Fix scroll position on first dropdown for long lists.
+
+        OwnerDrawnComboBox/BitmapComboBox uses a VListBox popup. Access the
+        popup control and scroll to ensure items display from the top.
+        """
         event.Skip()
         iconEntry = event.GetEventObject()
         if getattr(iconEntry, "_firstDropdown", False):
             iconEntry._firstDropdown = False
-            # Use CallLater with a small delay to let the popup fully render
-            wx.CallLater(50, self._fixIconDropdownScroll, iconEntry)
+            wx.CallAfter(self._fixIconDropdownScroll, iconEntry)
 
     def _fixIconDropdownScroll(self, iconEntry):
-        """Reset scroll position by dismissing and re-showing popup."""
+        """Fix scroll position by scrolling the VListBox popup."""
         try:
-            currentSelection = iconEntry.GetSelection()
-            iconEntry.Dismiss()
-            wx.CallLater(10, self._reopenIconPopup, iconEntry, currentSelection)
-        except (AttributeError, RuntimeError):
-            pass
-
-    def _reopenIconPopup(self, iconEntry, selection):
-        """Reopen popup after dismiss."""
-        try:
-            iconEntry.Popup()
-            if selection >= 0:
-                iconEntry.SetSelection(selection)
+            popup = iconEntry.GetPopupControl()
+            if popup:
+                # VListBox - scroll to line 0 first to reset scroll position
+                popup.ScrollToLine(0)
+                # Then scroll to show selected item
+                selection = iconEntry.GetSelection()
+                if selection >= 0:
+                    popup.ScrollToLine(selection)
         except (AttributeError, RuntimeError):
             pass
 
