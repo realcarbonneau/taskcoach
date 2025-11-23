@@ -261,9 +261,6 @@ class SettingsPageBase(widgets.BookPage):
         currentIcon = self.gettext(iconSection, iconSetting)
         currentSelectionIndex = imageNames.index(currentIcon)
         iconEntry.SetSelection(currentSelectionIndex)  # pylint: disable=E1101
-        # Fix BitmapComboBox scroll position bug on first dropdown
-        iconEntry._firstDropdown = True
-        iconEntry.Bind(wx.EVT_COMBOBOX_DROPDOWN, self._onIconDropdown)
 
         self.addEntry(
             text,
@@ -291,29 +288,6 @@ class SettingsPageBase(widgets.BookPage):
         self._syncers.append(
             FontColorSyncer(fgColorButton, bgColorButton, fontButton)
         )
-
-    def _onIconDropdown(self, event):
-        """Fix BitmapComboBox scroll position bug on first dropdown."""
-        event.Skip()
-        iconEntry = event.GetEventObject()
-        if getattr(iconEntry, "_firstDropdown", False):
-            iconEntry._firstDropdown = False
-            wx.CallAfter(self._fixIconDropdownScroll, iconEntry)
-
-    def _fixIconDropdownScroll(self, iconEntry):
-        """Reset scroll position by dismissing and re-showing popup."""
-        try:
-            # Get current selection to restore after fix
-            currentSelection = iconEntry.GetSelection()
-            # Dismiss and re-show popup to force correct scroll calculation
-            iconEntry.Dismiss()
-            iconEntry.Popup()
-            # Ensure the selected item is visible
-            if currentSelection >= 0:
-                iconEntry.SetSelection(currentSelection)
-        except (AttributeError, RuntimeError):
-            # Fallback: just refresh
-            iconEntry.Refresh()
 
     def addPathSetting(self, section, setting, text, helpText="", **kwargs):
         pathChooser = widgets.DirectoryChooser(self, wx.ID_ANY)

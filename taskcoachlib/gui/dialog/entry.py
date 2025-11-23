@@ -343,39 +343,38 @@ IconEntryEvent, EVT_ICONENTRY = newevent.NewEvent()
 
 
 class IconEntry(wx.adv.BitmapComboBox):
-    """Icon selection dropdown using BitmapComboBox.
-
-    TEST MODE: Set USE_SIMPLE_CHOICE = True to test without icons.
-    This helps isolate whether the scroll issue is caused by:
-    - The BitmapComboBox control itself
-    - The bitmaps/icons
-    - The large number of items
-    """
-    USE_SIMPLE_CHOICE = False  # Set to True to test without icons
-
     def __init__(self, parent, currentIcon, *args, **kwargs):
-        self._imageNames = sorted(artprovider.chooseableItemImages.keys())
+        kwargs["style"] = wx.CB_READONLY
+        super().__init__(parent, *args, **kwargs)
+        self._firstDropdown = True
+        imageNames = sorted(artprovider.chooseableItemImages.keys())
+        size = (16, 16)
+        for imageName in imageNames:
+            label = artprovider.chooseableItemImages[imageName]
+            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, size)
+            item = self.Append(label, bitmap)
+            self.SetClientData(item, imageName)
+        self.SetSelection(imageNames.index(currentIcon))
+        self.Bind(wx.EVT_COMBOBOX, self.onIconPicked)
+        self.Bind(wx.EVT_COMBOBOX_DROPDOWN, self.onDropdown)
 
-        if self.USE_SIMPLE_CHOICE:
-            # TEST: Use wx.Choice without icons to isolate the problem
-            wx.Choice.__init__(self, parent)
-            for imageName in self._imageNames:
-                label = artprovider.chooseableItemImages[imageName]
-                self.Append(label, imageName)  # Store imageName as client data
-            self.SetSelection(self._imageNames.index(currentIcon))
-            self.Bind(wx.EVT_CHOICE, self.onIconPicked)
-        else:
-            # Normal BitmapComboBox with icons
-            kwargs["style"] = wx.CB_READONLY
-            super().__init__(parent, *args, **kwargs)
-            size = (16, 16)
-            for imageName in self._imageNames:
-                label = artprovider.chooseableItemImages[imageName]
-                bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, size)
-                item = self.Append(label, bitmap)
-                self.SetClientData(item, imageName)
-            self.SetSelection(self._imageNames.index(currentIcon))
-            self.Bind(wx.EVT_COMBOBOX, self.onIconPicked)
+    def onDropdown(self, event):
+        """Fix scroll position on first dropdown for long lists."""
+        event.Skip()
+        if self._firstDropdown:
+            self._firstDropdown = False
+            wx.CallAfter(self._fixDropdownScroll)
+
+    def _fixDropdownScroll(self):
+        """Reset scroll position by dismissing and re-showing popup."""
+        try:
+            currentSelection = self.GetSelection()
+            self.Dismiss()
+            self.Popup()
+            if currentSelection >= 0:
+                self.SetSelection(currentSelection)
+        except (AttributeError, RuntimeError):
+            pass
 
     def onIconPicked(self, event):
         event.Skip()
@@ -519,7 +518,9 @@ class RecurrenceEntry(wx.Panel):
     def __init__(self, parent, recurrence, settings, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         recurrenceFrequencyPanel = wx.Panel(self)
-        # TEST: Adding 80+ items to test if long list causes scroll issues
+        # TEST: Using wx.ComboBox instead of wx.Choice to test if it fixes
+        # the scroll position issue with long lists. ComboBox supports
+        # EVT_COMBOBOX_DROPDOWN which allows us to fix scroll position.
         test_choices = [
             _("None"),
             _("Daily"),
@@ -530,9 +531,15 @@ class RecurrenceEntry(wx.Panel):
         # Add many test items to match icon dropdown length
         for i in range(80):
             test_choices.append(f"Test item {i+1}")
-        self._recurrencePeriodEntry = wx.Choice(
+        self._recurrencePeriodEntry = wx.ComboBox(
             recurrenceFrequencyPanel,
             choices=test_choices,
+            style=wx.CB_READONLY | wx.CB_DROPDOWN,
+        )
+        # Fix scroll position on first dropdown
+        self._recurrencePeriodEntry._firstDropdown = True
+        self._recurrencePeriodEntry.Bind(
+            wx.EVT_COMBOBOX_DROPDOWN, self._onRecurrenceDropdown
         )
         self._recurrencePeriodEntry.Bind(
             wx.EVT_CHOICE, self.onRecurrencePeriodEdited
@@ -692,6 +699,25 @@ class RecurrenceEntry(wx.Panel):
             self._recurrencePeriodEntry.Selection in (3, 4)
         )
         self._recurrenceSizer.Layout()
+
+    def _onRecurrenceDropdown(self, event):
+        """Fix scroll position on first dropdown for long lists."""
+        event.Skip()
+        combobox = event.GetEventObject()
+        if getattr(combobox, "_firstDropdown", False):
+            combobox._firstDropdown = False
+            wx.CallAfter(self._fixDropdownScroll, combobox)
+
+    def _fixDropdownScroll(self, combobox):
+        """Reset scroll position by dismissing and re-showing popup."""
+        try:
+            currentSelection = combobox.GetSelection()
+            combobox.Dismiss()
+            combobox.Popup()
+            if currentSelection >= 0:
+                combobox.SetSelection(currentSelection)
+        except (AttributeError, RuntimeError):
+            pass
 
     def onRecurrencePeriodEdited(self, event):
         recurrenceOn = event.String != _("None")
