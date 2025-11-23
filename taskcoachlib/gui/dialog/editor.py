@@ -32,6 +32,7 @@ from taskcoachlib.thirdparty import smartdatetimectrl as sdtc
 from taskcoachlib.help.balloontips import BalloonTipManager
 import os.path
 import wx
+import wx.adv
 
 
 class Page(patterns.Observer, widgets.BookPage):
@@ -408,6 +409,7 @@ class TaskAppearancePage(Page):
         self.addColorEntries()
         self.addFontEntry()
         self.addIconEntry()
+        self.addTestDropdowns()  # TEST: for debugging scroll issue
 
     def addColorEntries(self):
         self.addColorEntry(_("Foreground color"), "foreground", wx.BLACK)
@@ -479,6 +481,43 @@ class TaskAppearancePage(Page):
         self.addEntry(
             _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
+
+    def addTestDropdowns(self):
+        """TEST: Add test dropdowns to debug scroll position issue."""
+        # Generate 85 test items (same as About dialog test)
+        test_items = [(f"Item {i}", f"Test Item {i} - Label") for i in range(85)]
+
+        # Test 1: BitmapComboBox
+        test_bitmap_combo = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
+        for i, (name, label) in enumerate(test_items):
+            bmp = self._createTestBitmap(i)
+            test_bitmap_combo.Append(label, bmp)
+        test_bitmap_combo.SetSelection(40)
+        self.addEntry(
+            "TEST BitmapComboBox:", test_bitmap_combo,
+            flags=[wx.ALIGN_RIGHT, wx.ALL]
+        )
+
+        # Test 2: wx.Choice
+        test_choice = wx.Choice(self, choices=[item[1] for item in test_items])
+        test_choice.SetSelection(40)
+        self.addEntry(
+            "TEST wx.Choice:", test_choice,
+            flags=[wx.ALIGN_RIGHT, wx.ALL]
+        )
+
+    def _createTestBitmap(self, index):
+        """Create a simple colored bitmap for testing."""
+        bmp = wx.Bitmap(16, 16)
+        dc = wx.MemoryDC(bmp)
+        r = (index * 3) % 256
+        g = (index * 7) % 256
+        b = (index * 11) % 256
+        dc.SetBrush(wx.Brush(wx.Colour(r, g, b)))
+        dc.SetPen(wx.Pen(wx.Colour(0, 0, 0)))
+        dc.DrawRectangle(0, 0, 16, 16)
+        dc.SelectObject(wx.NullBitmap)
+        return bmp
 
     def entries(self):
         return dict(
