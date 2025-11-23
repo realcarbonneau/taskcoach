@@ -24,13 +24,39 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # IMPORTANT: Always increment version_patch with each change/commit!
 
 version = "1.6.1"  # Current version number of the application
-version_patch = "8"  # Patch level - INCREMENT THIS WITH EACH CHANGE!
-# IMPORTANT: Update version_commit with each commit!
-# Run: git rev-parse --short HEAD
-version_commit = "37d85c4"  # Short git commit hash - UPDATE WITH EACH COMMIT!
-version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.8
+version_patch = "9"  # Patch level - INCREMENT THIS WITH EACH CHANGE!
+version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.9
 
-# Alias for backwards compatibility and consistent naming
+
+def _get_git_commit_hash():
+    """Dynamically get the current git commit hash at runtime.
+
+    Returns the short (7-char) commit hash, or empty string if not in a git repo
+    or git is not available.
+    """
+    import subprocess
+    import os
+
+    try:
+        # Get the directory where this file is located
+        this_dir = os.path.dirname(os.path.abspath(__file__))
+        # Run git rev-parse to get the short commit hash
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=this_dir,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        pass  # git not available or not in a git repo
+    return ""
+
+
+# Get git commit hash dynamically (empty string if not available)
+version_commit = _get_git_commit_hash()
 git_commit_hash = version_commit
 
 tskversion = 37  # Current version number of the task file format, changed to 37 for release 1.3.23.

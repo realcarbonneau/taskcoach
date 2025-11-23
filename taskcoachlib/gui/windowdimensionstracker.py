@@ -61,16 +61,33 @@ class WindowSizeAndPositionTracker(_Tracker):
         super().__init__(settings, section)
         self._window = window
         self._section = section  # Store for logging
+        # Flag to ignore spurious events during AUI layout initialization
+        self._initializing = True
         _log_debug(f"WindowSizeAndPositionTracker.__init__ section={section} window={type(window).__name__}")
         self.__set_dimensions()
+        # Bind events but they will be ignored until _initializing is False
         self._window.Bind(wx.EVT_SIZE, self.on_change_size)
         self._window.Bind(wx.EVT_MOVE, self.on_change_position)
         self._window.Bind(wx.EVT_MAXIMIZE, self.on_maximize)
-        _log_debug(f"WindowSizeAndPositionTracker.__init__ COMPLETE - events bound")
+        # Delay clearing the initialization flag to avoid saving spurious events
+        # during AUI layout setup (which causes (6, 28) size and (80, 0) position)
+        wx.CallLater(500, self._end_initialization)
+        _log_debug(f"WindowSizeAndPositionTracker.__init__ COMPLETE - events bound (initializing=True)")
+
+    def _end_initialization(self):
+        """Called after a delay to allow AUI layout to settle."""
+        self._initializing = False
+        _log_debug("_end_initialization: initializing=False - now tracking events")
 
     def on_change_size(self, event):
         """Handle a size event by saving the new size of the window in the
         settings."""
+        # Ignore events during initialization (AUI layout causes spurious events)
+        if self._initializing:
+            _log_debug(f"on_change_size: IGNORED (initializing) size={event.GetSize()}")
+            event.Skip()
+            return
+
         # Ignore the EVT_SIZE when the window is maximized or iconized.
         # Note how this depends on the EVT_MAXIMIZE being sent before the
         # EVT_SIZE.
@@ -97,6 +114,12 @@ class WindowSizeAndPositionTracker(_Tracker):
     def on_change_position(self, event):
         """Handle a move event by saving the new position of the window in
         the settings."""
+        # Ignore events during initialization (AUI layout causes spurious events)
+        if self._initializing:
+            _log_debug(f"on_change_position: IGNORED (initializing) pos={event.GetPosition()}")
+            event.Skip()
+            return
+
         pos = event.GetPosition()
         maximized = self._window.IsMaximized()
         iconized = self._window.IsIconized()
@@ -145,6 +168,12 @@ class WindowSizeAndPositionTracker(_Tracker):
     def on_maximize(self, event):
         """Handle a maximize event by saving the window maximization state in
         the settings."""
+        # Ignore events during initialization (AUI layout causes spurious events)
+        if self._initializing:
+            _log_debug("on_maximize: IGNORED (initializing)")
+            event.Skip()
+            return
+
         _log_debug(f"on_maximize: setting maximized=True")
         self.set_setting("maximized", True)
         event.Skip()
