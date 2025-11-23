@@ -25,6 +25,7 @@ from taskcoachlib import (
     operating_system,
 )  # pylint: disable=W0622
 from taskcoachlib.widgets.frame import _aui_log, disable_aui_startup_logging
+from taskcoachlib.gui.windowdimensionstracker import disable_tracker_logging
 from taskcoachlib.gui import (
     viewer,
     toolbar,
@@ -117,8 +118,11 @@ class MainWindow(
         )
 
         wx.CallAfter(self.checkXFCE4)
-        # Disable AUI startup logging after a short delay to capture all init events
-        wx.CallLater(2000, disable_aui_startup_logging)
+        # Disable startup logging after a short delay to capture all init events
+        def disable_all_startup_logging():
+            disable_aui_startup_logging()
+            disable_tracker_logging()
+        wx.CallLater(2000, disable_all_startup_logging)
 
     def _registerBonjour(self, value=True):
         if self.bonjourRegister is not None:

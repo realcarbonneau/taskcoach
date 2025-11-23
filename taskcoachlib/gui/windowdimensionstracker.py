@@ -18,7 +18,35 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import configparser
 import wx
+import time
+import traceback
 from taskcoachlib import operating_system
+
+# Startup tracking for resize events
+_tracker_startup_time = time.time()
+_tracker_log_enabled = True
+_resize_event_count = 0
+
+
+def _tracker_log(msg):
+    """Log window dimension events during startup."""
+    global _resize_event_count
+    if _tracker_log_enabled:
+        elapsed = time.time() - _tracker_startup_time
+        print(f"[RESIZE {elapsed:.3f}s] {msg}")
+        if "EVT_SIZE" in msg:
+            _resize_event_count += 1
+
+
+def disable_tracker_logging():
+    """Disable verbose tracker logging after startup."""
+    global _tracker_log_enabled
+    if _tracker_log_enabled:
+        elapsed = time.time() - _tracker_startup_time
+        print(f"\n[RESIZE {elapsed:.3f}s] ===== RESIZE EVENT SUMMARY =====")
+        print(f"[RESIZE {elapsed:.3f}s] Total EVT_SIZE events: {_resize_event_count}")
+        print(f"[RESIZE {elapsed:.3f}s] ================================\n")
+        _tracker_log_enabled = False
 
 
 class _Tracker(object):
@@ -57,13 +85,29 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Note how this depends on the EVT_MAXIMIZE being sent before the
         # EVT_SIZE.
         maximized = self._window.IsMaximized()
+        new_size = event.GetSize()
+
+        # Log size changes during startup
+        _tracker_log(f"EVT_SIZE: new_size={new_size.width}x{new_size.height}, maximized={maximized}")
+
+        # Log stack trace to identify the source of the resize (limited depth)
+        if _tracker_log_enabled:
+            stack = traceback.extract_stack()
+            # Get the last few frames before on_change_size
+            relevant_frames = []
+            for frame in stack[-8:-1]:  # Get frames leading up to this call
+                if 'wx' not in frame.filename:  # Skip wx internals
+                    relevant_frames.append(f"    {frame.filename.split('/')[-1]}:{frame.lineno} in {frame.name}")
+            if relevant_frames:
+                _tracker_log("  Stack: " + " <- ".join(relevant_frames[-3:]))
+
         if not maximized and not self._window.IsIconized():
             self.set_setting(
                 "size",
                 (
                     self._window.GetClientSize()
                     if operating_system.isMac()
-                    else event.GetSize()
+                    else new_size
                 ),
             )
         # Jerome, 2008/07/12: On my system (KDE 3.5.7), EVT_MAXIMIZE
@@ -121,8 +165,10 @@ class WindowSizeAndPositionTracker(_Tracker):
 
     def __set_dimensions(self):
         """Set the window position and size based on the settings."""
+        _tracker_log("__set_dimensions: Starting window dimension setup")
         x, y = self.get_setting("position")  # pylint: disable=C0103
         width, height = self.get_setting("size")
+        _tracker_log(f"__set_dimensions: Loaded pos=({x},{y}) size=({width},{height})")
 
         # Enforce minimum window size to prevent GTK warnings and usability issues
         # Different minimums for dialogs vs main windows
@@ -225,11 +271,14 @@ class WindowSizeAndPositionTracker(_Tracker):
             # highly annoying. This doesn't hold for dialogs though. Sigh.
             if not isinstance(self._window, wx.Dialog):
                 height += 18
+        _tracker_log(f"__set_dimensions: Calling SetSize({x}, {y}, {width}, {height})")
         self._window.SetSize(x, y, width, height)
+        _tracker_log(f"__set_dimensions: SetSize complete, actual size now: {self._window.GetSize()}")
         if operating_system.isMac():
             self._window.SetClientSize((width, height))
         if self.get_setting("maximized"):
             self._window.Maximize()
+            _tracker_log("__set_dimensions: Window maximized")
 
         # Check that the window is on a valid display and move if necessary
         # Use target_monitor_for_validation if set, otherwise fall back to GetFromWindow
