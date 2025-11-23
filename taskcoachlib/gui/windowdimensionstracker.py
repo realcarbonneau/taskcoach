@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import wx
+import wx.lib.agw.persist as PM
 import time
 from taskcoachlib import operating_system
 
@@ -32,6 +33,171 @@ def _log_debug(msg):
         print(f"[{timestamp}] WindowTracker: {msg}")
 
 
+class TaskCoachConfigHandler:
+    """Custom config handler that stores persistence data in Task Coach settings.
+
+    This adapter allows wx.lib.agw.persist.PersistenceManager to use Task Coach's
+    existing settings system instead of a separate file.
+
+    The handler stores window geometry data in the [window] section of TaskCoach.ini
+    using keys prefixed with 'persist_' to avoid conflicts with existing settings.
+    """
+
+    def __init__(self, settings):
+        self._settings = settings
+        self._section = "window"
+
+    def SaveValue(self, key, value):
+        """Save a value to Task Coach settings."""
+        persist_key = f"persist_{key}"
+        _log_debug(f"ConfigHandler.SaveValue: {persist_key} = {value}")
+        self._settings.setvalue(self._section, persist_key, value)
+
+    def RestoreValue(self, key):
+        """Restore a value from Task Coach settings."""
+        persist_key = f"persist_{key}"
+        try:
+            value = self._settings.getvalue(self._section, persist_key)
+            _log_debug(f"ConfigHandler.RestoreValue: {persist_key} = {value}")
+            return value
+        except Exception:
+            _log_debug(f"ConfigHandler.RestoreValue: {persist_key} not found")
+            return None
+
+
+class WindowDimensionsTracker:
+    """Track the dimensions of the main window using wx.lib.agw.persist.PersistenceManager.
+
+    This is the standard wxPython approach for window geometry persistence.
+    PersistenceManager handles:
+    - Cross-platform window geometry save/restore
+    - Multi-monitor validation
+    - Maximized/iconized state
+
+    We add:
+    - Custom config handler to use Task Coach's settings (not a separate file)
+    - Post-Show() position re-application for GTK compatibility
+    - Task Coach specific settings (iconized, starticonized)
+
+    Note: On Wayland, window positioning is blocked by the compositor.
+    This is a security feature and cannot be worked around.
+    """
+
+    def __init__(self, window, settings):
+        self._window = window
+        self._settings = settings
+        self._persistence_manager = None
+        self._config_handler = None
+
+        # Check for Wayland
+        self._on_wayland = os.environ.get('XDG_SESSION_TYPE') == 'wayland' or \
+                          os.environ.get('WAYLAND_DISPLAY') is not None
+        if self._on_wayland:
+            _log_debug("Running on Wayland - window positioning may be limited")
+
+        # Set minimum size
+        self._window.SetMinSize((600, 400))
+
+        # Initialize PersistenceManager with Task Coach settings
+        self._setup_persistence()
+
+        # Handle start iconized setting (Task Coach specific)
+        if self._should_start_iconized():
+            if operating_system.isMac() or operating_system.isGTK():
+                self._window.Show()
+            self._window.Iconize(True)
+            if not operating_system.isMac() and self._settings.getvalue("window", "hidewheniconized"):
+                wx.CallAfter(self._window.Hide)
+
+    def _setup_persistence(self):
+        """Set up PersistenceManager with Task Coach's settings as backend."""
+        # Create custom config handler that uses Task Coach settings
+        self._config_handler = TaskCoachConfigHandler(self._settings)
+
+        # Get persistence manager singleton
+        self._persistence_manager = PM.PersistenceManager.Get()
+
+        # Use our custom config handler (stores in TaskCoach.ini, not separate file)
+        self._persistence_manager.SetConfigurationHandler(self._config_handler)
+
+        # Set unique name for the window (required by PersistenceManager)
+        self._window.SetName("TaskCoachMainWindow")
+
+        # Register and restore window geometry
+        _log_debug("Registering window with PersistenceManager")
+        restored = self._persistence_manager.RegisterAndRestore(self._window)
+
+        if not restored:
+            _log_debug("No saved geometry found, centering window")
+            self._window.Center()
+        else:
+            pos = self._window.GetPosition()
+            size = self._window.GetSize()
+            _log_debug(f"Restored geometry: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
+
+    def _should_start_iconized(self):
+        """Return whether the window should be opened iconized."""
+        start_iconized = self._settings.get("window", "starticonized")
+        if start_iconized == "Always":
+            return True
+        if start_iconized == "Never":
+            return False
+        return self._settings.getvalue("window", "iconized")
+
+    def apply_position_after_show(self):
+        """Re-apply position after Show() for GTK compatibility.
+
+        GTK may ignore SetSize()/Move() position when called before Show().
+        PersistenceManager's TLWHandler doesn't handle this, so we re-apply
+        the saved position after the window is visible.
+
+        This is a known GTK limitation, not a bug in PersistenceManager.
+        """
+        # Get the saved position from our config handler
+        x = self._config_handler.RestoreValue("TaskCoachMainWindow/x")
+        y = self._config_handler.RestoreValue("TaskCoachMainWindow/y")
+
+        if x is None or y is None:
+            _log_debug("apply_position_after_show: No saved position")
+            return
+
+        current = self._window.GetPosition()
+        _log_debug(f"apply_position_after_show: current=({current.x}, {current.y}) target=({x}, {y})")
+
+        # Only re-apply if significantly different
+        if abs(current.x - x) > 20 or abs(current.y - y) > 20:
+            _log_debug(f"  Re-applying position ({x}, {y})")
+            self._window.SetPosition(wx.Point(x, y))
+
+            final = self._window.GetPosition()
+            if abs(final.x - x) > 50 or abs(final.y - y) > 50:
+                _log_debug(f"  WARNING: Position not applied (final={final.x}, {final.y})")
+                if self._on_wayland:
+                    _log_debug("  (Expected on Wayland - positioning blocked by compositor)")
+
+    def save_position(self):
+        """Save the position of the window.
+
+        Called when window is about to close.
+        """
+        iconized = self._window.IsIconized()
+        maximized = self._window.IsMaximized()
+        pos = self._window.GetPosition()
+        size = self._window.GetSize()
+
+        _log_debug(f"save_position: iconized={iconized} maximized={maximized}")
+        _log_debug(f"  pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
+
+        # Save Task Coach specific settings
+        self._settings.setvalue("window", "iconized", iconized)
+
+        # Let PersistenceManager save the geometry via our custom handler
+        if self._persistence_manager:
+            self._persistence_manager.SaveAndUnregister(self._window)
+            _log_debug("Saved geometry via PersistenceManager")
+
+
+# Keep these for backward compatibility with dialogs that use the old API
 class _Tracker:
     """Utility methods for setting and getting values from/to the settings."""
 
@@ -49,15 +215,10 @@ class _Tracker:
 
 
 class WindowSizeAndPositionTracker(_Tracker):
-    """Track the size and position of a window in the settings.
+    """Track the size and position of a dialog window.
 
-    Best practices followed:
-    1. Save only on close (not on every EVT_MOVE/EVT_SIZE)
-    2. Apply position after Show() for GTK compatibility
-    3. Use Task Coach's existing settings system
-
-    Note: On Wayland, window positioning is blocked by the compositor.
-    This is a security feature and cannot be worked around.
+    For dialogs, we use the simpler direct approach since they are
+    typically modal and don't have the same GTK positioning issues.
     """
 
     def __init__(self, window, settings, section):
@@ -65,28 +226,12 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._window = window
         self._is_maximized = False
 
-        # Check for Wayland
-        self._on_wayland = os.environ.get('XDG_SESSION_TYPE') == 'wayland' or \
-                          os.environ.get('WAYLAND_DISPLAY') is not None
-        if self._on_wayland:
-            _log_debug("Running on Wayland - window positioning may be limited")
-
-        # Set minimum size
-        if isinstance(self._window, wx.Dialog):
-            self._window.SetMinSize((400, 300))
-        else:
-            self._window.SetMinSize((600, 400))
-
-        # Restore dimensions from settings
+        self._window.SetMinSize((400, 300))
         self._restore_dimensions()
-
-        # Track maximize state (needed because IsMaximized() can be unreliable at close)
         self._window.Bind(wx.EVT_MAXIMIZE, self._on_maximize)
 
     def _on_maximize(self, event):
-        """Track maximize state changes."""
         self._is_maximized = True
-        _log_debug("Window maximized")
         event.Skip()
 
     def _restore_dimensions(self):
@@ -95,145 +240,35 @@ class WindowSizeAndPositionTracker(_Tracker):
         width, height = self.get_setting("size")
         maximized = self.get_setting("maximized")
 
-        _log_debug(f"RESTORE: pos=({x}, {y}) size=({width}, {height}) maximized={maximized}")
+        width = max(width, 400) if width > 0 else 400
+        height = max(height, 300) if height > 0 else 300
 
-        # Enforce minimum size
-        min_w, min_h = self._window.GetMinSize()
-        width = max(width, min_w) if width > 0 else min_w
-        height = max(height, min_h) if height > 0 else min_h
-
-        # Handle position
         if x == -1 and y == -1:
-            # No saved position - center on primary monitor
-            _log_debug("  No saved position, centering")
             self._window.SetSize(width, height)
             self._window.Center()
         else:
-            # Use saved position
             self._window.SetSize(x, y, width, height)
 
-        if operating_system.isMac():
-            self._window.SetClientSize((width, height))
-
-        # Validate position is on screen
-        self._validate_position()
-
-        # Handle maximized state
         if maximized:
             self._window.Maximize()
             self._is_maximized = True
 
-        pos = self._window.GetPosition()
-        size = self._window.GetSize()
-        _log_debug(f"  Applied: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
-
-    def _validate_position(self):
-        """Ensure window is visible on a display."""
-        display_index = wx.Display.GetFromWindow(self._window)
-
-        if display_index == wx.NOT_FOUND:
-            _log_debug("  Window off-screen, centering")
-            self._window.Center()
-            return
-
-        # Check if at least 50px is visible
-        display = wx.Display(display_index)
-        display_rect = display.GetGeometry()
-        window_rect = self._window.GetRect()
-
-        visible_left = max(window_rect.x, display_rect.x)
-        visible_right = min(window_rect.x + window_rect.width,
-                           display_rect.x + display_rect.width)
-        visible_top = max(window_rect.y, display_rect.y)
-        visible_bottom = min(window_rect.y + window_rect.height,
-                            display_rect.y + display_rect.height)
-
-        if (visible_right - visible_left) < 50 or (visible_bottom - visible_top) < 50:
-            _log_debug("  Window barely visible, centering on display")
-            self._window.Center()
-
     def apply_position_after_show(self):
-        """Re-apply position after Show() for GTK.
-
-        GTK may ignore SetSize() position before Show(). This re-applies
-        the saved position after the window is visible.
-        """
-        x, y = self.get_setting("position")
-        maximized = self.get_setting("maximized")
-
-        if maximized or x == -1 or y == -1:
-            return  # Nothing to re-apply
-
-        current = self._window.GetPosition()
-        _log_debug(f"apply_position_after_show: current=({current.x}, {current.y}) target=({x}, {y})")
-
-        # Only re-apply if significantly different
-        if abs(current.x - x) > 20 or abs(current.y - y) > 20:
-            _log_debug(f"  Re-applying position ({x}, {y})")
-            self._window.SetPosition(wx.Point(x, y))
-
-            final = self._window.GetPosition()
-            if abs(final.x - x) > 50 or abs(final.y - y) > 50:
-                _log_debug(f"  WARNING: Position not applied (final={final.x}, {final.y})")
-                if self._on_wayland:
-                    _log_debug("  (Expected on Wayland - positioning blocked by compositor)")
+        """No-op for dialogs."""
+        pass
 
     def save_state(self):
-        """Save the current window state. Call when window is about to close."""
+        """Save the current window state."""
         maximized = self._window.IsMaximized() or self._is_maximized
         iconized = self._window.IsIconized()
-
-        _log_debug(f"SAVE: maximized={maximized} iconized={iconized}")
 
         self.set_setting("maximized", maximized)
 
         if not iconized:
             pos = self._window.GetPosition()
-            _log_debug(f"  position=({pos.x}, {pos.y})")
             self.set_setting("position", (pos.x, pos.y))
 
             if not maximized:
                 size = (self._window.GetClientSize() if operating_system.isMac()
                         else self._window.GetSize())
-                _log_debug(f"  size=({size.width}, {size.height})")
                 self.set_setting("size", (size.width, size.height))
-
-            # Save monitor index for multi-monitor support
-            monitor = wx.Display.GetFromWindow(self._window)
-            if monitor != wx.NOT_FOUND:
-                self.set_setting("monitor_index", monitor)
-
-
-class WindowDimensionsTracker(WindowSizeAndPositionTracker):
-    """Track the dimensions of the main window in the settings."""
-
-    def __init__(self, window, settings):
-        super().__init__(window, settings, "window")
-
-        # Handle start iconized setting (Task Coach specific)
-        if self._should_start_iconized():
-            if operating_system.isMac() or operating_system.isGTK():
-                self._window.Show()
-            self._window.Iconize(True)
-            if not operating_system.isMac() and self.get_setting("hidewheniconized"):
-                wx.CallAfter(self._window.Hide)
-
-    def _should_start_iconized(self):
-        """Return whether the window should be opened iconized."""
-        start_iconized = self._settings.get("window", "starticonized")
-        if start_iconized == "Always":
-            return True
-        if start_iconized == "Never":
-            return False
-        return self.get_setting("iconized")
-
-    def save_position(self):
-        """Save the position of the window in the settings.
-
-        Called when window is about to close.
-        """
-        # Save iconized state (Task Coach specific)
-        self.set_setting("iconized", self._window.IsIconized())
-
-        # Save position/size/maximized via parent
-        self.save_state()
