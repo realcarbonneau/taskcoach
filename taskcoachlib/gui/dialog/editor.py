@@ -755,6 +755,9 @@ class ProgressPage(Page):
             (False, _("No")),
             (True, _("Yes")),
         ]
+        # TEST: Add 100 items to test scroll behavior
+        for i in range(100):
+            choices.append((f"test_{i}", f"Test option {i+1}"))
         currentChoice = (
             self.items[0].shouldMarkCompletedWhenAllChildrenCompleted()
             if len(self.items) == 1
@@ -1015,6 +1018,19 @@ class EffortPage(PageWithViewer):
     pageName = "effort"
     pageTitle = _("Effort")
     pageIcon = "clock_icon"
+
+    def addEntries(self):
+        # TEST: Add test dropdown with 100 items to test scroll behavior
+        test_choices = [f"Effort test option {i+1}" for i in range(100)]
+        self._testEffortDropdown = wx.Choice(self, choices=test_choices)
+        self._testEffortDropdown.SetSelection(50)
+        self.addEntry(
+            "TEST Effort Dropdown:",
+            self._testEffortDropdown,
+            flags=[wx.ALIGN_RIGHT, wx.ALL],
+        )
+        # Call parent to add the viewer
+        super().addEntries()
 
     def createViewer(self, taskFile, settings, settingsSection):
         return viewer.EffortViewer(
