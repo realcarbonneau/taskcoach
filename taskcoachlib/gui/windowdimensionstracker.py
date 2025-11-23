@@ -74,6 +74,7 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._target_position = None
         self._target_size = None  # Also track target size (can be reset by AUI)
         self._should_maximize = False  # Maximize after EVT_ACTIVATE (window ready)
+        self._maximizing = False  # True between Maximize() call and EVT_MAXIMIZE
 
         # Cache last known good position (protects against GTK bugs at close)
         self._cached_position = None
@@ -135,8 +136,9 @@ class WindowSizeAndPositionTracker(_Tracker):
         event.Skip()
 
     def _on_size(self, event):
-        """Cache size on resizes."""
-        if not self._window.IsIconized() and not self._window.IsMaximized():
+        """Cache size on resizes (only when not maximized/maximizing)."""
+        # Don't cache during maximize transition (IsMaximized() not yet True)
+        if not self._window.IsIconized() and not self._window.IsMaximized() and not self._maximizing:
             size = event.GetSize()
             pos = self._window.GetPosition()
             if size.width > 100 and size.height > 100:
@@ -147,8 +149,9 @@ class WindowSizeAndPositionTracker(_Tracker):
 
     def _on_maximize(self, event):
         """Track maximize state changes."""
-        # Note: We use IsMaximized() in save_state() rather than tracking state here,
-        # because EVT_MAXIMIZE only fires when maximizing, not when restoring.
+        # Clear maximizing flag - transition complete
+        self._maximizing = False
+
         is_max = self._window.IsMaximized()
         pos = self._window.GetPosition()
         size = self._window.GetSize()
@@ -201,6 +204,7 @@ class WindowSizeAndPositionTracker(_Tracker):
             # NOW maximize if saved state was maximized (window is at correct position)
             if self._should_maximize:
                 _log_debug(f"  Maximizing now (window at restore position)")
+                self._maximizing = True  # Ignore size events until EVT_MAXIMIZE
                 self._window.Maximize()
                 self._should_maximize = False
         event.Skip()
