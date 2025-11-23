@@ -122,19 +122,12 @@ screenshot = (
 )
 icon = url + "taskcoach.png"
 pad = url + "pad.xml"
-version_url = url + "version.txt"
-message_url = url + "messages.txt"
-download = url + "download.html"
-dist_download_prefix = "http://downloads.sourceforge.net/%s" % filename_lower
 faq_url = "https://answers.launchpad.net/taskcoach/+faqs"
-sf_tracker_url = "https://sourceforge.net/tracker/"
 bug_report_url = github_url + "/issues"  # GitHub issues for bug reports
 known_bugs_url = github_url + "/issues"  # GitHub issues for known bugs
 support_request_url = github_url + "/issues"  # GitHub issues for support
 feature_request_url = github_url + "/issues"  # GitHub issues for feature requests
 translations_url = github_url + "/pulls"  # GitHub pull requests for translations
-donate_url = url + "givesupport.html"
-i18n_url = url + "i18n.html"
 
 announcement_addresses = (
     "taskcoach@yahoogroups.com, python-announce-list@python.org"

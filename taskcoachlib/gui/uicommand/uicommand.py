@@ -2820,7 +2820,7 @@ class Donate(URLCommand):
             menuText=_("&Donate..."),
             helpText=_("Donate to support the development of %s") % meta.name,
             bitmap="heart_icon",
-            url=meta.donate_url,
+            url=meta.github_url,  # Placeholder - donation disabled
             *args,
             **kwargs
         )
