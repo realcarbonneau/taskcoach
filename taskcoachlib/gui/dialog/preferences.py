@@ -812,7 +812,56 @@ class TaskAppearancePage(SettingsPage):
                 wx.EXPAND,
             ),
         )
+
+        # TEST: Add test dropdowns to compare with About dialog
+        self._addTestDropdowns()
+
         self.fit()
+
+    def _addTestDropdowns(self):
+        """Add test dropdowns to debug scroll position issue."""
+        # Generate 85 test items (same as About dialog test)
+        test_items = [(f"Item {i}", f"Test Item {i} - Label") for i in range(85)]
+
+        # Test 1: BitmapComboBox
+        self.addEntry(
+            "TEST BitmapComboBox:",
+            flags=(wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL,),
+        )
+        test_bitmap_combo = BitmapComboBox(self, style=wx.CB_READONLY)
+        for i, (name, label) in enumerate(test_items):
+            bmp = self._createTestBitmap(i)
+            test_bitmap_combo.Append(label, bmp)
+        test_bitmap_combo.SetSelection(40)
+        self.addEntry(
+            test_bitmap_combo,
+            flags=(wx.EXPAND | wx.ALL,),
+        )
+
+        # Test 2: wx.Choice
+        self.addEntry(
+            "TEST wx.Choice:",
+            flags=(wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL,),
+        )
+        test_choice = wx.Choice(self, choices=[item[1] for item in test_items])
+        test_choice.SetSelection(40)
+        self.addEntry(
+            test_choice,
+            flags=(wx.EXPAND | wx.ALL,),
+        )
+
+    def _createTestBitmap(self, index):
+        """Create a simple colored bitmap for testing."""
+        bmp = wx.Bitmap(16, 16)
+        dc = wx.MemoryDC(bmp)
+        r = (index * 3) % 256
+        g = (index * 7) % 256
+        b = (index * 11) % 256
+        dc.SetBrush(wx.Brush(wx.Colour(r, g, b)))
+        dc.SetPen(wx.Pen(wx.Colour(0, 0, 0)))
+        dc.DrawRectangle(0, 0, 16, 16)
+        dc.SelectObject(wx.NullBitmap)
+        return bmp
 
 
 class FeaturesPage(SettingsPage):
