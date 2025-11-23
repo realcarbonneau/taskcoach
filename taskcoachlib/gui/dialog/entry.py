@@ -344,45 +344,30 @@ IconEntryEvent, EVT_ICONENTRY = newevent.NewEvent()
 
 
 class IconEntry(wx.adv.BitmapComboBox):
+    """Simple icon selection dropdown - matches working test pattern."""
+
     def __init__(self, parent, currentIcon, *args, **kwargs):
-        kwargs["style"] = wx.CB_READONLY
-        super().__init__(parent, *args, **kwargs)
-        self._firstDropdown = True
-        imageNames = sorted(artprovider.chooseableItemImages.keys())
-        size = (16, 16)
-        for imageName in imageNames:
+        # Create with CB_READONLY style - simple, like the working test
+        super().__init__(parent, style=wx.CB_READONLY)
+
+        # Store image names for GetValue/SetValue
+        self._imageNames = sorted(artprovider.chooseableItemImages.keys())
+
+        # Populate - same pattern as working test dropdown
+        for imageName in self._imageNames:
             label = artprovider.chooseableItemImages[imageName]
-            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, size)
+            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
             item = self.Append(label, bitmap)
             self.SetClientData(item, imageName)
-        self.SetSelection(imageNames.index(currentIcon))
+
+        # Set selection
+        if currentIcon in self._imageNames:
+            self.SetSelection(self._imageNames.index(currentIcon))
+        else:
+            self.SetSelection(0)
+
+        # Simple event binding
         self.Bind(wx.EVT_COMBOBOX, self.onIconPicked)
-        self.Bind(wx.EVT_COMBOBOX_DROPDOWN, self.onDropdown)
-
-    def onDropdown(self, event):
-        """Fix scroll position on first dropdown for long lists.
-
-        OwnerDrawnComboBox/BitmapComboBox uses a VListBox popup. Access the
-        popup control and scroll to ensure items display from the top.
-        """
-        event.Skip()
-        if self._firstDropdown:
-            self._firstDropdown = False
-            wx.CallAfter(self._fixDropdownScroll)
-
-    def _fixDropdownScroll(self):
-        """Fix scroll position by scrolling the VListBox popup."""
-        try:
-            popup = self.GetPopupControl()
-            if popup:
-                # VListBox - scroll to line 0 first to reset scroll position
-                popup.ScrollToLine(0)
-                # Then scroll to show selected item
-                selection = self.GetSelection()
-                if selection >= 0:
-                    popup.ScrollToLine(selection)
-        except (AttributeError, RuntimeError):
-            pass
 
     def onIconPicked(self, event):
         event.Skip()
