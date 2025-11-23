@@ -19,11 +19,6 @@ class TestFrame(wx.Frame):
         # Set position via 4-param SetSize (provides position hint)
         self.SetSize(TARGET[0], TARGET[1], 200, 150)
 
-        # Add a button to test interactivity
-        panel = wx.Panel(self)
-        self.button = wx.Button(panel, label="Click Me", pos=(50, 50))
-        self.button.Bind(wx.EVT_BUTTON, self.on_button)
-
         # Bind events
         self.Bind(wx.EVT_MOVE, self.on_move)
         self.Bind(wx.EVT_IDLE, self.on_idle)
@@ -58,7 +53,7 @@ class TestFrame(wx.Frame):
         pos = self.GetPosition()
         # Only log first few idle events to avoid spam
         if self.idle_count <= 10:
-            print(f"[{self._elapsed()}] EVT_IDLE #{self.idle_count}: pos=({pos.x}, {pos.y}) - Event queue empty, ready for input")
+            print(f"[{self._elapsed()}] EVT_IDLE #{self.idle_count}: pos=({pos.x}, {pos.y}) - Event queue empty")
         elif self.idle_count == 11:
             print(f"[{self._elapsed()}] EVT_IDLE ... (suppressing further idle logs)")
         event.Skip()
@@ -74,7 +69,8 @@ class TestFrame(wx.Frame):
         self.activate_count += 1
         pos = self.GetPosition()
         active = event.GetActive()
-        print(f"[{self._elapsed()}] EVT_ACTIVATE #{self.activate_count}: pos=({pos.x}, {pos.y}) active={active} - Window {'gained' if active else 'lost'} focus")
+        ready_msg = " [READY FOR INPUT]" if active else ""
+        print(f"[{self._elapsed()}] EVT_ACTIVATE #{self.activate_count}: pos=({pos.x}, {pos.y}) active={active}{ready_msg}")
         event.Skip()
 
     def on_show(self, event):
@@ -82,11 +78,6 @@ class TestFrame(wx.Frame):
         shown = event.IsShown()
         print(f"[{self._elapsed()}] EVT_SHOW: pos=({pos.x}, {pos.y}) shown={shown}")
         event.Skip()
-
-    def on_button(self, event):
-        pos = self.GetPosition()
-        print(f"[{self._elapsed()}] BUTTON CLICKED! pos=({pos.x}, {pos.y}) - User interaction working")
-
 
 START_TIME = time.time()
 app = wx.App()
