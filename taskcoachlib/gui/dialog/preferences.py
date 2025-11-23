@@ -301,11 +301,19 @@ class SettingsPageBase(widgets.BookPage):
             wx.CallAfter(self._fixIconDropdownScroll, iconEntry)
 
     def _fixIconDropdownScroll(self, iconEntry):
-        """Reset scroll position by briefly selecting first item."""
-        currentSelection = iconEntry.GetSelection()
-        if currentSelection > 0:
-            iconEntry.SetSelection(0)
-            iconEntry.SetSelection(currentSelection)
+        """Reset scroll position by dismissing and re-showing popup."""
+        try:
+            # Get current selection to restore after fix
+            currentSelection = iconEntry.GetSelection()
+            # Dismiss and re-show popup to force correct scroll calculation
+            iconEntry.Dismiss()
+            iconEntry.Popup()
+            # Ensure the selected item is visible
+            if currentSelection >= 0:
+                iconEntry.SetSelection(currentSelection)
+        except (AttributeError, RuntimeError):
+            # Fallback: just refresh
+            iconEntry.Refresh()
 
     def addPathSetting(self, section, setting, text, helpText="", **kwargs):
         pathChooser = widgets.DirectoryChooser(self, wx.ID_ANY)

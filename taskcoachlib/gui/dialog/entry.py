@@ -370,11 +370,19 @@ class IconEntry(wx.adv.BitmapComboBox):
             wx.CallAfter(self._fixDropdownScroll)
 
     def _fixDropdownScroll(self):
-        """Reset scroll position by briefly selecting first item."""
-        currentSelection = self.GetSelection()
-        if currentSelection > 0:
-            self.SetSelection(0)
-            self.SetSelection(currentSelection)
+        """Reset scroll position by dismissing and re-showing popup."""
+        try:
+            # Get current selection to restore after fix
+            currentSelection = self.GetSelection()
+            # Dismiss and re-show popup to force correct scroll calculation
+            self.Dismiss()
+            self.Popup()
+            # Ensure the selected item is visible
+            if currentSelection >= 0:
+                self.SetSelection(currentSelection)
+        except (AttributeError, RuntimeError):
+            # Fallback: just refresh
+            self.Refresh()
 
     def onIconPicked(self, event):
         event.Skip()
