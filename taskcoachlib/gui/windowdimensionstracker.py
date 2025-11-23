@@ -101,9 +101,20 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._start_position_logging()
 
     def _on_move(self, event):
-        """Cache position on moves (for save, protects against GTK bugs)."""
+        """Cache position on moves and detect GTK position corruption."""
+        pos = event.GetPosition()
+
+        # Detect GTK moving window to (80, 0) BEFORE we've applied position
+        # This happens asynchronously after Show() due to GTK bugs
+        if not self._position_applied and hasattr(self, '_target_position'):
+            if pos.x < 100 and pos.y < 50:
+                # GTK moved window to wrong position - immediately correct it
+                target = self._target_position
+                _log_debug(f"_on_move: GTK moved to ({pos.x}, {pos.y}), immediately correcting to {target}")
+                wx.CallAfter(self._window.SetPosition, wx.Point(target[0], target[1]))
+
+        # Cache position for save (only after position has been applied)
         if self._position_applied and not self._window.IsIconized() and not self._window.IsMaximized():
-            pos = event.GetPosition()
             # Only cache if position looks valid
             if pos.x > 50 or pos.y > 30:
                 self._cached_position = (pos.x, pos.y)
