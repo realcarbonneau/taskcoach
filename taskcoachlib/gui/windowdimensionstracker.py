@@ -152,7 +152,10 @@ class WindowSizeAndPositionTracker(_Tracker):
         """Set the window position and size based on the settings."""
         x, y = self.get_setting("position")
         width, height = self.get_setting("size")
-        _log_debug(f"RESTORING: pos=({x}, {y}) size=({width}, {height})")
+        saved_monitor = self.get_setting("monitor_index")
+        num_monitors = wx.Display.GetCount()
+
+        _log_debug(f"RESTORING: pos=({x}, {y}) size=({width}, {height}) saved_monitor={saved_monitor} num_monitors={num_monitors}")
 
         # Enforce minimum window size
         if isinstance(self._window, wx.Dialog):
@@ -167,13 +170,31 @@ class WindowSizeAndPositionTracker(_Tracker):
 
         self._window.SetMinSize((min_width, min_height))
 
-        # Position the window
-        x, y = self._calculate_position(x, y, width, height)
+        # For main window, just use saved position directly - no adjustment needed
+        # The saved position is in screen coordinates and should be used as-is
+        if not isinstance(self._window, wx.Dialog):
+            # Only adjust if saved monitor no longer exists
+            if saved_monitor >= 0 and saved_monitor >= num_monitors:
+                _log_debug(f"  Saved monitor {saved_monitor} no longer exists, centering on primary")
+                primary = wx.Display(0)
+                rect = primary.GetGeometry()
+                x = rect.x + (rect.width - width) // 2
+                y = rect.y + (rect.height - height) // 2
+            elif x == -1 and y == -1:
+                _log_debug(f"  No saved position, centering on primary")
+                primary = wx.Display(0)
+                rect = primary.GetGeometry()
+                x = rect.x + (rect.width - width) // 2
+                y = rect.y + (rect.height - height) // 2
+            # else: use saved position as-is
+        else:
+            x, y = self._calculate_dialog_position(x, y, width, height)
 
         if operating_system.isMac():
             if not isinstance(self._window, wx.Dialog):
                 height += 18
 
+        _log_debug(f"  Setting window to pos=({x}, {y}) size=({width}, {height})")
         self._window.SetSize(x, y, width, height)
 
         if operating_system.isMac():
@@ -188,7 +209,8 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._validate_window_position(width, height)
 
         final_rect = self._window.GetRect()
-        _log_debug(f"APPLIED: pos=({final_rect.x}, {final_rect.y}) size=({final_rect.width}, {final_rect.height})")
+        final_monitor = wx.Display.GetFromWindow(self._window)
+        _log_debug(f"APPLIED: pos=({final_rect.x}, {final_rect.y}) size=({final_rect.width}, {final_rect.height}) monitor={final_monitor}")
 
     def _calculate_position(self, x, y, width, height):
         """Calculate the window position, handling dialogs and multi-monitor."""
@@ -317,29 +339,40 @@ class WindowDimensionsTracker(WindowSizeAndPositionTracker):
 
         Called when window is about to close.
         """
+        # Get window state BEFORE any close operations might affect it
         iconized = self._window.IsIconized()
+        maximized = self._window.IsMaximized() or self._is_maximized
+        shown = self._window.IsShown()
         pos = self._window.GetPosition()
+        rect = self._window.GetRect()
+        screen_rect = self._window.GetScreenRect()
         monitor_index = wx.Display.GetFromWindow(self._window)
 
-        _log_debug(f"save_position: pos={pos} monitor={monitor_index} iconized={iconized}")
+        _log_debug(f"save_position: shown={shown} iconized={iconized} maximized={maximized}")
+        _log_debug(f"  GetPosition()={pos}")
+        _log_debug(f"  GetRect()={rect}")
+        _log_debug(f"  GetScreenRect()={screen_rect}")
+        _log_debug(f"  monitor={monitor_index}")
 
         self.set_setting("iconized", iconized)
 
         if not iconized:
-            # Save position and monitor
-            self.set_setting("position", pos)
+            # Use GetScreenRect position which should be in screen coordinates
+            save_pos = (screen_rect.x, screen_rect.y)
+            _log_debug(f"  SAVING position={save_pos}")
+            self.set_setting("position", save_pos)
             if monitor_index != wx.NOT_FOUND:
                 self.set_setting("monitor_index", monitor_index)
 
             # Save size if not maximized
-            if not self._window.IsMaximized() and not self._is_maximized:
+            if not maximized:
                 size = (
                     self._window.GetClientSize()
                     if operating_system.isMac()
                     else self._window.GetSize()
                 )
-                _log_debug(f"save_position: SAVING size={size}")
+                _log_debug(f"  SAVING size={size}")
                 self.set_setting("size", size)
 
         # Save maximized state
-        self.set_setting("maximized", self._window.IsMaximized() or self._is_maximized)
+        self.set_setting("maximized", maximized)
