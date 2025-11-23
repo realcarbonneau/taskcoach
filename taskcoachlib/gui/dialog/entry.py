@@ -511,9 +511,7 @@ class RecurrenceEntry(wx.Panel):
     def __init__(self, parent, recurrence, settings, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         recurrenceFrequencyPanel = wx.Panel(self)
-        # TEST: Using wx.ComboBox instead of wx.Choice to test if it fixes
-        # the scroll position issue with long lists. ComboBox supports
-        # EVT_COMBOBOX_DROPDOWN which allows us to fix scroll position.
+        # TEST: Long list of items to test scroll behavior
         test_choices = [
             _("None"),
             _("Daily"),
@@ -524,19 +522,10 @@ class RecurrenceEntry(wx.Panel):
         # Add many test items to match icon dropdown length
         for i in range(80):
             test_choices.append(f"Test item {i+1}")
-        self._recurrencePeriodEntry = wx.ComboBox(
+        # Simple wx.Choice - matches working test dropdown pattern
+        self._recurrencePeriodEntry = wx.Choice(
             recurrenceFrequencyPanel,
             choices=test_choices,
-            style=wx.CB_READONLY | wx.CB_DROPDOWN,
-        )
-        # Set background to match system readonly appearance
-        self._recurrencePeriodEntry.SetBackgroundColour(
-            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
-        )
-        # Fix scroll position on first dropdown
-        self._recurrencePeriodEntry._firstDropdown = True
-        self._recurrencePeriodEntry.Bind(
-            wx.EVT_COMBOBOX_DROPDOWN, self._onRecurrenceDropdown
         )
         self._recurrencePeriodEntry.Bind(
             wx.EVT_CHOICE, self.onRecurrencePeriodEdited
@@ -696,25 +685,6 @@ class RecurrenceEntry(wx.Panel):
             self._recurrencePeriodEntry.Selection in (3, 4)
         )
         self._recurrenceSizer.Layout()
-
-    def _onRecurrenceDropdown(self, event):
-        """Fix scroll position on first dropdown for long lists."""
-        event.Skip()
-        combobox = event.GetEventObject()
-        if getattr(combobox, "_firstDropdown", False):
-            combobox._firstDropdown = False
-            wx.CallAfter(self._fixDropdownScroll, combobox)
-
-    def _fixDropdownScroll(self, combobox):
-        """Reset scroll position by dismissing and re-showing popup."""
-        try:
-            currentSelection = combobox.GetSelection()
-            combobox.Dismiss()
-            combobox.Popup()
-            if currentSelection >= 0:
-                combobox.SetSelection(currentSelection)
-        except (AttributeError, RuntimeError):
-            pass
 
     def onRecurrencePeriodEdited(self, event):
         recurrenceOn = event.String != _("None")
