@@ -115,12 +115,14 @@ class WindowSizeAndPositionTracker(_Tracker):
         """
         pos = event.GetPosition()
 
+        size = self._window.GetSize()
+
         # Correct unplanned moves until window is activated (ready for input)
         # This handles GTK/WM moving window multiple times during setup
         if not self._window_activated and self._target_position is not None:
             target_x, target_y = self._target_position
             if pos.x != target_x or pos.y != target_y:
-                _log_debug(f"_on_move: UNPLANNED MOVE ({pos.x}, {pos.y}) -> correcting to ({target_x}, {target_y})")
+                _log_debug(f"_on_move: UNPLANNED MOVE pos=({pos.x}, {pos.y}) size=({size.width}, {size.height}) -> correcting to ({target_x}, {target_y})")
                 self._window.SetPosition(wx.Point(target_x, target_y))
                 event.Skip()
                 return
@@ -128,17 +130,18 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Cache position for save (only after window is activated)
         if self._window_activated and not self._window.IsIconized() and not self._window.IsMaximized():
             self._cached_position = (pos.x, pos.y)
-            _log_debug(f"_on_move: pos=({pos.x}, {pos.y}) cached")
+            _log_debug(f"_on_move: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height}) cached")
         event.Skip()
 
     def _on_size(self, event):
         """Cache size on resizes."""
         if not self._window.IsIconized() and not self._window.IsMaximized():
             size = event.GetSize()
+            pos = self._window.GetPosition()
             if size.width > 100 and size.height > 100:
                 self._cached_size = (size.width, size.height)
                 if self._window_activated:
-                    _log_debug(f"_on_size: size=({size.width}, {size.height}) cached")
+                    _log_debug(f"_on_size: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height}) cached")
         event.Skip()
 
     def _on_maximize(self, event):
@@ -203,9 +206,10 @@ class WindowSizeAndPositionTracker(_Tracker):
 
         elapsed = time.time() - self._pos_log_start_time
         pos = self._window.GetPosition()
+        size = self._window.GetSize()
         shown = self._window.IsShown()
 
-        _log_debug(f"POS_LOG [{elapsed:.2f}s]: ({pos.x}, {pos.y}) shown={shown}")
+        _log_debug(f"POS_LOG [{elapsed:.2f}s]: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height}) shown={shown}")
 
         # Schedule next tick - fast initially, slower after 1 second
         if elapsed < 1.0:
@@ -307,8 +311,8 @@ class WindowSizeAndPositionTracker(_Tracker):
         monitor = wx.Display.GetFromWindow(self._window)
 
         _log_debug(f"SAVE: maximized={maximized} iconized={iconized} monitor={monitor}")
-        _log_debug(f"  GetPosition()=({current_pos.x}, {current_pos.y})")
-        _log_debug(f"  Cached: pos={self._cached_position}")
+        _log_debug(f"  GetPosition()=({current_pos.x}, {current_pos.y}) GetSize()=({current_size.width}, {current_size.height})")
+        _log_debug(f"  Cached: pos={self._cached_position} size={self._cached_size}")
 
         # Use cached position if current looks corrupted (GTK bug)
         if current_pos.x < 100 and current_pos.y < 50:
