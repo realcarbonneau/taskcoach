@@ -83,16 +83,44 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._section = section  # Store for logging
         self._is_maximized = False
 
+        # Cache last known good position/size (updated on user moves/resizes)
+        # This protects against GTK bugs that corrupt position data during close
+        self._cached_position = None
+        self._cached_size = None
+        self._cached_monitor = None
+
         # Restore window dimensions from settings
         self.__set_dimensions()
 
-        # Only track maximize state - position/size saved on close
+        # Track maximize state and cache position on moves (for GTK bug protection)
         self._window.Bind(wx.EVT_MAXIMIZE, self._on_maximize)
+        self._window.Bind(wx.EVT_MOVE, self._on_move)
+        self._window.Bind(wx.EVT_SIZE, self._on_size)
 
     def _on_maximize(self, event):
         """Track maximize state changes."""
         self._is_maximized = True
         _log_debug("Window maximized")
+        event.Skip()
+
+    def _on_move(self, event):
+        """Cache position on moves (protects against GTK bugs during close)."""
+        if not self._window.IsIconized() and not self._window.IsMaximized():
+            pos = event.GetPosition()
+            monitor = wx.Display.GetFromWindow(self._window)
+            # Only cache if position looks valid (not near origin which is often spurious)
+            if pos.x > 100 or pos.y > 50:
+                self._cached_position = (pos.x, pos.y)
+                self._cached_monitor = monitor
+        event.Skip()
+
+    def _on_size(self, event):
+        """Cache size on resizes (protects against GTK bugs during close)."""
+        if not self._window.IsIconized() and not self._window.IsMaximized():
+            size = event.GetSize()
+            # Only cache if size looks valid (not minimum size)
+            if size.width > 600 and size.height > 400:
+                self._cached_size = (size.width, size.height)
         event.Skip()
 
     def save_state(self):
@@ -211,6 +239,12 @@ class WindowSizeAndPositionTracker(_Tracker):
         final_rect = self._window.GetRect()
         final_monitor = wx.Display.GetFromWindow(self._window)
         _log_debug(f"APPLIED: pos=({final_rect.x}, {final_rect.y}) size=({final_rect.width}, {final_rect.height}) monitor={final_monitor}")
+
+        # Initialize cache with applied position (protects against GTK bugs during close)
+        self._cached_position = (final_rect.x, final_rect.y)
+        self._cached_size = (final_rect.width, final_rect.height)
+        self._cached_monitor = final_monitor
+        _log_debug(f"  Cached initial position: {self._cached_position} monitor={self._cached_monitor}")
 
     def _calculate_position(self, x, y, width, height):
         """Calculate the window position, handling dialogs and multi-monitor."""
@@ -339,7 +373,7 @@ class WindowDimensionsTracker(WindowSizeAndPositionTracker):
 
         Called when window is about to close.
         """
-        # Get window state BEFORE any close operations might affect it
+        # Get window state
         iconized = self._window.IsIconized()
         maximized = self._window.IsMaximized() or self._is_maximized
         shown = self._window.IsShown()
@@ -350,15 +384,23 @@ class WindowDimensionsTracker(WindowSizeAndPositionTracker):
 
         _log_debug(f"save_position: shown={shown} iconized={iconized} maximized={maximized}")
         _log_debug(f"  GetPosition()={pos}")
-        _log_debug(f"  GetRect()={rect}")
         _log_debug(f"  GetScreenRect()={screen_rect}")
+        _log_debug(f"  cached_position={self._cached_position}")
+        _log_debug(f"  cached_monitor={self._cached_monitor}")
         _log_debug(f"  monitor={monitor_index}")
 
         self.set_setting("iconized", iconized)
 
         if not iconized:
-            # Use GetScreenRect position which should be in screen coordinates
-            save_pos = (screen_rect.x, screen_rect.y)
+            # Detect GTK bug: position near origin (80, 0) when window should be elsewhere
+            # Use cached position if current position looks corrupted
+            current_pos = (screen_rect.x, screen_rect.y)
+            if current_pos[0] < 100 and current_pos[1] < 50 and self._cached_position:
+                _log_debug(f"  GTK BUG DETECTED: using cached position instead of {current_pos}")
+                save_pos = self._cached_position
+                monitor_index = self._cached_monitor if self._cached_monitor is not None else monitor_index
+            else:
+                save_pos = current_pos
             _log_debug(f"  SAVING position={save_pos}")
             self.set_setting("position", save_pos)
             if monitor_index != wx.NOT_FOUND:
