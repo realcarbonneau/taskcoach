@@ -1278,12 +1278,12 @@ if _splash_path:
     aboutHTML += """
 <hr>
 <h5>Legacy Splash Screen</h5>
-<p><i>This splash screen was displayed on startup in earlier versions of Task Coach.</i></p>
+<p>This splash screen was displayed on startup in earlier versions of Task Coach.</p>
 <p><img src="file://%s" alt="Legacy Splash Screen" /></p>
 """ % _splash_path
 
 # Add legacy site reference
 aboutHTML += """
 <hr>
-<p><i>Legacy site (no longer maintained): <a href="https://taskcoach.org" target="_blank">https://taskcoach.org</a></i></p>
+<p>Legacy site (no longer maintained): <a href="https://taskcoach.org" target="_blank">https://taskcoach.org</a></p>
 """
