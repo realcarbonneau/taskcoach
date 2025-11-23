@@ -399,19 +399,16 @@ class Application(object, metaclass=patterns.Singleton):
 
         def cleanup_wx():
             """Clean up wx when reactor is shutting down."""
-            print("[DEBUG] cleanup_wx called - reactor is shutting down")
             try:
-                # UnInit AUI manager to avoid event handler assertion
+                # UnInit AUI manager to avoid wxAssertionError about
+                # pushed event handlers not being removed
                 if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
-                    print("[DEBUG] Calling manager.UnInit()")
                     self.mainwindow.manager.UnInit()
-                print("[DEBUG] cleanup_wx completed")
-            except Exception as e:
-                print(f"[DEBUG] cleanup_wx error: {e}")
+            except Exception:
+                pass  # Best effort cleanup
 
         # Register cleanup to run before reactor shutdown
         reactor.addSystemEventTrigger('before', 'shutdown', cleanup_wx)
-        print("[DEBUG] Registered cleanup_wx as system event trigger")
 
         if operating_system.isWindows():
             import win32api  # pylint: disable=F0401
