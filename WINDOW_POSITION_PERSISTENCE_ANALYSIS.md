@@ -245,13 +245,15 @@ class MainWindow(wx.Frame):
 
 ### Why This Works
 
-1. 4-param `SetSize()` provides a position "hint" to GTK
-2. Window initially appears at target position briefly
-3. WM may move window multiple times (each triggers `EVT_MOVE`)
-4. We correct position on **every** unplanned move
-5. `EVT_ACTIVATE` signals the window is ready for user input
-6. After activation, we stop correcting and unbind handlers
+1. 4-param `SetSize()` sets the window's internal position coordinates
+2. GTK/WM ignores this because wxPython cannot set the `GDK_HINT_USER_POS` hint (no API exposed)
+3. WM applies "smart placement" and may move the window multiple times (each triggers `EVT_MOVE`)
+4. We correct position on **every** unplanned move by calling `SetPosition()`
+5. After the window is mapped and visible, `SetPosition()` IS honored by the WM
+6. `EVT_ACTIVATE` signals the window is ready for user input - stop correcting
 7. Correction happens fast enough that user doesn't see flicker
+
+**Note:** This is a workaround for wxPython's lack of `GDK_HINT_USER_POS` support. If wxPython exposed this GTK API, we could simply set the hint before `Show()` and avoid this event-based correction entirely.
 
 ### Platform Considerations
 
