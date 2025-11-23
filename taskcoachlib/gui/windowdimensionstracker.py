@@ -142,6 +142,37 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Initialize cache
         self._cached_size = (width, height)
 
+    def _validate_position(self, x, y, width, height):
+        """Validate position fits on a monitor. Returns adjusted (x, y) or None to center.
+
+        Ensures at least 100px of the window is visible on some monitor.
+        """
+        # Check if position is on any monitor
+        num_displays = wx.Display.GetCount()
+        _log_debug(f"_validate_position: checking ({x}, {y}) against {num_displays} monitors")
+
+        for i in range(num_displays):
+            display = wx.Display(i)
+            geometry = display.GetGeometry()
+            _log_debug(f"  Monitor {i}: {geometry.x}, {geometry.y}, {geometry.width}x{geometry.height}")
+
+            # Check if window top-left corner is reasonably within this monitor
+            # Allow some tolerance - window should have at least 100px visible
+            if (geometry.x - width + 100 <= x <= geometry.x + geometry.width - 100 and
+                geometry.y <= y <= geometry.y + geometry.height - 100):
+                _log_debug(f"  Position valid for monitor {i}")
+
+                # Ensure window doesn't go below the monitor
+                max_y = geometry.y + geometry.height - height - 50  # 50px margin for taskbar
+                if y > max_y:
+                    _log_debug(f"  Adjusting Y from {y} to {max_y} (would go below monitor)")
+                    y = max(geometry.y, max_y)
+
+                return (x, y)
+
+        _log_debug(f"  Position ({x}, {y}) not valid for any monitor, will center")
+        return None
+
     def apply_position_after_show(self):
         """Apply saved position after Show() and AUI has settled.
 
@@ -167,6 +198,19 @@ class WindowSizeAndPositionTracker(_Tracker):
             self._cached_position = (pos.x, pos.y)
             return
 
+        # Validate position fits on a monitor
+        size = self._window.GetSize()
+        validated = self._validate_position(x, y, size.width, size.height)
+
+        if validated is None:
+            _log_debug("apply_position_after_show: Saved position invalid, centering")
+            self._window.Center()
+            self._position_applied = True
+            pos = self._window.GetPosition()
+            self._cached_position = (pos.x, pos.y)
+            return
+
+        x, y = validated
         _log_debug(f"apply_position_after_show: Will set position to ({x}, {y}) on next idle")
 
         # Use EVT_IDLE to wait for AUI to finish its async layout
