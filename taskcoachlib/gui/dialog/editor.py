@@ -469,38 +469,22 @@ class TaskAppearancePage(Page):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
 
-        # TEST: Create BitmapComboBox directly (like working test dropdown)
-        # instead of using IconEntry subclass to see if subclassing is the issue
-        from taskcoachlib.gui import artprovider
+        # TEST: Make this EXACTLY like the working test dropdown
+        # Use 85 items, simple colored bitmaps, selection at 40
+        test_items = [(f"Item {i}", f"Test Item {i} - Label") for i in range(85)]
+
         self._iconEntry = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
-        imageNames = sorted(artprovider.chooseableItemImages.keys())
-        for imageName in imageNames:
-            label = artprovider.chooseableItemImages[imageName]
-            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
-            item = self._iconEntry.Append(label, bitmap)
-            self._iconEntry.SetClientData(item, imageName)
-        if currentIcon in imageNames:
-            self._iconEntry.SetSelection(imageNames.index(currentIcon))
-        else:
-            self._iconEntry.SetSelection(0)
+        for i, (name, label) in enumerate(test_items):
+            bmp = self._createTestBitmap(i)
+            self._iconEntry.Append(label, bmp)
+        self._iconEntry.SetSelection(40)
 
-        # Store imageNames for GetValue method
-        self._iconEntry._imageNames = imageNames
-
-        # Add GetValue method to the instance
+        # Dummy GetValue for now
         def getIconValue():
-            return self._iconEntry.GetClientData(self._iconEntry.GetSelection())
+            return ""
         self._iconEntry.GetValue = getIconValue
 
-        self._iconSync = attributesync.AttributeSync(
-            "icon",
-            self._iconEntry,
-            currentIcon,
-            self.items,
-            command.EditIconCommand,
-            entry.EVT_ICONENTRY,
-            self.items[0].appearanceChangedEventType(),
-        )
+        # Skip AttributeSync for now - just add the entry
         self.addEntry(
             _("Icon"), self._iconEntry, flags=[wx.ALIGN_RIGHT, wx.ALL]
         )
