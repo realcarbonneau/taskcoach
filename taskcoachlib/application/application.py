@@ -202,8 +202,10 @@ class Application(object, metaclass=patterns.Singleton):
         import wx
 
         # Log version info at startup for debugging
-        print(f"Task Coach {meta.version_with_patch} (commit {meta.git_commit_hash})" if meta.git_commit_hash
-              else f"Task Coach {meta.version}")
+        if meta.git_commit_hash:
+            print(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
+        else:
+            print(f"Task Coach {meta.version_full}")
         print(f"Python {sys.version}")
         print(f"wxPython {wx.version()}")
         print(f"Platform: {platform.platform()}")
