@@ -172,27 +172,35 @@ class WindowGeometryTracker:
         return not self._window.IsMaximized() and not self._window.IsIconized()
 
     def check_and_correct(self):
-        """Try to make window match desired state. Called while not ready."""
+        """Try to make window match desired state. Called while not ready.
+
+        Rules:
+        - If state is empty (cleared), nothing to correct - just wait for activated then mark ready
+        - If window is iconized/maximized before ready: ERROR, clear state, mark ready
+        - Otherwise correct position/size until they match, then maximize if needed
+        """
         if self.ready:
             return
 
-        is_max = self._window.IsMaximized()
-        is_icon = self._window.IsIconized()
+        # State empty = nothing to correct, just mark ready when activated
+        if self.position is None and self.size is None:
+            if self.activated:
+                self._mark_ready()
+            return
 
-        # ERROR: Window is iconized before we're ready
-        if is_icon:
+        # ERROR: Window is iconized/maximized before we could set restore geometry
+        if self._window.IsIconized():
             _log_debug(f"ERROR: Window is iconized before ready!")
-            _log_debug(f"  Cannot set restore position/size - OS/WM opened window iconized")
             _log_debug(f"  Desired state was: pos={self.position} size={self.size} maximized={self.maximized}")
-            return  # Can't do anything while iconized
+            self._clear_state()
+            self._mark_ready()
+            return
 
-        # ERROR: Window is maximized before we're ready
-        if is_max:
+        if self._window.IsMaximized():
             _log_debug(f"ERROR: Window is maximized before ready!")
-            _log_debug(f"  Cannot set restore position/size - OS/WM opened window maximized")
             _log_debug(f"  Desired state was: pos={self.position} size={self.size} maximized={self.maximized}")
-            _log_debug(f"  Restore geometry will be wrong when user un-maximizes")
-            self._mark_ready()  # Nothing we can do
+            self._clear_state()
+            self._mark_ready()
             return
 
         # Window is in normal state - try to achieve desired state
@@ -203,7 +211,6 @@ class WindowGeometryTracker:
 
         if pos_ok and size_ok and self.activated:
             if self.maximized:
-                # Position/size correct, now maximize
                 _log_debug(f"check_and_correct: position/size correct, now maximizing")
                 self._window.Maximize()
             else:
