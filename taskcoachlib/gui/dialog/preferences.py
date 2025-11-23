@@ -298,16 +298,24 @@ class SettingsPageBase(widgets.BookPage):
         iconEntry = event.GetEventObject()
         if getattr(iconEntry, "_firstDropdown", False):
             iconEntry._firstDropdown = False
-            wx.CallAfter(self._fixIconDropdownScroll, iconEntry)
+            # Use CallLater with a small delay to let the popup fully render
+            wx.CallLater(50, self._fixIconDropdownScroll, iconEntry)
 
     def _fixIconDropdownScroll(self, iconEntry):
         """Reset scroll position by dismissing and re-showing popup."""
         try:
             currentSelection = iconEntry.GetSelection()
             iconEntry.Dismiss()
+            wx.CallLater(10, self._reopenIconPopup, iconEntry, currentSelection)
+        except (AttributeError, RuntimeError):
+            pass
+
+    def _reopenIconPopup(self, iconEntry, selection):
+        """Reopen popup after dismiss."""
+        try:
             iconEntry.Popup()
-            if currentSelection >= 0:
-                iconEntry.SetSelection(currentSelection)
+            if selection >= 0:
+                iconEntry.SetSelection(selection)
         except (AttributeError, RuntimeError):
             pass
 

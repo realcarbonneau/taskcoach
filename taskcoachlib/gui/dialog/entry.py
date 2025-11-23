@@ -364,16 +364,29 @@ class IconEntry(wx.adv.BitmapComboBox):
         event.Skip()
         if self._firstDropdown:
             self._firstDropdown = False
-            wx.CallAfter(self._fixDropdownScroll)
+            # Use CallLater with a small delay to let the popup fully render
+            wx.CallLater(50, self._fixDropdownScroll)
 
     def _fixDropdownScroll(self):
-        """Reset scroll position by dismissing and re-showing popup."""
+        """Reset scroll position by dismissing and re-showing popup.
+
+        BitmapComboBox/OwnerDrawnComboBox needs a different approach than
+        regular ComboBox - try multiple dismiss/popup cycles.
+        """
         try:
             currentSelection = self.GetSelection()
+            # Try dismiss and popup to force scroll recalculation
             self.Dismiss()
+            wx.CallLater(10, self._reopenPopup, currentSelection)
+        except (AttributeError, RuntimeError):
+            pass
+
+    def _reopenPopup(self, selection):
+        """Reopen popup after dismiss."""
+        try:
             self.Popup()
-            if currentSelection >= 0:
-                self.SetSelection(currentSelection)
+            if selection >= 0:
+                self.SetSelection(selection)
         except (AttributeError, RuntimeError):
             pass
 
@@ -536,6 +549,10 @@ class RecurrenceEntry(wx.Panel):
             recurrenceFrequencyPanel,
             choices=test_choices,
             style=wx.CB_READONLY | wx.CB_DROPDOWN,
+        )
+        # Set background to match system readonly appearance
+        self._recurrencePeriodEntry.SetBackgroundColour(
+            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
         )
         # Fix scroll position on first dropdown
         self._recurrencePeriodEntry._firstDropdown = True
