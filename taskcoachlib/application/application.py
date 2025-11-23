@@ -414,11 +414,9 @@ class Application(object, metaclass=patterns.Singleton):
 
             def quit_adapter(*args):
                 # On Unix, signal handlers run in the main thread.
-                # Schedule the quit via CallAfter and wake up the event loop
-                # to ensure it gets processed.
+                # Close the window properly so onClose handler runs with AUI UnInit().
                 def do_quit():
-                    self.mainwindow.setShutdownInProgress()
-                    self.quitApplication()
+                    self.mainwindow.Close()
                 wx.CallAfter(do_quit)
                 # Wake up the event loop so it processes the CallAfter
                 if wx.GetApp():
@@ -431,7 +429,7 @@ class Application(object, metaclass=patterns.Singleton):
                 def forced_quit(*args):
                     def do_quit():
                         self.mainwindow.setShutdownInProgress()
-                        self.quitApplication(force=True)
+                        self.mainwindow.Close()
                     wx.CallAfter(do_quit)
                     if wx.GetApp():
                         wx.WakeUpIdle()
@@ -530,24 +528,5 @@ class Application(object, metaclass=patterns.Singleton):
         if isinstance(sys.stdout, RedirectedOutput):
             sys.stdout.summary()
 
-        # Pop all pushed event handlers from all windows before destroying
-        # to avoid wxAssertionError about pushed event handlers
-        self._cleanup_event_handlers(self.mainwindow)
-
-        # Destroy the main window before stopping the reactor
-        self.mainwindow.Destroy()
-
         self.stopTwisted()
         return True
-
-    def _cleanup_event_handlers(self, window):
-        """Recursively pop all pushed event handlers from window and children."""
-        # Pop all pushed event handlers from this window
-        while window.GetEventHandler() is not window:
-            handler = window.PopEventHandler()
-            if handler:
-                handler.Destroy()
-
-        # Recursively clean up children
-        for child in window.GetChildren():
-            self._cleanup_event_handlers(child)
