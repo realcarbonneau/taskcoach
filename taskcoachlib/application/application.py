@@ -625,52 +625,37 @@ class Application(object, metaclass=patterns.Singleton):
 
         DESIGN NOTE (Twisted Removal - 2024):
         Previously used Twisted's reactor which properly handled SIGINT.
-        Now using Python's signal module with wx event posting.
+        Now using Python's signal module with direct cleanup.
 
         Key challenges with native wxPython:
         1. wx.CallAfter alone doesn't wake up a blocked event loop
         2. Signal handlers run in an interrupt context with limitations
-        3. Must save settings and clean up AUI before exit
+        3. Must save settings before exit
 
-        Solution: Use atexit for cleanup, and wx.PostEvent + Exit for termination.
+        Solution: Custom signal handler saves settings then exits.
+        Note: SIG_DFL does NOT run atexit handlers - signals bypass Python cleanup.
         """
         import signal
-        import atexit
 
-        def cleanup_wx():
-            """Clean up wx before Python exit."""
+        def cleanup_and_exit(signum, frame):
+            """Save settings and exit on SIGINT/SIGTERM."""
             try:
-                # Save window position/size before cleanup
-                # This is critical for Ctrl+C where quitApplication() might not run
+                # Save window position/size before exit
                 if hasattr(self, 'mainwindow'):
                     self.mainwindow.save_settings()
                     self.settings.save()
             except Exception:
-                pass  # Best effort - settings might already be saved
+                pass  # Best effort - don't prevent exit
 
-            try:
-                # UnInit AUI manager to avoid wxAssertionError about
-                # pushed event handlers not being removed
-                if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
-                    self.mainwindow.manager.UnInit()
-            except Exception:
-                pass  # Best effort cleanup
-
-        # Register cleanup via atexit (runs before Python's final cleanup)
-        atexit.register(cleanup_wx)
+            # Exit with appropriate code for signal
+            # Using os._exit to avoid any further Python cleanup that might hang
+            import os
+            os._exit(128 + signum)
 
         # Register SIGINT/SIGTERM handlers for Unix
-        # Use SIG_DFL (default handler) which immediately terminates the process.
-        # This is the recommended approach for GTK applications (see GTK bug #622084).
-        # The atexit handler (cleanup_wx above) will still run to save settings
-        # and clean up AUI before exit.
-        #
-        # References:
-        # - https://stackoverflow.com/questions/16410852/keyboard-interrupt-with-with-python-gtk
-        # - https://bugzilla.gnome.org/show_bug.cgi?id=622084
         if not operating_system.isWindows():
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
-            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            signal.signal(signal.SIGINT, cleanup_and_exit)
+            signal.signal(signal.SIGTERM, cleanup_and_exit)
 
         if operating_system.isWindows():
             import win32api  # pylint: disable=F0401
