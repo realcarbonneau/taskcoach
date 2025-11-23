@@ -24,6 +24,7 @@ from taskcoachlib import (
     widgets,
     operating_system,
 )  # pylint: disable=W0622
+from taskcoachlib.widgets.frame import _aui_log, disable_aui_startup_logging
 from taskcoachlib.gui import (
     viewer,
     toolbar,
@@ -116,6 +117,8 @@ class MainWindow(
         )
 
         wx.CallAfter(self.checkXFCE4)
+        # Disable AUI startup logging after a short delay to capture all init events
+        wx.CallLater(2000, disable_aui_startup_logging)
 
     def _registerBonjour(self, value=True):
         if self.bonjourRegister is not None:
@@ -172,12 +175,16 @@ class MainWindow(
         self.__shutdown = True
 
     def _create_window_components(self):  # Not private for test purposes
+        _aui_log("MainWindow._create_window_components starting")
         self._create_viewer_container()
+        _aui_log("MainWindow: ViewerContainer created, now adding viewers...")
         viewer.addViewers(self.viewer, self.taskFile, self.settings)
+        _aui_log("MainWindow: All viewers added")
         self._create_status_bar()
         self.__create_menu_bar()
         self.__create_reminder_controller()
         wx.CallAfter(self.viewer.componentsCreated)
+        _aui_log("MainWindow._create_window_components complete")
 
     def _create_viewer_container(self):  # Not private for test purposes
         # pylint: disable=W0201
@@ -222,30 +229,43 @@ class MainWindow(
         )
 
     def __init_window_components(self):
+        _aui_log("MainWindow.__init_window_components starting")
+        _aui_log("MainWindow: Showing toolbar...")
         self.showToolBar(self.settings.getvalue("view", "toolbar"))
         # We use CallAfter because otherwise the statusbar will appear at the
         # top of the window when it is initially hidden and later shown.
         wx.CallAfter(
             self.showStatusBar, self.settings.getboolean("view", "statusbar")
         )
+        _aui_log("MainWindow: Restoring perspective...")
         self.__restore_perspective()
+        _aui_log("MainWindow.__init_window_components complete")
 
     def __restore_perspective(self):
+        _aui_log("__restore_perspective starting")
         perspective = self.settings.get("view", "perspective")
+        perspective_len = len(perspective) if perspective else 0
+        _aui_log(f"  Perspective string length: {perspective_len}")
+
         for viewer_type in viewer.viewerTypes():
             if self.__perspective_and_settings_viewer_count_differ(
                 viewer_type
             ):
                 # Different viewer counts may happen when the name of a viewer
                 # is changed between versions
+                _aui_log(f"  Viewer count mismatch for {viewer_type}, resetting perspective")
                 perspective = ""
                 break
 
         try:
+            _aui_log("  Calling manager.LoadPerspective...")
             self.manager.LoadPerspective(perspective)
+            _aui_log("  LoadPerspective complete")
+            self._log_all_pane_info("After LoadPerspective")
         except ValueError as reason:
             # This has been reported to happen. Don't know why. Keep going
             # if it does.
+            _aui_log(f"  LoadPerspective FAILED: {reason}")
             wx.MessageBox(
                 _(
                     """Couldn't restore the pane layout from TaskCoach.ini:
@@ -263,15 +283,23 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             )
             self.manager.LoadPerspective("")
 
+        _aui_log("  Updating pane visibility and captions...")
+        panes_updated = 0
         for pane in self.manager.GetAllPanes():
             # Prevent zombie panes by making sure all panes are visible
             if not pane.IsShown():
+                _aui_log(f"    Showing hidden pane: {pane.name}")
                 pane.Show()
+                panes_updated += 1
             # Ignore the titles that are saved in the perspective, they may be
             # incorrect when the user changes translation:
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
+        _aui_log(f"  {panes_updated} panes were shown")
+        _aui_log("  Calling final manager.Update...")
         self.manager.Update()
+        self._log_all_pane_info("After final Update")
+        _aui_log("__restore_perspective complete")
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
         perspective = self.settings.get("view", "perspective")
@@ -428,11 +456,14 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         self.settings.set("view", "toolbarperspective", perspective)
 
     def showToolBar(self, value):
+        _aui_log(f"showToolBar: value={value}")
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
+            _aui_log("  Detaching existing toolbar")
             self.manager.DetachPane(currentToolbar.window)
             currentToolbar.window.Destroy()
         if value:
+            _aui_log("  Creating new toolbar")
             bar = toolbar.MainToolBar(self, self.settings, size=value)
             self.manager.AddPane(
                 bar,
@@ -447,7 +478,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             )
             # Using .Gripper(False) does not work here
             wx.CallAfter(bar.SetGripperVisible, False)
+        _aui_log("  Calling manager.Update for toolbar...")
         self.manager.Update()
+        _aui_log("showToolBar complete")
 
     def onCloseToolBar(self, event):
         if event.GetPane().IsToolbar():

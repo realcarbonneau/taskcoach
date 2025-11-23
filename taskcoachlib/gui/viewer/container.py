@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from taskcoachlib import operating_system
+from taskcoachlib.widgets.frame import _aui_log
 import taskcoachlib.gui.menu
 from pubsub import pub
 import wx.lib.agw.aui as aui
@@ -87,11 +88,16 @@ class ViewerContainer(object):
 
     def addViewer(self, viewer, floating=False):
         """Add a new pane with the specified viewer."""
-        self.containerWidget.addPane(viewer, viewer.title(), floating=floating)
+        viewer_type = viewer.__class__.__name__
+        viewer_title = viewer.title()
+        _aui_log(f"ViewerContainer.addViewer: type={viewer_type}, title={viewer_title}, floating={floating}")
+        self.containerWidget.addPane(viewer, viewer_title, floating=floating)
         self.viewers.append(viewer)
         if len(self.viewers) == 1:
+            _aui_log(f"  First viewer, activating it")
             self.activateViewer(viewer)
         pub.subscribe(self.onStatusChanged, viewer.viewerStatusEventType())
+        _aui_log(f"  ViewerContainer now has {len(self.viewers)} viewers")
 
     def closeViewer(self, viewer):
         """Close the specified viewer."""

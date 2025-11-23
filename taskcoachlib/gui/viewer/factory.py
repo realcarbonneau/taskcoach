@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from taskcoachlib import operating_system
+from taskcoachlib.widgets.frame import _aui_log
 
 from . import effort
 from . import task
@@ -88,7 +89,10 @@ class addViewers(object):  # pylint: disable=C0103, R0903
         """Open viewers of the specified viewer class as saved previously in
         the settings."""
         number_of_viewers_to_add = self._number_of_viewers_to_add(viewer_class)
-        for _ in range(number_of_viewers_to_add):
+        if number_of_viewers_to_add > 0:
+            _aui_log(f"Factory: Adding {number_of_viewers_to_add} {viewer_class.__name__} viewer(s)")
+        for i in range(number_of_viewers_to_add):
+            _aui_log(f"  Creating {viewer_class.__name__} instance {i+1}/{number_of_viewers_to_add}")
             viewer_instance = viewer_class(
                 *self.__viewer_init_args, **self._viewer_kwargs(viewer_class)
             )
