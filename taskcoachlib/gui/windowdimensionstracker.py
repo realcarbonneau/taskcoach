@@ -71,16 +71,18 @@ class WindowDimensionsTracker:
     This is the standard wxPython approach for window geometry persistence.
     PersistenceManager handles:
     - Cross-platform window geometry save/restore
-    - Multi-monitor validation
     - Maximized/iconized state
 
     We add:
     - Custom config handler to use Task Coach's settings (not a separate file)
-    - Post-Show() position re-application for GTK compatibility
+    - Multi-monitor support (track monitor index, handle config changes)
+    - Post-Show() position re-application for GTK/X11 compatibility
     - Task Coach specific settings (iconized, starticonized)
 
-    Note: On Wayland, window positioning is blocked by the compositor.
-    This is a security feature and cannot be worked around.
+    Platform notes:
+    - X11: Full positioning support, but requires re-apply after Show()
+    - Wayland: Positioning blocked by compositor (security feature)
+    - Windows/macOS: Full support
     """
 
     def __init__(self, window, settings):
@@ -93,7 +95,7 @@ class WindowDimensionsTracker:
         self._on_wayland = os.environ.get('XDG_SESSION_TYPE') == 'wayland' or \
                           os.environ.get('WAYLAND_DISPLAY') is not None
         if self._on_wayland:
-            _log_debug("Running on Wayland - window positioning may be limited")
+            _log_debug("Running on Wayland - window positioning blocked by compositor")
 
         # Set minimum size
         self._window.SetMinSize((600, 400))
@@ -133,7 +135,68 @@ class WindowDimensionsTracker:
         else:
             pos = self._window.GetPosition()
             size = self._window.GetSize()
-            _log_debug(f"Restored geometry: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
+            _log_debug(f"PersistenceManager restored: pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
+
+            # Validate and adjust for multi-monitor changes
+            self._validate_monitor_position()
+
+    def _validate_monitor_position(self):
+        """Validate window is on a valid monitor, adjust if needed.
+
+        Handles cases where:
+        - Saved monitor no longer exists
+        - Monitor configuration changed
+        - Window would be off-screen
+        """
+        # Get saved monitor index (Task Coach specific, not from PersistenceManager)
+        saved_monitor = self._settings.getvalue("window", "monitor_index")
+        num_monitors = wx.Display.GetCount()
+
+        _log_debug(f"Validating monitor: saved={saved_monitor}, available={num_monitors}")
+
+        # Check if window is currently on a valid display
+        current_display = wx.Display.GetFromWindow(self._window)
+
+        if current_display == wx.NOT_FOUND:
+            # Window is off-screen - move to saved monitor or primary
+            _log_debug("  Window is off-screen")
+            if saved_monitor is not None and 0 <= saved_monitor < num_monitors:
+                target_display = wx.Display(saved_monitor)
+            else:
+                target_display = wx.Display(0)
+
+            rect = target_display.GetGeometry()
+            size = self._window.GetSize()
+            x = rect.x + (rect.width - size.width) // 2
+            y = rect.y + (rect.height - size.height) // 2
+            _log_debug(f"  Moving to display {target_display}: ({x}, {y})")
+            self._window.SetPosition(wx.Point(x, y))
+
+        elif saved_monitor is not None and saved_monitor != current_display:
+            # Window restored to different monitor than saved
+            if 0 <= saved_monitor < num_monitors:
+                _log_debug(f"  Window on monitor {current_display}, should be on {saved_monitor}")
+                # Try to move to saved monitor (may not work on Wayland)
+                target_display = wx.Display(saved_monitor)
+                rect = target_display.GetGeometry()
+                pos = self._window.GetPosition()
+                size = self._window.GetSize()
+
+                # Calculate position on target monitor (preserve relative position)
+                current_rect = wx.Display(current_display).GetGeometry()
+                rel_x = pos.x - current_rect.x
+                rel_y = pos.y - current_rect.y
+                new_x = rect.x + rel_x
+                new_y = rect.y + rel_y
+
+                # Ensure window fits on target monitor
+                new_x = max(rect.x, min(new_x, rect.x + rect.width - size.width))
+                new_y = max(rect.y, min(new_y, rect.y + rect.height - size.height))
+
+                _log_debug(f"  Moving to saved monitor: ({new_x}, {new_y})")
+                self._window.SetPosition(wx.Point(new_x, new_y))
+            else:
+                _log_debug(f"  Saved monitor {saved_monitor} no longer exists, keeping current")
 
     def _should_start_iconized(self):
         """Return whether the window should be opened iconized."""
@@ -145,13 +208,13 @@ class WindowDimensionsTracker:
         return self._settings.getvalue("window", "iconized")
 
     def apply_position_after_show(self):
-        """Re-apply position after Show() for GTK compatibility.
+        """Re-apply position after Show() for GTK/X11 compatibility.
 
-        GTK may ignore SetSize()/Move() position when called before Show().
-        PersistenceManager's TLWHandler doesn't handle this, so we re-apply
-        the saved position after the window is visible.
+        On GTK/X11, SetPosition() before Show() may be ignored due to
+        asynchronous window operations. This re-applies the saved position
+        after the window is visible.
 
-        This is a known GTK limitation, not a bug in PersistenceManager.
+        On Wayland, this will have no effect (positioning blocked by compositor).
         """
         # Get the saved position from our config handler
         x = self._config_handler.RestoreValue("TaskCoachMainWindow/x")
@@ -170,26 +233,34 @@ class WindowDimensionsTracker:
             self._window.SetPosition(wx.Point(x, y))
 
             final = self._window.GetPosition()
+            _log_debug(f"  Final position: ({final.x}, {final.y})")
+
             if abs(final.x - x) > 50 or abs(final.y - y) > 50:
-                _log_debug(f"  WARNING: Position not applied (final={final.x}, {final.y})")
                 if self._on_wayland:
-                    _log_debug("  (Expected on Wayland - positioning blocked by compositor)")
+                    _log_debug("  Position not applied (expected on Wayland)")
+                else:
+                    _log_debug("  WARNING: Position not applied correctly")
 
     def save_position(self):
         """Save the position of the window.
 
-        Called when window is about to close.
+        Called when window is about to close. Saves both via PersistenceManager
+        and Task Coach specific settings (monitor index, iconized state).
         """
         iconized = self._window.IsIconized()
         maximized = self._window.IsMaximized()
         pos = self._window.GetPosition()
         size = self._window.GetSize()
+        monitor = wx.Display.GetFromWindow(self._window)
 
-        _log_debug(f"save_position: iconized={iconized} maximized={maximized}")
+        _log_debug(f"save_position: iconized={iconized} maximized={maximized} monitor={monitor}")
         _log_debug(f"  pos=({pos.x}, {pos.y}) size=({size.width}, {size.height})")
 
         # Save Task Coach specific settings
         self._settings.setvalue("window", "iconized", iconized)
+        if monitor != wx.NOT_FOUND:
+            self._settings.setvalue("window", "monitor_index", monitor)
+            _log_debug(f"  Saved monitor_index={monitor}")
 
         # Let PersistenceManager save the geometry via our custom handler
         if self._persistence_manager:
@@ -218,7 +289,7 @@ class WindowSizeAndPositionTracker(_Tracker):
     """Track the size and position of a dialog window.
 
     For dialogs, we use the simpler direct approach since they are
-    typically modal and don't have the same GTK positioning issues.
+    typically modal and positioned relative to their parent.
     """
 
     def __init__(self, window, settings, section):
