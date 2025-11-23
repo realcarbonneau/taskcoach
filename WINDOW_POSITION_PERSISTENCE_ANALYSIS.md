@@ -216,7 +216,7 @@ class MainWindow(wx.Frame):
         self._target_position = (100, 100)  # Loaded from settings
         self._window_activated = False  # Track when window is ready
 
-        # Set initial position hint via 4-param SetSize
+        # Set initial position (WM will likely ignore - corrected via EVT_MOVE)
         self.SetSize(self._target_position[0], self._target_position[1], 800, 600)
 
         self.Bind(wx.EVT_MOVE, self._on_move)
@@ -285,8 +285,8 @@ On Wayland, window positioning is **disabled by design**:
 ### For Task Coach
 
 1. **Implement EVT_MOVE detection** in `windowdimensionstracker.py`
-2. Use 4-param `SetSize(x, y, w, h)` to provide initial position hint
-3. Detect unplanned moves and immediately correct
+2. Use 4-param `SetSize(x, y, w, h)` to set initial position (WM will likely ignore on GTK)
+3. Detect unplanned moves via EVT_MOVE and immediately correct until EVT_ACTIVATE
 4. Add platform detection for Wayland (disable position restore)
 
 ### For wxWidgets Project

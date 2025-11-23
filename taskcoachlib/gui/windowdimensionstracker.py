@@ -176,7 +176,7 @@ class WindowSizeAndPositionTracker(_Tracker):
             self._pos_log_timer = wx.CallLater(interval, self._log_position_tick)
 
     def _restore_size_only(self):
-        """Restore size and provide position hint. Final position set after AUI."""
+        """Restore size and set initial position. Final position corrected via EVT_MOVE."""
         x, y = self.get_setting("position")
         width, height = self.get_setting("size")
         maximized = self.get_setting("maximized")
@@ -188,13 +188,14 @@ class WindowSizeAndPositionTracker(_Tracker):
         width = max(width, min_w) if width > 0 else min_w
         height = max(height, min_h) if height > 0 else min_h
 
-        # Use 4-parameter SetSize to provide position HINT to window manager
-        # GTK may not honor this before Show(), but it influences initial placement
+        # Set initial position and size. On GTK/Linux, the WM will likely ignore
+        # the position (wxPython cannot set GDK_HINT_USER_POS). Position is
+        # corrected via EVT_MOVE detection after window is shown.
         if x == -1 and y == -1:
-            # No saved position - just set size, let window manager center
+            # No saved position - just set size, let window manager place it
             self._window.SetSize(width, height)
         else:
-            # Provide position hint along with size
+            # Set initial position along with size
             self._window.SetSize(x, y, width, height)
 
         if operating_system.isMac():

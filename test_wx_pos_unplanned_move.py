@@ -21,7 +21,7 @@ class TestFrame(wx.Frame):
         self.activate_count = 0
         self.corrections_made = 0
 
-        # Set position via 4-param SetSize (provides position hint)
+        # Set initial position via 4-param SetSize (WM will likely ignore this)
         self.SetSize(TARGET[0], TARGET[1], 200, 150)
 
         # Bind events
