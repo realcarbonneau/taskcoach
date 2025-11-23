@@ -229,6 +229,9 @@ class MainWindow(
             self.showStatusBar, self.settings.getboolean("view", "statusbar")
         )
         self.__restore_perspective()
+        # Apply window position AFTER AUI LoadPerspective completes
+        # (LoadPerspective overrides window position, so we must set it after)
+        self.__dimensions_tracker.apply_saved_position()
 
     def __restore_perspective(self):
         perspective = self.settings.get("view", "perspective")
