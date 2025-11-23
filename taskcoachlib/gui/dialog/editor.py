@@ -469,15 +469,16 @@ class TaskAppearancePage(Page):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
 
-        # TEST: Make this EXACTLY like the working test dropdown
-        # Use 85 items, simple colored bitmaps, selection at 40
-        test_items = [(f"Item {i}", f"Test Item {i} - Label") for i in range(85)]
+        # TEST: Add back real icons (wx.ArtProvider) - is this the issue?
+        from taskcoachlib.gui import artprovider
+        imageNames = sorted(artprovider.chooseableItemImages.keys())
 
         self._iconEntry = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
-        for i, (name, label) in enumerate(test_items):
-            bmp = self._createTestBitmap(i)
-            self._iconEntry.Append(label, bmp)
-        self._iconEntry.SetSelection(40)
+        for imageName in imageNames:
+            label = artprovider.chooseableItemImages[imageName]
+            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
+            self._iconEntry.Append(label, bitmap)
+        self._iconEntry.SetSelection(40)  # Keep selection at 40 for testing
 
         # Dummy GetValue for now
         def getIconValue():
