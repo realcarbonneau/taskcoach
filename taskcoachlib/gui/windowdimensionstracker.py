@@ -226,8 +226,9 @@ class WindowSizeAndPositionTracker(_Tracker):
         x, y = self.get_setting("position")
         width, height = self.get_setting("size")
         maximized = self.get_setting("maximized")
+        saved_monitor = self.get_setting("monitor_index")
 
-        _log_debug(f"RESTORE: pos=({x}, {y}) size=({width}, {height}) maximized={maximized}")
+        _log_debug(f"RESTORE: pos=({x}, {y}) size=({width}, {height}) maximized={maximized} monitor={saved_monitor}")
 
         # Enforce minimum size
         min_w, min_h = self._window.GetMinSize()
@@ -261,8 +262,19 @@ class WindowSizeAndPositionTracker(_Tracker):
         # Store target size (AUI/GTK may reset it during initialization)
         self._target_size = (width, height)
 
-        # Handle maximized state
+        # Handle maximized state - maximize on the correct monitor
         if maximized:
+            # Position window on the saved monitor before maximizing
+            if saved_monitor is not None and saved_monitor != wx.NOT_FOUND:
+                num_displays = wx.Display.GetCount()
+                if saved_monitor < num_displays:
+                    display = wx.Display(saved_monitor)
+                    geometry = display.GetGeometry()
+                    # Move to center of the target monitor before maximizing
+                    center_x = geometry.x + (geometry.width - width) // 2
+                    center_y = geometry.y + (geometry.height - height) // 2
+                    _log_debug(f"  Positioning on monitor {saved_monitor} at ({center_x}, {center_y}) before maximize")
+                    self._window.SetPosition(wx.Point(center_x, center_y))
             self._window.Maximize()
             self._target_position = None  # Don't correct position when maximized
             self._target_size = None  # Don't correct size when maximized
@@ -314,10 +326,21 @@ class WindowSizeAndPositionTracker(_Tracker):
         _log_debug(f"  GetPosition()=({current_pos.x}, {current_pos.y}) GetSize()=({current_size.width}, {current_size.height})")
         _log_debug(f"  Cached: pos={self._cached_position} size={self._cached_size}")
 
-        # Use cached position if current looks corrupted (GTK bug)
-        if current_pos.x < 100 and current_pos.y < 50:
+        # When maximized, GetPosition() returns garbage - use cached position
+        # Also use cache if current looks corrupted (GTK bug)
+        if maximized and self._cached_position:
+            _log_debug(f"  Using cached position (maximized)")
+            save_pos = self._cached_position
+        elif current_pos.x < 100 and current_pos.y < 50:
             if self._cached_position and (self._cached_position[0] > 100 or self._cached_position[1] > 50):
                 _log_debug(f"  Using cached position (GTK bug workaround)")
+                save_pos = self._cached_position
+            else:
+                save_pos = (current_pos.x, current_pos.y)
+        elif current_pos.y < 0:
+            # GTK sometimes returns negative y when maximized
+            if self._cached_position:
+                _log_debug(f"  Using cached position (negative y)")
                 save_pos = self._cached_position
             else:
                 save_pos = (current_pos.x, current_pos.y)
@@ -326,16 +349,23 @@ class WindowSizeAndPositionTracker(_Tracker):
 
         save_size = self._cached_size if self._cached_size else (current_size.width, current_size.height)
 
-        _log_debug(f"  SAVING: pos={save_pos} size={save_size}")
+        _log_debug(f"  SAVING: pos={save_pos} size={save_size} monitor={monitor}")
 
         self.set_setting("maximized", maximized)
 
         if not iconized:
             self.set_setting("position", save_pos)
 
-            pos_monitor = wx.Display.GetFromPoint(wx.Point(save_pos[0], save_pos[1]))
-            if pos_monitor != wx.NOT_FOUND:
-                self.set_setting("monitor_index", pos_monitor)
+            # When maximized, use GetFromWindow (position may not reflect actual monitor)
+            # Otherwise use position-based detection
+            if maximized:
+                save_monitor = monitor  # Use GetFromWindow result
+            else:
+                save_monitor = wx.Display.GetFromPoint(wx.Point(save_pos[0], save_pos[1]))
+
+            if save_monitor != wx.NOT_FOUND:
+                self.set_setting("monitor_index", save_monitor)
+                _log_debug(f"  Saved monitor_index={save_monitor}")
 
             if not maximized:
                 if operating_system.isMac():
