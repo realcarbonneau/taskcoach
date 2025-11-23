@@ -36,14 +36,137 @@ import subprocess
 
 def _log_gui_environment():
     """Log GUI environment details for debugging window positioning issues."""
+    import platform
+
     print("\n" + "="*60)
     print("GUI ENVIRONMENT INFO")
     print("="*60)
 
-    # Basic display info
+    # Basic info
+    print(f"Platform: {sys.platform}")
+    print(f"Python: {platform.python_version()}")
     print(f"wx.Version: {wx.version()}")
     print(f"wx.PlatformInfo: {wx.PlatformInfo}")
 
+    # Platform-specific info
+    if sys.platform == 'win32':
+        _log_windows_environment()
+    elif sys.platform == 'darwin':
+        _log_macos_environment()
+    else:
+        _log_linux_environment()
+
+    # Display/monitor info (cross-platform)
+    try:
+        num_displays = wx.Display.GetCount()
+        print(f"Number of displays: {num_displays}")
+        for i in range(num_displays):
+            display = wx.Display(i)
+            geom = display.GetGeometry()
+            client = display.GetClientArea()
+            # Get DPI/scaling if available
+            try:
+                ppi = display.GetPPI()
+                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                      f"client_area={client.x},{client.y} {client.width}x{client.height}  "
+                      f"PPI={ppi.x}x{ppi.y}")
+            except Exception:
+                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                      f"client_area={client.x},{client.y} {client.width}x{client.height}")
+    except Exception as e:
+        print(f"Display info unavailable: {e}")
+
+    print("="*60 + "\n")
+
+
+def _log_windows_environment():
+    """Log Windows-specific GUI environment info."""
+    import platform
+
+    # Windows version
+    print(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
+    print(f"Windows Edition: {platform.win32_edition()}")
+
+    # DPI awareness
+    try:
+        import ctypes
+        awareness = ctypes.windll.shcore.GetProcessDpiAwareness(0)
+        awareness_names = {0: 'Unaware', 1: 'System', 2: 'PerMonitor'}
+        print(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
+    except Exception as e:
+        print(f"DPI Awareness: unavailable ({e})")
+
+    # DWM (Desktop Window Manager) composition
+    try:
+        import ctypes
+        dwm_enabled = ctypes.c_bool()
+        ctypes.windll.dwmapi.DwmIsCompositionEnabled(ctypes.byref(dwm_enabled))
+        print(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
+    except Exception as e:
+        print(f"DWM Composition: unavailable ({e})")
+
+    # System DPI
+    try:
+        import ctypes
+        hdc = ctypes.windll.user32.GetDC(0)
+        dpi_x = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
+        dpi_y = ctypes.windll.gdi32.GetDeviceCaps(hdc, 90)  # LOGPIXELSY
+        ctypes.windll.user32.ReleaseDC(0, hdc)
+        print(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
+    except Exception as e:
+        print(f"System DPI: unavailable ({e})")
+
+
+def _log_macos_environment():
+    """Log macOS-specific GUI environment info."""
+    import platform
+
+    # macOS version
+    mac_ver = platform.mac_ver()
+    print(f"macOS Version: {mac_ver[0]}")
+    print(f"Architecture: {mac_ver[2]}")
+
+    # Check if running under Rosetta (Apple Silicon)
+    try:
+        result = subprocess.run(['sysctl', '-n', 'sysctl.proc_translated'],
+                               capture_output=True, text=True, timeout=2)
+        if result.returncode == 0 and result.stdout.strip() == '1':
+            print("Rosetta 2: Yes (x86_64 on ARM)")
+        else:
+            print("Rosetta 2: No (native)")
+    except Exception:
+        pass
+
+    # Retina/scaling info via system_profiler (slow but comprehensive)
+    try:
+        result = subprocess.run(
+            ['system_profiler', 'SPDisplaysDataType', '-json'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            displays = data.get('SPDisplaysDataType', [{}])[0].get('spdisplays_ndrvs', [])
+            for i, disp in enumerate(displays):
+                res = disp.get('_spdisplays_resolution', 'unknown')
+                retina = disp.get('spdisplays_retina', 'unknown')
+                print(f"  macOS Display {i}: {res} Retina={retina}")
+    except Exception:
+        pass
+
+    # Window server info
+    try:
+        result = subprocess.run(['defaults', 'read', 'com.apple.WindowServer'],
+                               capture_output=True, text=True, timeout=2)
+        # Just check if it runs - detailed parsing would be verbose
+        if result.returncode == 0:
+            print("WindowServer: accessible")
+    except Exception:
+        pass
+
+
+def _log_linux_environment():
+    """Log Linux/GTK-specific GUI environment info."""
     # Session type
     session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
     print(f"XDG_SESSION_TYPE: {session_type}")
@@ -63,6 +186,13 @@ def _log_gui_environment():
         print(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
     except Exception as e:
         print(f"GTK Version: unavailable ({e})")
+
+    # GDK backend
+    try:
+        gdk_backend = os.environ.get('GDK_BACKEND', 'auto')
+        print(f"GDK_BACKEND: {gdk_backend}")
+    except Exception:
+        pass
 
     # Window manager detection
     wm_name = "unknown"
@@ -121,26 +251,19 @@ def _log_gui_environment():
             result = subprocess.run(['metacity', '--version'], capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
                 wm_version = result.stdout.strip()
+        elif 'i3' in wm_lower:
+            result = subprocess.run(['i3', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.split('\n')[0]
+        elif 'sway' in wm_lower:
+            result = subprocess.run(['sway', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.strip()
     except Exception:
         pass
 
     print(f"Window Manager: {wm_name}")
     print(f"WM Version: {wm_version}")
-
-    # Display/monitor info
-    try:
-        num_displays = wx.Display.GetCount()
-        print(f"Number of displays: {num_displays}")
-        for i in range(num_displays):
-            display = wx.Display(i)
-            geom = display.GetGeometry()
-            client = display.GetClientArea()
-            print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
-                  f"client_area={client.x},{client.y} {client.width}x{client.height}")
-    except Exception as e:
-        print(f"Display info unavailable: {e}")
-
-    print("="*60 + "\n")
 
 
 class RedirectedOutput(object):
