@@ -433,10 +433,16 @@ If this happens again, please make a copy of your TaskCoach.ini file """
     def showStatusBar(self, value=True):
         # FIXME: First hiding the statusbar, then hiding the toolbar, then
         # showing the statusbar puts it in the wrong place (only on Linux?)
+        pos_before = self.GetPosition()
+        print(f"[DEBUG] showStatusBar: BEFORE pos=({pos_before.x}, {pos_before.y}) value={value}")
         statusBar = self.GetStatusBar()
         if statusBar:
             statusBar.Show(value)
+            pos_after_show = self.GetPosition()
+            print(f"[DEBUG] showStatusBar: AFTER statusBar.Show() pos=({pos_after_show.x}, {pos_after_show.y})")
             self.SendSizeEvent()
+            pos_after_size = self.GetPosition()
+            print(f"[DEBUG] showStatusBar: AFTER SendSizeEvent() pos=({pos_after_size.x}, {pos_after_size.y})")
 
     def createToolBarUICommands(self):
         """UI commands to put on the toolbar of this window."""

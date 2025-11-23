@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import wx
 import time
+import traceback
 from taskcoachlib import operating_system
 
 # Debug logging for window position tracking (set to False to disable)
@@ -112,6 +113,11 @@ class WindowSizeAndPositionTracker(_Tracker):
                 # Unplanned move detected - GTK moved window away from our target
                 target = self._target_position
                 _log_debug(f"_on_move: UNPLANNED MOVE detected! Window at ({pos.x}, {pos.y}), correcting to {target}")
+                # Print stack trace to see what triggered this move
+                _log_debug("_on_move: Stack trace of unplanned move:")
+                for line in traceback.format_stack():
+                    for subline in line.strip().split('\n'):
+                        _log_debug(f"  {subline}")
                 # Immediately correct the position
                 self._window.SetPosition(wx.Point(target[0], target[1]))
                 after_pos = self._window.GetPosition()
