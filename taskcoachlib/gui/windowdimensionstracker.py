@@ -319,13 +319,12 @@ class WindowSizeAndPositionTracker(_Tracker):
     def save_state(self):
         """Save the current window state. Call when window is about to close."""
         maximized = self._window.IsMaximized()
-        iconized = self._window.IsIconized()
 
         current_pos = self._window.GetPosition()
         current_size = self._window.GetSize()
         monitor = wx.Display.GetFromWindow(self._window)
 
-        _log_debug(f"SAVE: maximized={maximized} iconized={iconized} monitor={monitor}")
+        _log_debug(f"SAVE: maximized={maximized} monitor={monitor}")
         _log_debug(f"  GetPosition()=({current_pos.x}, {current_pos.y}) GetSize()=({current_size.width}, {current_size.height})")
         _log_debug(f"  Cached: pos={self._cached_position} size={self._cached_size}")
 
@@ -354,27 +353,26 @@ class WindowSizeAndPositionTracker(_Tracker):
 
         self.set_setting("maximized", maximized)
 
-        if not iconized:
-            # When maximized, ONLY save the monitor - preserve last non-maximized position/size
-            # This is what "restore" will use when user un-maximizes
-            if maximized:
-                _log_debug(f"  SAVING: maximized=True monitor={monitor} (preserving non-maximized pos/size)")
-                if monitor != wx.NOT_FOUND:
-                    self.set_setting("monitor_index", monitor)
-                    _log_debug(f"  Saved monitor_index={monitor}")
-            else:
-                # Only save position/size when NOT maximized
-                _log_debug(f"  SAVING: pos={save_pos} size={save_size} monitor (from pos)")
-                self.set_setting("position", save_pos)
+        # When maximized, ONLY save the monitor - preserve last non-maximized position/size
+        # This is what "restore" will use when user un-maximizes
+        if maximized:
+            _log_debug(f"  SAVING: maximized=True monitor={monitor} (preserving non-maximized pos/size)")
+            if monitor != wx.NOT_FOUND:
+                self.set_setting("monitor_index", monitor)
+                _log_debug(f"  Saved monitor_index={monitor}")
+        else:
+            # Only save position/size when NOT maximized
+            _log_debug(f"  SAVING: pos={save_pos} size={save_size} monitor (from pos)")
+            self.set_setting("position", save_pos)
 
-                save_monitor = wx.Display.GetFromPoint(wx.Point(save_pos[0], save_pos[1]))
-                if save_monitor != wx.NOT_FOUND:
-                    self.set_setting("monitor_index", save_monitor)
-                    _log_debug(f"  Saved monitor_index={save_monitor}")
+            save_monitor = wx.Display.GetFromPoint(wx.Point(save_pos[0], save_pos[1]))
+            if save_monitor != wx.NOT_FOUND:
+                self.set_setting("monitor_index", save_monitor)
+                _log_debug(f"  Saved monitor_index={save_monitor}")
 
-                if operating_system.isMac():
-                    save_size = (self._window.GetClientSize().width, self._window.GetClientSize().height)
-                self.set_setting("size", save_size)
+            if operating_system.isMac():
+                save_size = (self._window.GetClientSize().width, self._window.GetClientSize().height)
+            self.set_setting("size", save_size)
 
 
 class WindowDimensionsTracker(WindowSizeAndPositionTracker):
@@ -394,13 +392,8 @@ class WindowDimensionsTracker(WindowSizeAndPositionTracker):
     def _should_start_iconized(self):
         """Return whether the window should be opened iconized."""
         start_iconized = self._settings.get("window", "starticonized")
-        if start_iconized == "Always":
-            return True
-        if start_iconized == "Never":
-            return False
-        return self.get_setting("iconized")
+        return start_iconized == "Always"
 
     def save_position(self):
         """Save the position of the window in the settings."""
-        self.set_setting("iconized", self._window.IsIconized())
         self.save_state()
