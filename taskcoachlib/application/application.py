@@ -417,6 +417,10 @@ class Application(object, metaclass=patterns.Singleton):
         # Register cleanup via atexit (runs before Python's final cleanup)
         atexit.register(cleanup_wx)
 
+        # Track signal handling state for double-press detection
+        self._sigint_count = 0
+        self._sigint_time = 0
+
         def sigint_handler(signum, frame):
             """Handle Ctrl+C gracefully.
 
@@ -424,10 +428,27 @@ class Application(object, metaclass=patterns.Singleton):
             - Signal handlers run in interrupt context
             - wx.CallAfter doesn't wake up blocked event loop
             - We need to terminate the wx main loop
+
+            Solution: First press tries graceful exit, second press forces exit.
             """
-            # Post quit to main thread and exit the main loop
+            import time
+            import os
+
+            current_time = time.time()
+
+            # If pressed twice within 2 seconds, force exit
+            if self._sigint_count > 0 and (current_time - self._sigint_time) < 2.0:
+                print("\nForce exit (Ctrl+C pressed twice)")
+                # Run cleanup synchronously before exit
+                cleanup_wx()
+                os._exit(0)  # Force exit - bypasses wx event loop
+
+            self._sigint_count += 1
+            self._sigint_time = current_time
+            print("\nCtrl+C received - press again within 2 seconds to force quit")
+
+            # Try graceful exit through wx
             try:
-                # Try to quit gracefully through wx
                 wx.CallAfter(self.__wx_app.ExitMainLoop)
             except Exception:
                 pass

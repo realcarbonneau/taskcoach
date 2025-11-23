@@ -78,6 +78,7 @@ class WindowSizeAndPositionTracker(_Tracker):
         self._section = section  # Store for logging
         self._tracking_enabled = False
         self._show_handler_bound = False
+        self._loaded_size = None  # Track size we loaded to detect spurious min-size events
         # Phase 1: Only restore dimensions - DO NOT bind events yet
         self.__set_dimensions()
 
@@ -137,6 +138,17 @@ class WindowSizeAndPositionTracker(_Tracker):
                 if operating_system.isMac()
                 else new_size
             )
+            # Filter spurious minimum-size events from AUI initialization
+            # These occur when AUI re-layouts after Show() and temporarily sets min size
+            if self._loaded_size:
+                min_width = 600 if not isinstance(self._window, wx.Dialog) else 400
+                min_height = 400 if not isinstance(self._window, wx.Dialog) else 300
+                is_min_size = (size_to_save[0] <= min_width and size_to_save[1] <= min_height)
+                loaded_was_larger = (self._loaded_size[0] > min_width or self._loaded_size[1] > min_height)
+                if is_min_size and loaded_was_larger:
+                    _log_debug(f"on_change_size: IGNORING spurious min-size {size_to_save}")
+                    event.Skip()
+                    return
             _log_debug(f"on_change_size: SAVING {size_to_save}")
             self.set_setting("size", size_to_save)
         # Jerome, 2008/07/12: On my system (KDE 3.5.7), EVT_MAXIMIZE
@@ -200,6 +212,8 @@ class WindowSizeAndPositionTracker(_Tracker):
         x, y = self.get_setting("position")  # pylint: disable=C0103
         width, height = self.get_setting("size")
         _log_debug(f"__set_dimensions: LOADED pos=({x}, {y}) size=({width}, {height})")
+        # Store loaded size to detect spurious min-size events later
+        self._loaded_size = (width, height)
 
         # Enforce minimum window size to prevent GTK warnings and usability issues
         # Different minimums for dialogs vs main windows
