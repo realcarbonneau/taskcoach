@@ -24,6 +24,7 @@ class TestFrame(wx.Frame):
 
         self.move_count = 0
         self.position_applied = False
+        self.last_move_time = time.time()
 
         # Add a panel with position info
         panel = wx.Panel(self)
@@ -49,18 +50,36 @@ class TestFrame(wx.Frame):
     def on_move(self, event):
         self.move_count += 1
         pos = event.GetPosition()
+        self.last_move_time = time.time()
         print(f"EVT_MOVE #{self.move_count}: position=({pos.x}, {pos.y}) applied={self.position_applied}")
 
-        # If WM moved us and we haven't applied our position yet, apply it now
+        # Don't apply immediately - wait for WM to finish all its moves
+        # Schedule a delayed check instead (debounce)
         if not self.position_applied:
-            self.position_applied = True
-            print(f"  -> Applying target position {TARGET_POS} via SetPosition...")
-            self.SetPosition(wx.Point(*TARGET_POS))
-            new_pos = self.GetPosition()
-            print(f"  -> After SetPosition: ({new_pos.x}, {new_pos.y})")
+            wx.CallLater(100, self._check_and_apply_position)
 
         self.update_position()
         event.Skip()
+
+    def _check_and_apply_position(self):
+        """Apply position only after WM has stopped moving the window (debounce)."""
+        if self.position_applied:
+            return
+
+        # If a move happened in the last 100ms, wait more
+        elapsed = time.time() - self.last_move_time
+        if elapsed < 0.1:
+            wx.CallLater(100, self._check_and_apply_position)
+            print(f"  -> Waiting for WM to settle (last move {elapsed*1000:.0f}ms ago)")
+            return
+
+        self.position_applied = True
+        pos_before = self.GetPosition()
+        print(f"  -> WM settled at ({pos_before.x}, {pos_before.y}) after {self.move_count} moves")
+        print(f"  -> Applying target position {TARGET_POS}...")
+        self.SetPosition(wx.Point(*TARGET_POS))
+        pos_after = self.GetPosition()
+        print(f"  -> After SetPosition: ({pos_after.x}, {pos_after.y})")
 
     def on_show(self, event):
         pos = self.GetPosition()
