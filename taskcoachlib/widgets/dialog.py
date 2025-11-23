@@ -21,6 +21,7 @@ from taskcoachlib.i18n import _
 from wx.lib.agw import aui
 from . import notebook
 import wx
+import wx.adv
 import wx.html
 from wx.lib import sized_controls
 import os
@@ -201,15 +202,73 @@ class HTMLDialog(Dialog):
         super().__init__(parent, title, buttonTypes=wx.ID_CLOSE, *args, **kwargs)
 
     def createInterior(self):
-        interior = HtmlWindowThatUsesWebBrowserForExternalLinks(
-            self._panel, -1, size=(550, 400)
+        # Create a panel to hold both HTML content and test dropdowns
+        panel = wx.Panel(self._panel)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # HTML content
+        html_window = HtmlWindowThatUsesWebBrowserForExternalLinks(
+            panel, -1, size=(550, 350)
         )
         if self._direction:
-            interior.SetLayoutDirection(self._direction)
-        return interior
+            html_window.SetLayoutDirection(self._direction)
+        self._html_window = html_window
+        sizer.Add(html_window, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
+
+        # Test dropdowns section
+        test_panel = wx.Panel(panel)
+        test_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        test_sizer.Add(
+            wx.StaticText(test_panel, label="--- Test Dropdowns (85 items, selection at 40) ---"),
+            flag=wx.ALL, border=2
+        )
+
+        # Generate test items
+        test_items = [(f"Item {i}", f"Test Item {i} - Label Text") for i in range(85)]
+
+        # Test 1: BitmapComboBox
+        row1 = wx.BoxSizer(wx.HORIZONTAL)
+        row1.Add(wx.StaticText(test_panel, label="BitmapComboBox:"),
+                 flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=5)
+        self._test_bitmap_combo = wx.adv.BitmapComboBox(test_panel, style=wx.CB_READONLY)
+        for i, (name, label) in enumerate(test_items):
+            bmp = self._create_test_bitmap(i)
+            self._test_bitmap_combo.Append(label, bmp)
+        self._test_bitmap_combo.SetSelection(40)
+        row1.Add(self._test_bitmap_combo, proportion=1, flag=wx.EXPAND)
+        test_sizer.Add(row1, flag=wx.EXPAND | wx.ALL, border=2)
+
+        # Test 2: wx.Choice
+        row2 = wx.BoxSizer(wx.HORIZONTAL)
+        row2.Add(wx.StaticText(test_panel, label="wx.Choice:"),
+                 flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=5)
+        self._test_choice = wx.Choice(test_panel, choices=[item[1] for item in test_items])
+        self._test_choice.SetSelection(40)
+        row2.Add(self._test_choice, proportion=1, flag=wx.EXPAND)
+        test_sizer.Add(row2, flag=wx.EXPAND | wx.ALL, border=2)
+
+        test_panel.SetSizer(test_sizer)
+        sizer.Add(test_panel, proportion=0, flag=wx.EXPAND | wx.ALL, border=5)
+
+        panel.SetSizer(sizer)
+        return panel
+
+    def _create_test_bitmap(self, index):
+        """Create a simple colored bitmap for testing."""
+        bmp = wx.Bitmap(16, 16)
+        dc = wx.MemoryDC(bmp)
+        r = (index * 3) % 256
+        g = (index * 7) % 256
+        b = (index * 11) % 256
+        dc.SetBrush(wx.Brush(wx.Colour(r, g, b)))
+        dc.SetPen(wx.Pen(wx.Colour(0, 0, 0)))
+        dc.DrawRectangle(0, 0, 16, 16)
+        dc.SelectObject(wx.NullBitmap)
+        return bmp
 
     def fillInterior(self):
-        self._interior.AppendToPage(self._htmlText)
+        self._html_window.AppendToPage(self._htmlText)
 
     def OnLinkClicked(self, linkInfo):
         pass
