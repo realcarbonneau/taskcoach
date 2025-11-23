@@ -823,6 +823,7 @@ class HelpMenu(Menu):
             None,
             uicommand.RequestSupport(),
             uicommand.ReportBug(),
+            uicommand.RequestFeature(),
             None,
             uicommand.HelpTranslate(),
             uicommand.Donate(),
