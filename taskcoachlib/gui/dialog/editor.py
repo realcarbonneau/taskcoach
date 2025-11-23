@@ -468,14 +468,46 @@ class TaskAppearancePage(Page):
     def addIconEntry(self):
         # pylint: disable=W0201,E1101
         currentIcon = self.items[0].icon() if len(self.items) == 1 else ""
-        self._iconEntry = entry.IconEntry(self, currentIcon)
+
+        # TEST: Use direct BitmapComboBox (no subclass) - same as working test pattern
+        from taskcoachlib.gui import artprovider
+        imageNames = sorted(artprovider.chooseableItemImages.keys())
+
+        self._iconEntry = wx.adv.BitmapComboBox(self, style=wx.CB_READONLY)
+        self._iconImageNames = imageNames  # Store for GetValue
+
+        for imageName in imageNames:
+            label = artprovider.chooseableItemImages[imageName]
+            bitmap = wx.ArtProvider.GetBitmap(imageName, wx.ART_MENU, (16, 16))
+            self._iconEntry.Append(label, bitmap)
+
+        # Set selection based on current icon
+        if currentIcon in imageNames:
+            self._iconEntry.SetSelection(imageNames.index(currentIcon))
+        else:
+            self._iconEntry.SetSelection(0)
+
+        # Add GetValue method for AttributeSync compatibility
+        def getIconValue():
+            idx = self._iconEntry.GetSelection()
+            if idx >= 0 and idx < len(self._iconImageNames):
+                return self._iconImageNames[idx]
+            return ""
+        self._iconEntry.GetValue = getIconValue
+
+        # Add SetValue method
+        def setIconValue(value):
+            if value in self._iconImageNames:
+                self._iconEntry.SetSelection(self._iconImageNames.index(value))
+        self._iconEntry.SetValue = setIconValue
+
         self._iconSync = attributesync.AttributeSync(
             "icon",
             self._iconEntry,
             currentIcon,
             self.items,
             command.EditIconCommand,
-            entry.EVT_ICONENTRY,
+            wx.EVT_COMBOBOX,  # Use standard event, not custom
             self.items[0].appearanceChangedEventType(),
         )
         self.addEntry(
@@ -755,16 +787,41 @@ class ProgressPage(Page):
             if len(self.items) == 1
             else None
         )
-        self._shouldMarkCompletedEntry = entry.ChoiceEntry(
-            self, choices, currentChoice
-        )
+
+        # TEST: Use direct wx.Choice (no subclass) - same as working test pattern
+        choice_labels = [text for value, text in choices]
+        choice_values = [value for value, text in choices]
+
+        self._shouldMarkCompletedEntry = wx.Choice(self, choices=choice_labels)
+        self._choiceValues = choice_values  # Store for GetValue
+
+        # Set selection based on current choice
+        if currentChoice in choice_values:
+            self._shouldMarkCompletedEntry.SetSelection(choice_values.index(currentChoice))
+        else:
+            self._shouldMarkCompletedEntry.SetSelection(0)
+
+        # Add GetValue method for AttributeSync compatibility
+        def getChoiceValue():
+            idx = self._shouldMarkCompletedEntry.GetSelection()
+            if idx >= 0 and idx < len(self._choiceValues):
+                return self._choiceValues[idx]
+            return None
+        self._shouldMarkCompletedEntry.GetValue = getChoiceValue
+
+        # Add SetValue method
+        def setChoiceValue(value):
+            if value in self._choiceValues:
+                self._shouldMarkCompletedEntry.SetSelection(self._choiceValues.index(value))
+        self._shouldMarkCompletedEntry.SetValue = setChoiceValue
+
         self._shouldMarkCompletedSync = attributesync.AttributeSync(
             "shouldMarkCompletedWhenAllChildrenCompleted",
             self._shouldMarkCompletedEntry,
             currentChoice,
             self.items,
             command.EditShouldMarkCompletedCommand,
-            entry.EVT_CHOICEENTRY,
+            wx.EVT_CHOICE,  # Use standard event, not custom
             task.Task.shouldMarkCompletedWhenAllChildrenCompletedChangedEventType(),
         )
         self.addEntry(
