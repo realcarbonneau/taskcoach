@@ -54,15 +54,20 @@ class _Tracker:
 class WindowSizeAndPositionTracker(_Tracker):
     """Track the size and position of a window in the settings.
 
-    GTK/Linux Position Correction:
+    GTK/Linux Position and Size Correction:
     On GTK, the window manager ignores initial window position because wxPython
-    cannot set the GDK_HINT_USER_POS hint. We handle this by:
-    1. Setting target position in __init__ via _restore_size_only()
-    2. Correcting position on every EVT_MOVE until EVT_ACTIVATE fires
-    3. EVT_ACTIVATE signals window is ready for input - stop correcting
+    cannot set the GDK_HINT_USER_POS hint. AUI also resets size to minimum.
+    We handle this by:
+    1. Setting target position/size in __init__ via _restore_size_only()
+    2. Correcting position AND size on every EVT_MOVE/EVT_SIZE until window is ready
+    3. Window is ready when: EVT_ACTIVATE has fired AND position AND size match target
+    4. Only after window is ready, maximize if saved state was maximized
+
+    Note: EVT_ACTIVATE does NOT mean GTK/WM is done - it only means window gained focus.
+    GTK/WM may continue sending move/size events after EVT_ACTIVATE.
 
     Platform notes:
-    - X11/GTK: Position corrected via EVT_MOVE until EVT_ACTIVATE
+    - X11/GTK: Position/size corrected until window is ready
     - Wayland: Positioning blocked by compositor (security feature)
     - Windows/macOS: Full support (no correction needed)
     """
@@ -247,10 +252,11 @@ class WindowSizeAndPositionTracker(_Tracker):
         event.Skip()
 
     def _on_activate(self, event):
-        """Window activated (gained focus) - mark activated and check if ready.
+        """Window gained focus - mark activated and check if ready.
 
-        EVT_ACTIVATE with active=True signals the window has gained focus.
-        Combined with position and size matching target, this means window is ready.
+        EVT_ACTIVATE only means window gained focus, NOT that GTK/WM is done.
+        GTK/WM may continue sending move/size events after this.
+        Window is ready only when: activated AND position AND size match target.
         """
         if event.GetActive() and not self._activated:
             self._activated = True
