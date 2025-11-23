@@ -116,6 +116,9 @@ class WindowSizeAndPositionTracker(_Tracker):
                 self._window.SetPosition(wx.Point(target[0], target[1]))
                 after_pos = self._window.GetPosition()
                 _log_debug(f"_on_move: After SetPosition, pos=({after_pos.x}, {after_pos.y})")
+                # Don't call Skip() - try to prevent GTK from processing this move
+                _log_debug(f"_on_move: NOT calling Skip() to try to block GTK")
+                return
 
         # Cache position for save (only after position has been applied)
         if self._position_applied and not self._window.IsIconized() and not self._window.IsMaximized():
