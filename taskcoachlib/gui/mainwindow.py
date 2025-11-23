@@ -227,16 +227,11 @@ class MainWindow(
         )
 
     def __init_window_components(self):
-        pos_before = self.GetPosition()
-        print(f"[DEBUG] __init_window_components: START pos=({pos_before.x}, {pos_before.y})")
-
         # Freeze to prevent flickering during AUI layout restoration
         self.Freeze()
-        print(f"[DEBUG] __init_window_components: AFTER Freeze pos=({self.GetPosition().x}, {self.GetPosition().y})")
 
         try:
             self.showToolBar(self.settings.getvalue("view", "toolbar"))
-            print(f"[DEBUG] __init_window_components: AFTER showToolBar pos=({self.GetPosition().x}, {self.GetPosition().y})")
 
             # We use CallAfter because otherwise the statusbar will appear at the
             # top of the window when it is initially hidden and later shown.
@@ -245,9 +240,7 @@ class MainWindow(
             )
             self.__restore_perspective()
         finally:
-            print(f"[DEBUG] __init_window_components: BEFORE Thaw pos=({self.GetPosition().x}, {self.GetPosition().y})")
             self.Thaw()
-            print(f"[DEBUG] __init_window_components: AFTER Thaw pos=({self.GetPosition().x}, {self.GetPosition().y})")
 
         # Note: Window position/size tracking uses debouncing to handle spurious
         # events from AUI LoadPerspective() and GTK window realization.
@@ -263,9 +256,6 @@ class MainWindow(
                 # is changed between versions
                 perspective = ""
                 break
-
-        pos_before = self.GetPosition()
-        print(f"[DEBUG] __restore_perspective: BEFORE LoadPerspective pos=({pos_before.x}, {pos_before.y})")
 
         try:
             self.manager.LoadPerspective(perspective)
@@ -289,9 +279,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             )
             self.manager.LoadPerspective("")
 
-        pos_after_load = self.GetPosition()
-        print(f"[DEBUG] __restore_perspective: AFTER LoadPerspective pos=({pos_after_load.x}, {pos_after_load.y})")
-
         for pane in self.manager.GetAllPanes():
             # Prevent zombie panes by making sure all panes are visible
             if not pane.IsShown():
@@ -301,9 +288,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
         self.manager.Update()
-
-        pos_after_update = self.GetPosition()
-        print(f"[DEBUG] __restore_perspective: AFTER manager.Update() pos=({pos_after_update.x}, {pos_after_update.y})")
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
         perspective = self.settings.get("view", "perspective")

@@ -334,12 +334,14 @@ class WindowSizeAndPositionTracker(_Tracker):
                 self._window.SetSize(x, y, width, height)
                 # Set target for GTK position correction (will correct on EVT_MOVE until EVT_ACTIVATE)
                 self._target_position = (x, y)
+                _log_debug(f"  Set _target_position = {self._target_position}")
 
         if operating_system.isMac():
             self._window.SetClientSize((width, height))
 
         # Store target size (AUI/GTK may reset it during initialization)
         self._target_size = (width, height)
+        _log_debug(f"  Set _target_size = {self._target_size}")
 
         # Initialize cache
         self._cached_size = (width, height)
