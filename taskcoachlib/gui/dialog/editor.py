@@ -1954,6 +1954,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
 
     def on_close_editor(self, event):
         event.Skip()
+        # Save dialog position/size before closing
+        self.__dimensions_tracker.save()
         self._interior.close_edit_book()
         patterns.Publisher().removeObserver(self.on_item_removed)
         patterns.Publisher().removeObserver(self.on_subject_changed)
