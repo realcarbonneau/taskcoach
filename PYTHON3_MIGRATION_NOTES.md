@@ -9,8 +9,10 @@ This document captures technical issues, fixes, and refactorings discovered duri
 3. [Ctrl+C Crash with AUI Event Handler Assertion](#ctrlc-crash-with-aui-event-handler-assertion)
 4. [wxPython Compatibility](#wxpython-compatibility)
 5. [Bundled Third-Party Library Cleanup](#bundled-third-party-library-cleanup)
-6. [Known Issues](#known-issues)
-7. [Future Work](#future-work)
+6. [Twisted Framework Removal](#twisted-framework-removal)
+7. [Window Position Tracking with AUI](#window-position-tracking-with-aui)
+8. [Known Issues](#known-issues)
+9. [Future Work](#future-work)
 
 ---
 
@@ -580,7 +582,7 @@ When working with wx.Timer in the future, test all timing scenarios:
 
 **Date Fixed:** November 2025
 **Affected Components:** Application shutdown, signal handling
-**Root Cause:** AUI manager event handlers not cleaned up during Twisted reactor shutdown
+**Root Cause:** AUI manager event handlers not cleaned up before wxPython atexit handler runs
 
 ### Symptoms
 
@@ -594,48 +596,46 @@ wx._core.wxAssertionError: C++ assertion "GetEventHandler() == this" failed at
 
 ### Root Cause Analysis
 
-The problem was caused by the interaction between **Twisted reactor** and **wxPython AUI**:
+The problem was caused by the interaction between **signal handling** and **wxPython AUI**:
 
-1. **Task Coach uses Twisted reactor** as its main event loop (not wx's MainLoop)
-2. **AUI (Advanced User Interface) manager** pushes event handlers onto windows for dock/float functionality
-3. When Ctrl+C is pressed, **Twisted handles SIGINT** and initiates `reactor.stop()`
-4. Previous fix attempts used `wx.CallAfter()` to schedule cleanup, but **wx events aren't processed during reactor shutdown**
-5. Without `manager.UnInit()`, wxPython's atexit handler finds windows with pushed event handlers → assertion error
-
-### Why Previous Approaches Failed
-
-| Approach | Why It Failed |
-|----------|---------------|
-| Custom SIGINT handler calling `quitApplication()` | wx.CallAfter not processed during reactor shutdown |
-| `wx.CallAfter()` + `wx.WakeUpIdle()` | Event loop not running to process CallAfter |
-| Direct `mainwindow.Close()` in signal handler | Signal handler returns before close event processed |
-| Recursive `PopEventHandler()` on all windows | Too late - runs after reactor shutdown initiated |
+1. **AUI (Advanced User Interface) manager** pushes event handlers onto windows for dock/float functionality
+2. When Ctrl+C is pressed, Python handles SIGINT
+3. Without proper cleanup, wxPython's atexit handler finds windows with pushed event handlers → assertion error
+4. `manager.UnInit()` must be called **before** Python's final cleanup runs
 
 ### The Fix
 
-Use **Twisted's system event triggers** to hook into the reactor's shutdown sequence:
+Use **Python's atexit module** to register cleanup that runs before wxPython's cleanup:
 
 ```python
 # In application.py __register_signal_handlers()
-from twisted.internet import reactor
+import signal
+import atexit
 
 def cleanup_wx():
-    """Clean up wx when reactor is shutting down."""
+    """Clean up wx before Python exit."""
     try:
         if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
             self.mainwindow.manager.UnInit()
     except Exception:
         pass  # Best effort cleanup
 
-# Register cleanup to run BEFORE reactor shutdown completes
-reactor.addSystemEventTrigger('before', 'shutdown', cleanup_wx)
+# Register cleanup via atexit (runs before Python's final cleanup)
+atexit.register(cleanup_wx)
+
+def sigint_handler(signum, frame):
+    """Handle Ctrl+C gracefully."""
+    wx.CallAfter(self.quitApplication)
+
+# Register SIGINT handler for Unix Ctrl+C
+if not operating_system.isWindows():
+    signal.signal(signal.SIGINT, sigint_handler)
 ```
 
 **Why this works:**
-- Twisted's `addSystemEventTrigger('before', 'shutdown', ...)` runs **synchronously** during reactor shutdown
-- This happens **before** wxPython's atexit cleanup runs
+- `atexit.register()` handlers run **before** wxPython's atexit cleanup
 - `manager.UnInit()` properly pops all AUI event handlers
-- No reliance on wx event loop processing
+- The SIGINT handler uses `wx.CallAfter()` to cleanly quit through the main loop
 
 ### Also Keep onClose() Cleanup
 
@@ -651,10 +651,9 @@ def onClose(self, event):
 
 ### Key Lessons Learned
 
-1. **When using Twisted+wxPython**, use Twisted's mechanisms for shutdown cleanup, not wx's
-2. **AUI managers must call UnInit()** before window destruction to avoid assertion errors
-3. **wx.CallAfter() is unreliable** during reactor shutdown - the wx event loop may not be processing
-4. **System event triggers** (`addSystemEventTrigger`) provide synchronous hooks into reactor lifecycle
+1. **AUI managers must call UnInit()** before window destruction to avoid assertion errors
+2. **atexit handlers** run in LIFO order, so registering cleanup early ensures it runs before wx cleanup
+3. **Signal handlers should use wx.CallAfter()** to schedule quit on the main thread
 
 ### Testing Checklist
 
@@ -665,7 +664,6 @@ def onClose(self, event):
 
 ### References
 
-- [wxPythonAndTwisted wiki](https://wiki.wxpython.org/wxPythonAndTwisted)
 - [AUI error discussion](https://discuss.wxpython.org/t/aui-error-any-pushed-event-handlers-must-have-been-removed/34555)
 - [wxFormBuilder UnInit issue](https://github.com/wxFormBuilder/wxFormBuilder/issues/623)
 
@@ -930,6 +928,470 @@ With Snarl removed, Windows users automatically get the "Task Coach" (UniversalN
 
 ---
 
+## Twisted Framework Removal
+
+**Date Completed:** November 2024
+**Affected Components:** Core event loop, Scheduler, File monitoring, iPhone sync
+**Root Cause:** Legacy complexity from pre-asyncio era causing subtle bugs
+
+### Background
+
+Task Coach historically used the Twisted framework for asynchronous operations. This was a reasonable choice in the 2004-2010 era when:
+- Python had no `async/await` (added in Python 3.5, 2015)
+- wxPython's async support was limited
+- Twisted was the only mature async framework
+- iPhone sync was a major feature (pre-iCloud era)
+
+### Why Twisted Was Removed
+
+1. **Two event loops = subtle bugs**: The `wxreactor` bridged Twisted + wxPython, creating race conditions like shutdown issues
+2. **Modern alternatives exist**: wx.CallLater(), asyncio, watchdog, socketserver
+3. **Complexity without benefit**: For a desktop GUI app, wx's native event loop is sufficient
+4. **Maintenance burden**: Twisted is a large dependency with its own learning curve
+
+### Migration Summary
+
+| Original (Twisted) | Replacement | Location |
+|-------------------|-------------|----------|
+| `wxreactor.install()` + `reactor.run()` | `wx.App.MainLoop()` | application.py |
+| `reactor.callLater(seconds, fn)` | `wx.CallLater(milliseconds, fn)` | scheduler.py |
+| `twisted.internet.inotify.INotify` | `watchdog` library | fs_inotify.py |
+| `deferToThread()` + `@inlineCallbacks` | `concurrent.futures.ThreadPoolExecutor` | viewer/task.py |
+| `twisted.internet.defer.Deferred` | Custom `AsyncResult` class | bonjour.py |
+| `twisted.internet.protocol.Protocol` | `socketserver.BaseRequestHandler` | protocol.py |
+| `twisted.internet.protocol.ServerFactory` | `socketserver.ThreadingTCPServer` | protocol.py |
+| `reactor.listenTCP()` | `ThreadingTCPServer` in background thread | protocol.py |
+
+### Detailed Changes
+
+#### 1. Application Event Loop (application.py)
+
+**Before:**
+```python
+from twisted.internet import wxreactor
+wxreactor.install()
+# ... later ...
+from twisted.internet import reactor
+reactor.registerWxApp(self.__wx_app)
+reactor.run()
+```
+
+**After:**
+```python
+# No special initialization needed
+self.__wx_app.MainLoop()
+```
+
+The wxreactor was a bridge that allowed Twisted's reactor to coexist with wxPython's event loop. This is no longer needed since we use wx's native event loop exclusively.
+
+#### 2. Task Scheduling (scheduler.py)
+
+**Before:**
+```python
+from twisted.internet import reactor
+self.__nextCall = reactor.callLater(nextDuration / 1000, self.__callback)
+# Cancel with:
+self.__nextCall.cancel()
+```
+
+**After:**
+```python
+import wx
+self.__nextCall = wx.CallLater(nextDuration, self.__callback)
+# Cancel with:
+self.__nextCall.Stop()
+```
+
+**Important differences:**
+- `reactor.callLater()` takes **seconds** (float)
+- `wx.CallLater()` takes **milliseconds** (int)
+- Cancel method: `.cancel()` → `.Stop()`
+
+#### 3. File System Monitoring (fs_inotify.py)
+
+**Before:**
+```python
+from twisted.internet.inotify import INotify
+from twisted.python.filepath import FilePath
+
+self.notifier = INotify()
+self.notifier.startReading()
+self.notifier.watch(FilePath(path), callbacks=[self.onChange])
+```
+
+**After:**
+```python
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+class TaskFileEventHandler(FileSystemEventHandler):
+    def on_modified(self, event):
+        wx.CallAfter(self.notifier.onFileChanged)
+
+self._observer = Observer()
+self._observer.schedule(handler, path, recursive=False)
+self._observer.start()
+```
+
+**Benefits of watchdog:**
+- Cross-platform (Linux inotify, macOS FSEvents, Windows ReadDirectoryChangesW)
+- Pure Python, no Twisted reactor integration needed
+- Active maintenance and community
+
+#### 4. Background Threading (viewer/task.py)
+
+**Before:**
+```python
+from twisted.internet.threads import deferToThread
+from twisted.internet.defer import inlineCallbacks
+
+@inlineCallbacks
+def _refresh(self):
+    yield deferToThread(igraph.plot, graph, filename, **style)
+    # GUI update code here
+```
+
+**After:**
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+def _refresh(self):
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    def do_plot():
+        igraph.plot(graph, filename, **style)
+
+    def on_complete(future):
+        wx.CallAfter(update_gui)
+
+    future = executor.submit(do_plot)
+    future.add_done_callback(on_complete)
+```
+
+**Key pattern:** Always use `wx.CallAfter()` to update GUI from background threads.
+
+#### 5. Async Results (bonjour.py)
+
+**Before:**
+```python
+from twisted.internet.defer import Deferred
+from twisted.python.failure import Failure
+
+d = Deferred()
+d.callback(result)  # Success
+d.errback(Failure(error))  # Error
+return d
+```
+
+**After:**
+```python
+class AsyncResult:
+    def __init__(self):
+        self._callbacks = []
+        self._errbacks = []
+
+    def addCallback(self, cb): ...
+    def addErrback(self, eb): ...
+    def callback(self, result): ...
+    def errback(self, error): ...
+
+d = AsyncResult()
+d.callback(result)  # Success
+d.errback(error)  # Error (plain Exception, not Failure)
+return d
+```
+
+#### 6. Network Protocol (protocol.py)
+
+**Before:**
+```python
+from twisted.internet.protocol import Protocol, ServerFactory
+from twisted.internet import reactor
+
+class IPhoneHandler(Protocol):
+    def connectionMade(self): ...
+    def dataReceived(self, data): ...
+    def connectionLost(self, reason): ...
+
+class IPhoneAcceptor(ServerFactory):
+    protocol = IPhoneHandler
+
+    def __init__(self, ...):
+        self.__listening = reactor.listenTCP(port, self)
+```
+
+**After:**
+```python
+import socketserver
+import threading
+
+class IPhoneHandler:
+    def __init__(self, sock, ...):
+        self.transport = SocketTransport(sock)
+
+    def handle(self):
+        self.connectionMade()
+        while not closed:
+            data = sock.recv(4096)
+            self.dataReceived(data)
+        self.connectionLost(None)
+
+class IPhoneRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        handler = IPhoneHandler(self.request, ...)
+        handler.handle()
+
+class IPhoneAcceptor:
+    def __init__(self, ...):
+        self._server = socketserver.ThreadingTCPServer(('', port), IPhoneRequestHandler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+```
+
+### Testing Changes
+
+Tests that used `reactor.iterate()` to pump the event loop now use wx event processing:
+
+**Before:**
+```python
+from twisted.internet import reactor
+while time.time() - t0 < 2.0:
+    reactor.iterate()
+```
+
+**After:**
+```python
+while time.time() - t0 < 2.0:
+    wx.GetApp().Yield(True)
+    time.sleep(0.05)  # Prevent CPU spin
+```
+
+The `@test.skipOnTwistedVersions()` decorator is now a no-op but kept for backward compatibility.
+
+### Dependencies
+
+**Removed:**
+- `twisted` - The Twisted framework
+
+**Added:**
+- `watchdog>=3.0.0` - Cross-platform file system monitoring
+
+**Already Present (unchanged):**
+- `zeroconf>=0.50.0` - For Bonjour/mDNS service discovery (iPhone sync)
+
+### Code Locations with Design Notes
+
+All modified files contain `DESIGN NOTE (Twisted Removal - 2024):` comments explaining:
+- What the original Twisted code did
+- Why the replacement was chosen
+- Any compatibility considerations
+
+Search for these notes:
+```bash
+grep -r "DESIGN NOTE (Twisted Removal" taskcoachlib/
+```
+
+### Potential Issues and Solutions
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `wx.CallLater` not firing | wx event loop not running | Ensure `MainLoop()` is running, or use `wx.GetApp().Yield()` in tests |
+| GUI updates from background threads | wxPython is not thread-safe | Always wrap GUI updates in `wx.CallAfter()` |
+| Socket server not accepting connections | Server thread not started | Check that `serve_forever()` is running in a daemon thread |
+
+---
+
+## Window Position Tracking with AUI
+
+**Date Fixed:** November 2025
+**Affected Components:** WindowDimensionsTracker, MainWindow
+**Root Cause:** Multiple sources of spurious resize/move events during initialization
+
+> **See also:** [WINDOW_POSITION_PERSISTENCE_ANALYSIS.md](WINDOW_POSITION_PERSISTENCE_ANALYSIS.md) for detailed analysis of GTK/Linux window positioning, including the `GDK_HINT_USER_POS` issue and the EVT_MOVE + EVT_ACTIVATE solution.
+
+### Problem Overview
+
+After removing Twisted, the main window was not remembering its position and size across restarts. Debug logging revealed that the correct position was loaded from settings, but then immediately overwritten by spurious values.
+
+### Symptoms
+
+1. Window position resets to default on every startup
+2. Debug logs show position being saved as incorrect values like `(80, 0)` or size `(6, 28)`
+3. Position is correctly loaded but immediately overwritten
+4. GTK-CRITICAL errors during startup: `gtk_distribute_natural_allocation: assertion 'extra_space >= 0' failed`
+
+### Root Cause Analysis
+
+There are **two sources** of spurious resize/move events during window initialization:
+
+**Source 1: AUI LoadPerspective()**
+The AUI manager causes many resize/move events when restoring pane layout:
+
+```
+MainWindow.__init__:
+  Line 81: WindowDimensionsTracker created
+  Line 231: __restore_perspective() → LoadPerspective() triggers spurious resize/move events
+```
+
+**Source 2: GTK Window Realization during Show()**
+When `mainwindow.Show()` is called in `Application.start()`, GTK window realization triggers:
+- GTK-CRITICAL assertion failure
+- Spurious events with invalid values like size=(6, 28) position=(80, 0)
+
+Debug log showing the problem:
+```
+[23:27:32] __set_dimensions: LOADED pos=(385, 154) size=(875, 539)  ← Correct!
+[23:27:32] start_tracking: Binding event handlers
+... (resize events during AUI layout)
+(taskcoach.py): Gtk-CRITICAL **: gtk_distribute_natural_allocation: assertion failed
+[23:27:32] on_change_size: SAVING (6, 28)  ← GTK spurious event!
+[23:27:32] on_change_position: SAVING (80, 0)  ← GTK spurious event!
+```
+
+### Incorrect Fixes
+
+**Fix Attempt 1: Timer-Based Delay (Hacky)**
+```python
+# WRONG - hacky timer-based fix
+def __init__(self, ...):
+    self._initializing = True
+    wx.CallLater(500, self._end_initialization)  # Magic number!
+```
+**Why wrong:** Magic number, not deterministic, doesn't address root cause.
+
+**Fix Attempt 2: Call start_tracking() after LoadPerspective()**
+```python
+# INSUFFICIENT - spurious events still happen during Show()
+def __init_window_components(self):
+    self.__restore_perspective()
+    self.__dimensions_tracker.start_tracking()  # Too early!
+```
+**Why insufficient:** `mainwindow.Show()` is called later in `Application.start()`, and GTK realization during Show() triggers more spurious events AFTER start_tracking() was called.
+
+### Correct Fix: Save Only on Close
+
+The simplest and most robust solution: **don't try to save on every resize/move event**.
+
+**Root Cause Analysis:**
+
+There's no reliable way to distinguish "user-initiated" resize/move events from "system-initiated" events in wxWidgets/GTK. The spurious events come from:
+
+1. **Internal code:**
+   - `SendSizeEvent()` in `showStatusBar()`, toolbar changes
+   - AUI `LoadPerspective()` during layout restoration
+   - Various widget updates
+
+2. **System/GTK:**
+   - GTK window realization sends configure events asynchronously
+   - Window manager placement events
+
+**The Solution: Save Only on Close**
+
+```python
+class WindowSizeAndPositionTracker:
+    """
+    DESIGN NOTE: Save only on close.
+
+    Previously, we tried to save position/size on every EVT_MOVE/EVT_SIZE event.
+    This caused problems because GTK and our own code generate many spurious
+    resize/move events during window initialization.
+
+    SOLUTION: Only save window state when the window is closed.
+    - Simpler implementation (no event handlers for saving)
+    - No spurious saves during initialization
+    - Only saves the final stable state the user intended
+    - Uses the existing save_position() method called on EVT_CLOSE
+    """
+
+    def __init__(self, window, settings, section):
+        self._is_maximized = False
+        self.__set_dimensions()
+        # Only track maximize state - position/size saved on close
+        self._window.Bind(wx.EVT_MAXIMIZE, self._on_maximize)
+
+    def _on_maximize(self, event):
+        """Track maximize state changes."""
+        self._is_maximized = True
+        event.Skip()
+
+    def save_position(self):
+        """Save the position of the window. Called when window is about to close."""
+        iconized = self._window.IsIconized()
+        if not iconized:
+            self.set_setting("position", self._window.GetPosition())
+            if not self._window.IsMaximized():
+                self.set_setting("size", self._window.GetSize())
+        self.set_setting("maximized", self._window.IsMaximized() or self._is_maximized)
+```
+
+**Why This Works:**
+
+1. **No spurious saves**: By not binding EVT_MOVE/EVT_SIZE for saving, all spurious events are simply ignored.
+
+2. **Simpler code**: No debouncing, no timers, no event deferral - just save on close.
+
+3. **User intent**: Only saves the final state when the user deliberately closes the window.
+
+4. **Already implemented**: The `save_position()` method was already being called on EVT_CLOSE.
+
+### Additional Fix: Freeze/Thaw for AUI Flickering
+
+Users reported visible flickering during startup as AUI panes were repositioned. This is fixed by wrapping initialization in Freeze/Thaw:
+
+```python
+# In mainwindow.py
+def _create_window_components(self):
+    self.Freeze()  # Prevent flickering during viewer creation
+    try:
+        self._create_viewer_container()
+        viewer.addViewers(...)
+        self._create_status_bar()
+        self.__create_menu_bar()
+    finally:
+        self.Thaw()
+
+def __init_window_components(self):
+    self.Freeze()  # Prevent flickering during AUI layout
+    try:
+        self.showToolBar(...)
+        self.__restore_perspective()
+    finally:
+        self.Thaw()
+    # Window tracking saves only on close - no special handling needed
+```
+
+### Key Learnings
+
+1. **Question the approach first**: The original code tried to save on every EVT_MOVE/EVT_SIZE. The right question was: "Why are we doing this at all?" Saving only on close is simpler and sufficient.
+
+2. **Identify event sources**: Many "spurious" events come from our own code (SendSizeEvent, LoadPerspective) not just GTK. Understanding the sources helps choose the right solution.
+
+3. **No way to distinguish user vs system events**: wxWidgets/GTK doesn't provide a flag to identify user-initiated resize/move. Don't try to filter what you can't identify.
+
+4. **Simpler is better**: Complex solutions (EVT_IDLE deferral, debouncing) were unnecessary. The existing `save_position()` on close was already the right approach.
+
+5. **Freeze/Thaw for flicker**: Batches visual updates to prevent distracting UI flicker during initialization.
+
+6. **Debug logging is essential**: Without detailed logging, this multi-source bug would have been nearly impossible to diagnose.
+
+### Testing Checklist
+
+- [ ] Start app on monitor 1, move to monitor 2, close and reopen → should remember monitor 2
+- [ ] Resize window, close and reopen → should remember size
+- [ ] Move window to specific position, close and reopen → should remember position
+- [ ] Maximize window, close and reopen → should remember maximized state
+- [ ] No visible flickering of AUI panes during startup
+- [ ] Debug logs should only show RESTORING on startup and save_position on close
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `windowdimensionstracker.py` | Removed EVT_MOVE/EVT_SIZE handlers; save only on close |
+| `mainwindow.py` | Added Freeze/Thaw around viewer creation and AUI layout |
+
+---
+
 ## Known Issues
 
 ### Pending Issues
@@ -943,6 +1405,10 @@ With Snarl removed, Windows users automatically get the "Task Coach" (UniversalN
 - ✅ wx.Timer crash when closing Edit Task/Categories quickly (November 2025)
 - ✅ Hacky close delay patches removed after root cause fix (November 2025)
 - ✅ Ctrl+C crash with AUI event handler assertion (November 2025)
+- ✅ Twisted framework removed, replaced with native wxPython + stdlib (November 2025)
+- ✅ Window position not remembered due to AUI + GTK spurious events (November 2025)
+- ✅ AUI pane flickering during startup fixed with Freeze/Thaw (November 2025)
+- ✅ GTK/Linux window position persistence - WM ignores initial position (November 2025) - See [WINDOW_POSITION_PERSISTENCE_ANALYSIS.md](WINDOW_POSITION_PERSISTENCE_ANALYSIS.md)
 
 ---
 

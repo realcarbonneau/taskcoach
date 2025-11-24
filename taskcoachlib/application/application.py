@@ -31,6 +31,239 @@ import wx
 import calendar
 import re
 import threading
+import subprocess
+
+
+def _log_gui_environment():
+    """Log GUI environment details for debugging window positioning issues."""
+    import platform
+
+    print("\n" + "="*60)
+    print("GUI ENVIRONMENT INFO")
+    print("="*60)
+
+    # Basic info
+    print(f"Platform: {sys.platform}")
+    print(f"Python: {platform.python_version()}")
+    print(f"wx.Version: {wx.version()}")
+    print(f"wx.PlatformInfo: {wx.PlatformInfo}")
+
+    # Platform-specific info
+    if sys.platform == 'win32':
+        _log_windows_environment()
+    elif sys.platform == 'darwin':
+        _log_macos_environment()
+    else:
+        _log_linux_environment()
+
+    # Display/monitor info (cross-platform)
+    try:
+        num_displays = wx.Display.GetCount()
+        print(f"Number of displays: {num_displays}")
+        for i in range(num_displays):
+            display = wx.Display(i)
+            geom = display.GetGeometry()
+            client = display.GetClientArea()
+            # Get DPI/scaling if available
+            try:
+                ppi = display.GetPPI()
+                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                      f"client_area={client.x},{client.y} {client.width}x{client.height}  "
+                      f"PPI={ppi.x}x{ppi.y}")
+            except Exception:
+                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                      f"client_area={client.x},{client.y} {client.width}x{client.height}")
+    except Exception as e:
+        print(f"Display info unavailable: {e}")
+
+    print("="*60 + "\n")
+
+
+def _log_windows_environment():
+    """Log Windows-specific GUI environment info."""
+    import platform
+
+    # Windows version
+    print(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
+    print(f"Windows Edition: {platform.win32_edition()}")
+
+    # DPI awareness
+    try:
+        import ctypes
+        awareness = ctypes.windll.shcore.GetProcessDpiAwareness(0)
+        awareness_names = {0: 'Unaware', 1: 'System', 2: 'PerMonitor'}
+        print(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
+    except Exception as e:
+        print(f"DPI Awareness: unavailable ({e})")
+
+    # DWM (Desktop Window Manager) composition
+    try:
+        import ctypes
+        dwm_enabled = ctypes.c_bool()
+        ctypes.windll.dwmapi.DwmIsCompositionEnabled(ctypes.byref(dwm_enabled))
+        print(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
+    except Exception as e:
+        print(f"DWM Composition: unavailable ({e})")
+
+    # System DPI
+    try:
+        import ctypes
+        hdc = ctypes.windll.user32.GetDC(0)
+        dpi_x = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
+        dpi_y = ctypes.windll.gdi32.GetDeviceCaps(hdc, 90)  # LOGPIXELSY
+        ctypes.windll.user32.ReleaseDC(0, hdc)
+        print(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
+    except Exception as e:
+        print(f"System DPI: unavailable ({e})")
+
+
+def _log_macos_environment():
+    """Log macOS-specific GUI environment info."""
+    import platform
+
+    # macOS version
+    mac_ver = platform.mac_ver()
+    print(f"macOS Version: {mac_ver[0]}")
+    print(f"Architecture: {mac_ver[2]}")
+
+    # Check if running under Rosetta (Apple Silicon)
+    try:
+        result = subprocess.run(['sysctl', '-n', 'sysctl.proc_translated'],
+                               capture_output=True, text=True, timeout=2)
+        if result.returncode == 0 and result.stdout.strip() == '1':
+            print("Rosetta 2: Yes (x86_64 on ARM)")
+        else:
+            print("Rosetta 2: No (native)")
+    except Exception:
+        pass
+
+    # Retina/scaling info via system_profiler (slow but comprehensive)
+    try:
+        result = subprocess.run(
+            ['system_profiler', 'SPDisplaysDataType', '-json'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            displays = data.get('SPDisplaysDataType', [{}])[0].get('spdisplays_ndrvs', [])
+            for i, disp in enumerate(displays):
+                res = disp.get('_spdisplays_resolution', 'unknown')
+                retina = disp.get('spdisplays_retina', 'unknown')
+                print(f"  macOS Display {i}: {res} Retina={retina}")
+    except Exception:
+        pass
+
+    # Window server info
+    try:
+        result = subprocess.run(['defaults', 'read', 'com.apple.WindowServer'],
+                               capture_output=True, text=True, timeout=2)
+        # Just check if it runs - detailed parsing would be verbose
+        if result.returncode == 0:
+            print("WindowServer: accessible")
+    except Exception:
+        pass
+
+
+def _log_linux_environment():
+    """Log Linux/GTK-specific GUI environment info."""
+    # Session type
+    session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
+    print(f"XDG_SESSION_TYPE: {session_type}")
+    print(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
+    print(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
+
+    # Desktop environment
+    desktop = os.environ.get('XDG_CURRENT_DESKTOP',
+              os.environ.get('DESKTOP_SESSION', 'unknown'))
+    print(f"Desktop Environment: {desktop}")
+
+    # GTK version (if available)
+    try:
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk
+        print(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+    except Exception as e:
+        print(f"GTK Version: unavailable ({e})")
+
+    # GDK backend
+    try:
+        gdk_backend = os.environ.get('GDK_BACKEND', 'auto')
+        print(f"GDK_BACKEND: {gdk_backend}")
+    except Exception:
+        pass
+
+    # Window manager detection
+    wm_name = "unknown"
+    wm_version = "unknown"
+
+    # Try wmctrl first
+    try:
+        result = subprocess.run(['wmctrl', '-m'], capture_output=True, text=True, timeout=2)
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if line.startswith('Name:'):
+                    wm_name = line.split(':', 1)[1].strip()
+                    break
+    except Exception:
+        pass
+
+    # Try xprop for WM info
+    if wm_name == "unknown":
+        try:
+            result = subprocess.run(
+                ['xprop', '-root', '-notype', '_NET_WM_NAME', '_NET_SUPPORTING_WM_CHECK'],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0:
+                for line in result.stdout.split('\n'):
+                    if '_NET_WM_NAME' in line and '=' in line:
+                        wm_name = line.split('=', 1)[1].strip().strip('"')
+                        break
+        except Exception:
+            pass
+
+    # Try getting WM version from common WMs
+    wm_lower = wm_name.lower()
+    try:
+        if 'openbox' in wm_lower:
+            result = subprocess.run(['openbox', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.split('\n')[0]
+        elif 'mutter' in wm_lower or 'gnome' in wm_lower:
+            result = subprocess.run(['mutter', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.strip()
+        elif 'kwin' in wm_lower:
+            result = subprocess.run(['kwin_x11', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.split('\n')[0]
+        elif 'xfwm' in wm_lower:
+            result = subprocess.run(['xfwm4', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.split('\n')[0]
+        elif 'marco' in wm_lower:
+            result = subprocess.run(['marco', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.strip()
+        elif 'metacity' in wm_lower:
+            result = subprocess.run(['metacity', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.strip()
+        elif 'i3' in wm_lower:
+            result = subprocess.run(['i3', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.split('\n')[0]
+        elif 'sway' in wm_lower:
+            result = subprocess.run(['sway', '--version'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                wm_version = result.stdout.strip()
+    except Exception:
+        pass
+
+    print(f"Window Manager: {wm_name}")
+    print(f"WM Version: {wm_version}")
 
 
 class RedirectedOutput(object):
@@ -122,14 +355,28 @@ class wxApp(wx.App):
 
 
 class Application(object, metaclass=patterns.Singleton):
+    """
+    Main application class for Task Coach.
+
+    DESIGN NOTE (Twisted Removal - 2024):
+    Previously used Twisted's wxreactor to integrate Twisted's event loop with
+    wxPython. This has been replaced with native wxPython functionality:
+    - wxreactor.install() → removed (wx.App.MainLoop() used directly)
+    - reactor.registerWxApp() → removed (not needed)
+    - reactor.run() → wx.App.MainLoop()
+    - reactor.stop() → wx.App.ExitMainLoop() via EVT_CLOSE handlers
+    - reactor.callLater() → wx.CallLater() (in scheduler.py)
+
+    This simplifies the event loop architecture and eliminates potential
+    race conditions between two event loops.
+    """
     def __init__(self, options=None, args=None, **kwargs):
         self._options = options
         self._args = args
-        self.initTwisted()
+        # NOTE: Twisted initialization removed - using native wx event loop
         self.__wx_app = wxApp(
             self.on_end_session, self.on_reopen_app, redirect=False
         )
-        self.registerApp()
         self.init(**kwargs)
 
         if operating_system.isGTK():
@@ -174,38 +421,10 @@ class Application(object, metaclass=patterns.Singleton):
             dict(monday=0, sunday=6)[self.settings.get("view", "weekstart")]
         )
 
-    def initTwisted(self):
-        from twisted.internet import wxreactor
-
-        wxreactor.install()
-
-        # Monkey-patching older versions because of https://twistedmatrix.com/trac/ticket/3948
-        import twisted
-
-        if tuple(map(int, twisted.__version__.split("."))) < (11,):
-            from twisted.internet import reactor
-
-            if wxreactor.WxReactor.callFromThread is not None:
-                oldStop = wxreactor.WxReactor.stop
-
-                def stopFromThread(self):
-                    self.callFromThread(oldStop, self)
-
-                wxreactor.WxReactor.stop = stopFromThread
-
-    def stopTwisted(self):
-        from twisted.internet import reactor, error
-
-        try:
-            reactor.stop()
-        except error.ReactorNotRunning:
-            # Happens on Fedora 14 when running unit tests. Old Twisted ?
-            pass
-
-    def registerApp(self):
-        from twisted.internet import reactor
-
-        reactor.registerWxApp(self.__wx_app)
+    # NOTE: initTwisted(), stopTwisted(), and registerApp() methods removed.
+    # Previously used Twisted's wxreactor for event loop integration.
+    # Now using native wx.App.MainLoop() which is simpler and more reliable.
+    # See class docstring for migration details.
 
     def start(self):
         """Call this to start the Application."""
@@ -216,8 +435,10 @@ class Application(object, metaclass=patterns.Singleton):
         import wx
 
         # Log version info at startup for debugging
-        print(f"Task Coach {meta.version_with_patch} (commit {meta.git_commit_hash})" if meta.git_commit_hash
-              else f"Task Coach {meta.version}")
+        if meta.git_commit_hash:
+            print(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
+        else:
+            print(f"Task Coach {meta.version_full}")
         print(f"Python {sys.version}")
         print(f"wxPython {wx.version()}")
         print(f"Platform: {platform.platform()}")
@@ -258,10 +479,17 @@ class Application(object, metaclass=patterns.Singleton):
             wx.Log.SetLogLevel(wx.LOG_Info)
             wx.Log.SetVerbose(True)
 
+        pos_before_show = self.mainwindow.GetPosition()
+        print(f"[DEBUG] application: BEFORE Show() pos=({pos_before_show.x}, {pos_before_show.y})")
         self.mainwindow.Show()
-        from twisted.internet import reactor
-
-        reactor.run()
+        pos_after_show = self.mainwindow.GetPosition()
+        print(f"[DEBUG] application: AFTER Show() pos=({pos_after_show.x}, {pos_after_show.y})")
+        # Position correction is handled automatically by WindowDimensionsTracker
+        # via EVT_MOVE detection until EVT_ACTIVATE fires (window ready for input)
+        # Use native wxPython main loop instead of Twisted reactor
+        # NOTE: Previously used reactor.run() with wxreactor integration.
+        # Now using wx.App.MainLoop() directly for simpler event handling.
+        self.__wx_app.MainLoop()
 
     def __copy_default_templates(self):
         """Copy default templates that don't exist yet in the user's
@@ -289,6 +517,9 @@ class Application(object, metaclass=patterns.Singleton):
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
         Application.start()."""
+        # Log GUI environment for debugging window positioning
+        _log_gui_environment()
+
         self.__init_config(loadSettings)
         self.__init_language()
         self.__init_domain_objects()
@@ -392,23 +623,36 @@ class Application(object, metaclass=patterns.Singleton):
     def __register_signal_handlers(self):
         """Register signal handlers for clean shutdown.
 
-        On Unix with Twisted, we let Twisted handle SIGINT/SIGTERM and use
-        system event triggers to clean up wx properly.
+        DESIGN NOTE (Twisted Removal - 2024):
+        Previously used Twisted's reactor which properly handled SIGINT.
+        Now using Python's signal module with direct cleanup.
+
+        Key challenges with native wxPython:
+        1. Python signal handlers only run when main thread has control
+        2. GUI event loops block in C code, preventing signal delivery
+        3. Must save settings before exit
+
+        Solution:
+        - Custom signal handler uses wx.CallAfter for clean shutdown
+        - Periodic timer wakes event loop so Python can check signals
         """
-        from twisted.internet import reactor
+        import signal
 
-        def cleanup_wx():
-            """Clean up wx when reactor is shutting down."""
-            try:
-                # UnInit AUI manager to avoid wxAssertionError about
-                # pushed event handlers not being removed
-                if hasattr(self, 'mainwindow') and hasattr(self.mainwindow, 'manager'):
-                    self.mainwindow.manager.UnInit()
-            except Exception:
-                pass  # Best effort cleanup
+        def handle_signal(signum, frame):
+            """Handle SIGINT/SIGTERM by scheduling clean shutdown."""
+            # Use CallAfter to run shutdown in the main event loop
+            # This ensures proper cleanup of wx resources
+            wx.CallAfter(self.quitApplication)
 
-        # Register cleanup to run before reactor shutdown
-        reactor.addSystemEventTrigger('before', 'shutdown', cleanup_wx)
+        # Register SIGINT/SIGTERM handlers for Unix
+        if not operating_system.isWindows():
+            signal.signal(signal.SIGINT, handle_signal)
+            signal.signal(signal.SIGTERM, handle_signal)
+
+            # Start a timer to periodically wake the event loop
+            # This allows Python to check for pending signals
+            self._signal_check_timer = wx.Timer()
+            self._signal_check_timer.Start(500)  # Check every 500ms
 
         if operating_system.isWindows():
             import win32api  # pylint: disable=F0401
@@ -429,8 +673,6 @@ class Application(object, metaclass=patterns.Singleton):
                 return True
 
             win32api.SetConsoleCtrlHandler(quit_adapter, True)
-        # On Unix, Twisted's reactor handles SIGINT/SIGTERM automatically
-        # and will call our cleanup_wx trigger before shutdown
 
     @staticmethod
     def __create_mutex():
@@ -495,13 +737,28 @@ class Application(object, metaclass=patterns.Singleton):
     def on_reopen_app(self):
         self.taskBarIcon.onTaskbarClick(None)
 
+    def save_all_settings(self):
+        """Save all settings to disk. Called on normal exit and signal handlers.
+
+        This is the single place for saving settings, ensuring consistency
+        between normal close, Ctrl-C, and other exit paths.
+        """
+        try:
+            # Remember what the user was working on
+            if hasattr(self, 'taskFile'):
+                self.settings.set("file", "lastfile", self.taskFile.lastFilename())
+            # Save window position, size, perspective
+            if hasattr(self, 'mainwindow'):
+                self.mainwindow.save_settings()
+            # Write settings to disk
+            self.settings.save()
+        except Exception:
+            pass  # Best effort - don't prevent exit
+
     def quitApplication(self, force=False):
         if not self.iocontroller.close(force=force):
             return False
-        # Remember what the user was working on:
-        self.settings.set("file", "lastfile", self.taskFile.lastFilename())
-        self.mainwindow.save_settings()
-        self.settings.save()
+        self.save_all_settings()
         if hasattr(self, "taskBarIcon"):
             self.taskBarIcon.RemoveIcon()
         if self.mainwindow.bonjourRegister is not None:
@@ -523,5 +780,10 @@ class Application(object, metaclass=patterns.Singleton):
         if isinstance(sys.stdout, RedirectedOutput):
             sys.stdout.summary()
 
-        self.stopTwisted()
+        # NOTE: stopTwisted() call removed - no longer using Twisted reactor.
+        # wxPython's MainLoop exits naturally when all windows are closed.
+        # Explicitly close the main window to trigger exit.
+        # Set shutdown flag so onClose() won't veto or recurse into quitApplication.
+        self.mainwindow.setShutdownInProgress()
+        self.mainwindow.Close()
         return True

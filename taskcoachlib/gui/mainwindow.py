@@ -172,11 +172,16 @@ class MainWindow(
         self.__shutdown = True
 
     def _create_window_components(self):  # Not private for test purposes
-        self._create_viewer_container()
-        viewer.addViewers(self.viewer, self.taskFile, self.settings)
-        self._create_status_bar()
-        self.__create_menu_bar()
-        self.__create_reminder_controller()
+        # Freeze to prevent flickering during viewer creation
+        self.Freeze()
+        try:
+            self._create_viewer_container()
+            viewer.addViewers(self.viewer, self.taskFile, self.settings)
+            self._create_status_bar()
+            self.__create_menu_bar()
+            self.__create_reminder_controller()
+        finally:
+            self.Thaw()
         wx.CallAfter(self.viewer.componentsCreated)
 
     def _create_viewer_container(self):  # Not private for test purposes
@@ -222,13 +227,24 @@ class MainWindow(
         )
 
     def __init_window_components(self):
-        self.showToolBar(self.settings.getvalue("view", "toolbar"))
-        # We use CallAfter because otherwise the statusbar will appear at the
-        # top of the window when it is initially hidden and later shown.
-        wx.CallAfter(
-            self.showStatusBar, self.settings.getboolean("view", "statusbar")
-        )
-        self.__restore_perspective()
+        # Freeze to prevent flickering during AUI layout restoration
+        self.Freeze()
+
+        try:
+            self.showToolBar(self.settings.getvalue("view", "toolbar"))
+
+            # We use CallAfter because otherwise the statusbar will appear at the
+            # top of the window when it is initially hidden and later shown.
+            wx.CallAfter(
+                self.showStatusBar, self.settings.getboolean("view", "statusbar")
+            )
+            self.__restore_perspective()
+        finally:
+            self.Thaw()
+
+        # Note: Window position/size tracking uses debouncing to handle spurious
+        # events from AUI LoadPerspective() and GTK window realization.
+        # Events are bound immediately in __init__, no manual start needed.
 
     def __restore_perspective(self):
         perspective = self.settings.get("view", "perspective")
@@ -392,10 +408,16 @@ If this happens again, please make a copy of your TaskCoach.ini file """
     def showStatusBar(self, value=True):
         # FIXME: First hiding the statusbar, then hiding the toolbar, then
         # showing the statusbar puts it in the wrong place (only on Linux?)
+        pos_before = self.GetPosition()
+        print(f"[DEBUG] showStatusBar: BEFORE pos=({pos_before.x}, {pos_before.y}) value={value}")
         statusBar = self.GetStatusBar()
         if statusBar:
             statusBar.Show(value)
+            pos_after_show = self.GetPosition()
+            print(f"[DEBUG] showStatusBar: AFTER statusBar.Show() pos=({pos_after_show.x}, {pos_after_show.y})")
             self.SendSizeEvent()
+            pos_after_size = self.GetPosition()
+            print(f"[DEBUG] showStatusBar: AFTER SendSizeEvent() pos=({pos_after_size.x}, {pos_after_size.y})")
 
     def createToolBarUICommands(self):
         """UI commands to put on the toolbar of this window."""

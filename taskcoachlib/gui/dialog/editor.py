@@ -1900,13 +1900,13 @@ class Editor(BalloonTipManager, widgets.Dialog):
         else:
             self.__timer = None
 
-        # Position and size handling is done by WindowSizeAndPositionTracker
+        # Position and size handling is done by WindowGeometryTracker
         # which will center on parent if no saved position exists, or
-        # restore the last saved position
+        # restore the last saved position (must be on same monitor as parent)
         self.__create_ui_commands()
         self.__dimensions_tracker = (
-            windowdimensionstracker.WindowSizeAndPositionTracker(
-                self, settings, self._interior.settings_section()
+            windowdimensionstracker.WindowGeometryTracker(
+                self, settings, self._interior.settings_section(), parent=parent
             )
         )
 
@@ -1954,6 +1954,8 @@ class Editor(BalloonTipManager, widgets.Dialog):
 
     def on_close_editor(self, event):
         event.Skip()
+        # Save dialog position/size before closing
+        self.__dimensions_tracker.save()
         self._interior.close_edit_book()
         patterns.Publisher().removeObserver(self.on_item_removed)
         patterns.Publisher().removeObserver(self.on_subject_changed)
