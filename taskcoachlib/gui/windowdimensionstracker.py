@@ -251,21 +251,17 @@ class WindowGeometryTracker:
     def _is_position_on_screen(self, x, y, width, height, work_area):
         """Check if dialog is fully visible on the parent's monitor.
 
-        Dialog must be entirely within the work area (with small tolerance
-        for window decorations). If any edge extends beyond the screen,
-        the dialog will be repositioned.
+        Dialog must be entirely within the work area. Positions and sizes
+        already include window decorations, so no tolerance is needed.
         """
-        # Small tolerance for window decorations
-        margin = 10
-
         # Check all four edges
-        if x < work_area.x - margin:
+        if x < work_area.x:
             return False  # Left edge off screen
-        if y < work_area.y - margin:
+        if y < work_area.y:
             return False  # Top edge off screen
-        if x + width > work_area.x + work_area.width + margin:
+        if x + width > work_area.x + work_area.width:
             return False  # Right edge off screen
-        if y + height > work_area.y + work_area.height + margin:
+        if y + height > work_area.y + work_area.height:
             return False  # Bottom edge off screen
         return True
 
