@@ -335,10 +335,11 @@ size: (w, h) or (-1, -1)      # (-1, -1) = let system decide
 ### Rules (in order)
 
 1. **Always on parent's monitor** - Dialog appears on same monitor as parent
-2. **Missing size OR position** (-1 value) → let system decide both, clear cache
-3. **Size too big for monitor** → clear all cache, let system decide
-4. **Position off-screen (but size OK)** → keep size, center on parent, clear position cache
-5. **Valid size and position** → use saved values
+2. **Missing size** (-1 value) → let system decide both, clear cache (position meaningless without size)
+3. **Missing position** (but size valid) → keep size, center on parent
+4. **Size too big for monitor** → clear all cache, let system decide
+5. **Position off-screen (but size OK)** → keep size, center on parent, clear position cache
+6. **Valid size and position** → use saved values
 
 ### Flow
 
@@ -346,20 +347,24 @@ size: (w, h) or (-1, -1)      # (-1, -1) = let system decide
 load():
     1. Get parent's current monitor work_area
 
-    2. If saved size OR position is missing (-1):
-        → Clear geometry cache
+    2. If saved size is missing (-1):
+        → Clear all geometry cache
         → Let system choose defaults
 
-    3. If saved size > work_area:
-        → Clear geometry cache
+    3. If saved position is missing (-1) but size valid:
+        → Keep saved size
+        → Center on parent
+
+    4. If saved size > work_area:
+        → Clear all geometry cache
         → Let system choose defaults
 
-    4. If saved position off-screen:
+    5. If saved position off-screen:
         → Keep saved size (it fits)
         → Center on parent
         → Clear position cache only
 
-    5. Otherwise:
+    6. Otherwise:
         → Use saved size and position
 ```
 
@@ -371,23 +376,31 @@ def _load_dialog_geometry(self, x, y, width, height, min_w, min_h):
     parent_display_idx = self._get_parent_display_index()
     work_area = wx.Display(parent_display_idx).GetClientArea()
 
-    # Rule 2: Missing geometry → let system decide
-    if x == -1 or y == -1 or width == -1 or height == -1:
+    size_missing = width == -1 or height == -1
+    position_missing = x == -1 or y == -1
+
+    # Rule 2: Missing size → let system decide both
+    if size_missing:
         self._clear_dialog_cache()
         return
 
-    # Rule 3: Size too big → clear cache, let system decide
+    # Rule 3: Missing position but have size → center with saved size
+    if position_missing:
+        self._center_on_parent_with_size(width, height)
+        return
+
+    # Rule 4: Size too big → clear cache, let system decide
     if width > work_area.width or height > work_area.height:
         self._clear_dialog_cache()
         return
 
-    # Rule 4: Position off-screen → keep size, center, clear position
+    # Rule 5: Position off-screen → keep size, center, clear position
     if not self._is_position_on_screen(x, y, width, height, work_area):
         self._center_on_parent_with_size(width, height)
         self._clear_position_cache()
         return
 
-    # Rule 5: Valid → use saved values
+    # Rule 6: Valid → use saved values
     self.position = (x, y)
     self.size = (width, height)
     self._window.SetSize(x, y, width, height)

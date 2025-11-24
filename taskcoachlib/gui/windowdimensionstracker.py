@@ -185,10 +185,20 @@ class WindowGeometryTracker:
         work_area = parent_display.GetClientArea()
         _log_debug(f"  Parent on monitor {parent_display_idx}: work_area={work_area.x},{work_area.y} {work_area.width}x{work_area.height}")
 
-        # Rule 2: If saved size OR position is missing → let system decide
-        if x == -1 or y == -1 or width == -1 or height == -1:
-            _log_debug(f"  Missing saved geometry (pos=({x},{y}) size=({width},{height})), letting system decide")
+        # Rule 2: Handle missing geometry
+        size_missing = width == -1 or height == -1
+        position_missing = x == -1 or y == -1
+
+        if size_missing:
+            # No saved size → let system decide both (position meaningless without size)
+            _log_debug(f"  Missing saved size, letting system decide")
             self._clear_dialog_cache()
+            return
+
+        if position_missing:
+            # No saved position but have size → center on parent with saved size
+            _log_debug(f"  Missing saved position, centering with saved size ({width}x{height})")
+            self._center_on_parent_with_size(width, height)
             return
 
         # Rule 3: If saved size > monitor → clear all cache, let system decide
