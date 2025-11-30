@@ -366,7 +366,6 @@ Fatal Python error: Segmentation fault
 
 Current thread 0x00007f8b4c7fe700 (most recent call first):
   File "/usr/lib/python3/dist-packages/wx/core.py", line 2262 in MainLoop
-  File "/usr/lib/python3/dist-packages/twisted/internet/wxreactor.py", line 151 in run
   File "/taskcoachlib/application/application.py", line 263 in start
   File "/taskcoach.py", line 89 in start
 ```
@@ -521,7 +520,6 @@ Fatal Python error: Segmentation fault
 
 Current thread 0x00007f8b4c7fe700 (most recent call first):
   File "/usr/lib/python3/dist-packages/wx/core.py", line 2262 in MainLoop
-  File "/twisted/internet/wxreactor.py", line 151 in run
   File "/taskcoachlib/application/application.py", line 263 in start
 ```
 
