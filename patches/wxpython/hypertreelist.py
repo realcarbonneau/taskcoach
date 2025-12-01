@@ -2984,7 +2984,7 @@ class TreeListMainWindow(CustomTreeCtrl):
 
         if self.HasAGWFlag(wx.TR_FULL_ROW_HIGHLIGHT):
 
-            itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)
+            itemrect = wx.Rect(0, int(item.GetY() + off_h), int(total_w-1), int(total_h - off_h))
 
             if item == self._dragItem:
                 dc.SetBrush(self._hilightBrush)
@@ -3000,7 +3000,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                 if wnd:
                     wndx, wndy = item.GetWindowSize(self._main_column)
 
-                itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)
+                itemrect = wx.Rect(0, int(item.GetY() + off_h), int(total_w-1), int(total_h - off_h))
 
                 if self._usegradients:
                     if self._gradientstyle == 0:   # Horizontal
@@ -3026,7 +3026,7 @@ class TreeListMainWindow(CustomTreeCtrl):
             # except for custom item backgrounds, works for both kinds of theme.
             elif drawItemBackground:
                 # Fix from Issue #2081 (Roland171281) - Draw full row background
-                itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)
+                itemrect = wx.Rect(0, int(item.GetY() + off_h), int(total_w-1), int(total_h - off_h))
                 dc.SetBrush(wx.Brush(colBg, wx.SOLID))
                 dc.DrawRectangle(itemrect)
                 dc.SetTextForeground(colText)
@@ -3036,7 +3036,7 @@ class TreeListMainWindow(CustomTreeCtrl):
 
         elif drawItemBackground and self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
             # Draw full row background BEFORE column loop to avoid clipping issues
-            itemrect = wx.Rect(0, item.GetY() + off_h, total_w-1, total_h - off_h)
+            itemrect = wx.Rect(0, int(item.GetY() + off_h), int(total_w-1), int(total_h - off_h))
             dc.SetBrush(wx.Brush(colBg, wx.SOLID))
             dc.SetPen(wx.TRANSPARENT_PEN)
             dc.DrawRectangle(itemrect)
@@ -3115,7 +3115,7 @@ class TreeListMainWindow(CustomTreeCtrl):
 
                     elif item.IsSelected():
 
-                        itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
+                        itemrect = wx.Rect(int(text_x-2), int(item.GetY() + off_h), int(text_w+2*_MARGIN), int(total_h - off_h))
 
                         if self._usegradients:
                             if self._gradientstyle == 0:   # Horizontal
@@ -3145,7 +3145,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                         if not self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
                             # Only draw per-column background if not filling whole columns
                             # (full row background was already drawn before column loop)
-                            itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
+                            itemrect = wx.Rect(int(text_x-2), int(item.GetY() + off_h), int(text_w+2*_MARGIN), int(total_h - off_h))
                             dc.SetBrush(wx.Brush(colBg))
                             dc.SetPen(wx.TRANSPARENT_PEN)
                             dc.DrawRectangle(itemrect)
@@ -3158,7 +3158,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                     if not self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
                         # Only draw per-column background if not filling whole columns
                         # (full row background was already drawn before column loop)
-                        itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
+                        itemrect = wx.Rect(int(text_x-2), int(item.GetY() + off_h), int(text_w+2*_MARGIN), int(total_h - off_h))
                         colBgX = item.GetBackgroundColour(i)
 
                         if colBgX is not None and i != 0:
@@ -3175,7 +3175,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                     if not self.HasAGWFlag(TR_FILL_WHOLE_COLUMN_BACKGROUND):
                         # Only draw per-column background if not filling whole columns
                         # (full row background was already drawn before column loop)
-                        itemrect = wx.Rect(text_x-2, item.GetY() + off_h, text_w+2*_MARGIN, total_h - off_h)
+                        itemrect = wx.Rect(int(text_x-2), int(item.GetY() + off_h), int(text_w+2*_MARGIN), int(total_h - off_h))
                         colBgX = item.GetBackgroundColour(i)
 
                         if colBgX is not None:
@@ -3230,7 +3230,7 @@ class TreeListMainWindow(CustomTreeCtrl):
             text_w, text_h, dummy = dc.GetFullMultiLineTextExtent(text)
             text_extraH = (total_h > text_h and [(total_h - text_h)//2] or [0])[0]
             text_y = item.GetY() + text_extraH
-            textrect = wx.Rect(text_x, text_y, text_w, text_h)
+            textrect = wx.Rect(int(text_x), int(text_y), int(text_w), int(text_h))
 
             if not item.IsEnabled():
                 foreground = dc.GetTextForeground()
@@ -3348,7 +3348,7 @@ class TreeListMainWindow(CustomTreeCtrl):
                 if attr and attr.HasBackgroundColour():
                     width = self._owner.GetEventHandler().GetColumn(self._main_column).GetWidth()
                     colBg = attr.GetBackgroundColour()
-                    itemrect = wx.Rect(x_maincol, y-h-1, width, h+1)
+                    itemrect = wx.Rect(int(x_maincol), int(y-h-1), int(width), int(h+1))
 
                     dc.SetBrush(wx.Brush(colBg, wx.SOLID))
                     dc.SetPen(wx.TRANSPARENT_PEN)
@@ -3425,7 +3425,7 @@ class TreeListMainWindow(CustomTreeCtrl):
 
                 else: # if (HasAGWFlag(wxTR_HAS_BUTTONS))
 
-                    rect = wx.Rect(x-self._btnWidth2, y_mid-self._btnHeight2, self._btnWidth, self._btnHeight)
+                    rect = wx.Rect(int(x-self._btnWidth2), int(y_mid-self._btnHeight2), int(self._btnWidth), int(self._btnHeight))
                     flag = (item.IsExpanded() and [wx.CONTROL_EXPANDED] or [0])[0]
                     wx.RendererNative.GetDefault().DrawTreeItemButton(self, dc, rect, flag)
 
