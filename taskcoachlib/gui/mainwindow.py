@@ -230,6 +230,47 @@ class MainWindow(
             self.Refresh()
             self._log_window_geometry("AFTER_UPDATE_LAYOUT")
 
+            # Schedule a delayed menu prime after window is fully ready
+            # Opening any menu first fixes the scroll arrow issue on subsequent menus
+            wx.CallLater(500, self.__prime_gtk_menus)
+
+    def __prime_gtk_menus(self):
+        """Prime GTK's menu system to fix scroll arrows on first menu open.
+
+        GTK's menu system has a bug where the first menu opened in a session
+        shows scroll arrows even when there's plenty of space. Opening ANY
+        menu (even briefly) fixes this for all subsequent menu opens.
+        This method triggers the menu system initialization by sending
+        UpdateWindowUI to process menu events.
+        """
+        if not self:
+            return
+
+        import time
+        now = time.time()
+        timestamp = time.strftime("%H:%M:%S", time.localtime(now))
+        ms = int((now % 1) * 1000)
+        print(f"[{timestamp}.{ms:03d}] MainWindow.__prime_gtk_menus: Priming GTK menu system")
+
+        try:
+            # Method 1: Try to trigger GTK menu initialization via UpdateWindowUI
+            self.UpdateWindowUI()
+
+            # Method 2: Try sending menu-related events to prime GTK
+            menubar = self.GetMenuBar()
+            if menubar:
+                # Send a menu highlight event to the first menu to trigger GTK init
+                # This doesn't actually open the menu, but may initialize GTK's state
+                first_menu = menubar.GetMenu(0)
+                if first_menu:
+                    # Try sending EVT_MENU_HIGHLIGHT to prime the menu system
+                    evt = wx.MenuEvent(wx.wxEVT_MENU_HIGHLIGHT, -1, first_menu)
+                    self.ProcessEvent(evt)
+                    print(f"[{timestamp}.{ms:03d}] MainWindow.__prime_gtk_menus: Sent menu highlight event")
+
+        except Exception as e:
+            print(f"[{timestamp}.{ms:03d}] MainWindow.__prime_gtk_menus: Error: {e}")
+
     def _log_window_geometry(self, event_name):
         """Log detailed window geometry for debugging menu display issues."""
         import time
