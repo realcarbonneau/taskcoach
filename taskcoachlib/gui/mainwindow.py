@@ -268,7 +268,7 @@ class MainWindow(
             print(f"[{timestamp}.{ms:03d}] MainWindow.__prime_gtk_menus: Error: {e}")
 
     def _log_gtk_menu_state(self, event_name):
-        """Log GTK's internal state for menu widgets using PyGObject introspection."""
+        """Log GDK display/monitor state using PyGObject (safe, no ctypes)."""
         import time
         now = time.time()
         timestamp = time.strftime("%H:%M:%S", time.localtime(now))
@@ -278,11 +278,10 @@ class MainWindow(
 
         try:
             import gi
-            gi.require_version('Gtk', '3.0')
             gi.require_version('Gdk', '3.0')
-            from gi.repository import Gtk, Gdk
+            from gi.repository import Gdk
 
-            # Get GDK display info
+            # Get GDK display info (safe - doesn't touch wxWidgets internals)
             gdk_display = Gdk.Display.get_default()
             if gdk_display:
                 n_monitors = gdk_display.get_n_monitors()
@@ -297,59 +296,18 @@ class MainWindow(
                     print(f"  GDK Monitor {i}: geom=({geom.x},{geom.y}) {geom.width}x{geom.height}, "
                           f"workarea=({work.x},{work.y}) {work.width}x{work.height}, scale={scale}")
 
-            # Try to get menubar GTK widget info
-            menubar = self.GetMenuBar()
-            if menubar:
-                try:
-                    menubar_handle = menubar.GetHandle()
-                    print(f"  MenuBar handle: {menubar_handle}")
-
-                    if menubar_handle:
-                        # Cast to GtkWidget using ctypes
-                        import ctypes
-                        libgtk = ctypes.CDLL("libgtk-3.so.0")
-
-                        # Get preferred size functions
-                        gtk_widget_get_preferred_height = libgtk.gtk_widget_get_preferred_height
-                        gtk_widget_get_preferred_height.argtypes = [
-                            ctypes.c_void_p,
-                            ctypes.POINTER(ctypes.c_int),
-                            ctypes.POINTER(ctypes.c_int)
-                        ]
-
-                        gtk_widget_get_allocated_height = libgtk.gtk_widget_get_allocated_height
-                        gtk_widget_get_allocated_height.argtypes = [ctypes.c_void_p]
-                        gtk_widget_get_allocated_height.restype = ctypes.c_int
-
-                        min_h = ctypes.c_int()
-                        nat_h = ctypes.c_int()
-                        gtk_widget_get_preferred_height(menubar_handle, ctypes.byref(min_h), ctypes.byref(nat_h))
-                        alloc_h = gtk_widget_get_allocated_height(menubar_handle)
-                        print(f"  MenuBar GTK: min_height={min_h.value}, natural_height={nat_h.value}, allocated_height={alloc_h}")
-
-                except Exception as e:
-                    print(f"  MenuBar GTK introspection error: {e}")
-
-                # Try to get info for File menu (first menu)
-                try:
-                    first_menu = menubar.GetMenu(0)
-                    if first_menu:
-                        menu_handle = first_menu.GetHandle()
-                        print(f"  FileMenu handle: {menu_handle}")
-
-                        if menu_handle:
-                            min_h = ctypes.c_int()
-                            nat_h = ctypes.c_int()
-                            gtk_widget_get_preferred_height(menu_handle, ctypes.byref(min_h), ctypes.byref(nat_h))
-                            alloc_h = gtk_widget_get_allocated_height(menu_handle)
-                            print(f"  FileMenu GTK: min_height={min_h.value}, natural_height={nat_h.value}, allocated_height={alloc_h}")
-                except Exception as e:
-                    print(f"  FileMenu GTK introspection error: {e}")
+                # Get monitor at window position
+                win_pos = self.GetPosition()
+                gdk_mon = gdk_display.get_monitor_at_point(win_pos.x, win_pos.y)
+                if gdk_mon:
+                    work = gdk_mon.get_workarea()
+                    print(f"  GDK monitor at window ({win_pos.x},{win_pos.y}): "
+                          f"workarea=({work.x},{work.y}) {work.width}x{work.height}")
 
         except ImportError as e:
             print(f"  PyGObject not available: {e}")
         except Exception as e:
-            print(f"  GTK introspection error: {e}")
+            print(f"  GDK introspection error: {e}")
 
     def _log_window_geometry(self, event_name):
         """Log detailed window geometry for debugging menu display issues."""
