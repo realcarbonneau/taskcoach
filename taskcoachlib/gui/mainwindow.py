@@ -234,6 +234,12 @@ class MainWindow(
             # Opening any menu first fixes the scroll arrow issue on subsequent menus
             wx.CallLater(500, self.__prime_gtk_menus)
 
+            # Start periodic logging of GTK menu state to track changes over time
+            self.__menu_debug_timer_count = 0
+            self.__menu_debug_timer = wx.Timer(self)
+            self.Bind(wx.EVT_TIMER, self.__on_menu_debug_timer, self.__menu_debug_timer)
+            self.__menu_debug_timer.Start(1000)  # Log every 1 second
+
     def __prime_gtk_menus(self):
         """Prime GTK's menu system to fix scroll arrows on first menu open.
 
@@ -312,6 +318,88 @@ class MainWindow(
 
         except Exception as e:
             print(f"[{timestamp}.{ms:03d}] MainWindow.__prime_gtk_menus: Error: {e}")
+
+    def __on_menu_debug_timer(self, event):
+        """Periodic timer to log GTK menu state for debugging."""
+        import time
+        now = time.time()
+        timestamp = time.strftime("%H:%M:%S", time.localtime(now))
+        ms = int((now % 1) * 1000)
+
+        self.__menu_debug_timer_count += 1
+        count = self.__menu_debug_timer_count
+
+        # Stop after 15 seconds (enough time to reproduce the issue)
+        if count > 15:
+            self.__menu_debug_timer.Stop()
+            print(f"[{timestamp}.{ms:03d}] TIMER_LOG: Stopping periodic menu debug logging")
+            return
+
+        try:
+            import ctypes
+
+            menubar = self.GetMenuBar()
+            if not menubar:
+                print(f"[{timestamp}.{ms:03d}] TIMER_LOG #{count}: No menubar")
+                return
+
+            # Get the File menu (first menu)
+            file_menu = menubar.GetMenu(0)
+            if not file_menu:
+                print(f"[{timestamp}.{ms:03d}] TIMER_LOG #{count}: No File menu")
+                return
+
+            menu_handle = file_menu.GetHandle()
+
+            # Get window position and display info
+            win_pos = self.GetPosition()
+            display_idx = wx.Display.GetFromWindow(self)
+
+            # Query GTK widget state
+            libgtk = ctypes.CDLL("libgtk-3.so.0")
+
+            gtk_widget_get_realized = libgtk.gtk_widget_get_realized
+            gtk_widget_get_realized.argtypes = [ctypes.c_void_p]
+            gtk_widget_get_realized.restype = ctypes.c_int
+
+            gtk_widget_get_visible = libgtk.gtk_widget_get_visible
+            gtk_widget_get_visible.argtypes = [ctypes.c_void_p]
+            gtk_widget_get_visible.restype = ctypes.c_int
+
+            gtk_widget_get_mapped = libgtk.gtk_widget_get_mapped
+            gtk_widget_get_mapped.argtypes = [ctypes.c_void_p]
+            gtk_widget_get_mapped.restype = ctypes.c_int
+
+            gtk_widget_get_allocated_height = libgtk.gtk_widget_get_allocated_height
+            gtk_widget_get_allocated_height.argtypes = [ctypes.c_void_p]
+            gtk_widget_get_allocated_height.restype = ctypes.c_int
+
+            gtk_widget_get_allocated_width = libgtk.gtk_widget_get_allocated_width
+            gtk_widget_get_allocated_width.argtypes = [ctypes.c_void_p]
+            gtk_widget_get_allocated_width.restype = ctypes.c_int
+
+            gtk_menu_get_monitor = libgtk.gtk_menu_get_monitor
+            gtk_menu_get_monitor.argtypes = [ctypes.c_void_p]
+            gtk_menu_get_monitor.restype = ctypes.c_int
+
+            if menu_handle:
+                realized = gtk_widget_get_realized(menu_handle)
+                visible = gtk_widget_get_visible(menu_handle)
+                mapped = gtk_widget_get_mapped(menu_handle)
+                alloc_h = gtk_widget_get_allocated_height(menu_handle)
+                alloc_w = gtk_widget_get_allocated_width(menu_handle)
+                mon_num = gtk_menu_get_monitor(menu_handle)
+
+                print(f"[{timestamp}.{ms:03d}] TIMER_LOG #{count}: "
+                      f"handle={hex(menu_handle)} realized={realized} visible={visible} mapped={mapped} "
+                      f"alloc={alloc_w}x{alloc_h} gtk_monitor={mon_num} "
+                      f"win_pos=({win_pos.x},{win_pos.y}) wx_display={display_idx}")
+            else:
+                print(f"[{timestamp}.{ms:03d}] TIMER_LOG #{count}: "
+                      f"handle=None win_pos=({win_pos.x},{win_pos.y}) wx_display={display_idx}")
+
+        except Exception as e:
+            print(f"[{timestamp}.{ms:03d}] TIMER_LOG #{count}: Error: {e}")
 
     def _log_gtk_menu_state(self, event_name):
         """Log GDK display/monitor state using PyGObject (safe, no ctypes)."""
