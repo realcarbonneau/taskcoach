@@ -109,17 +109,25 @@ class HyperTreeList(draganddrop.TreeCtrlDragAndDropMixin, BaseHyperTreeList):
         return flags & wx.TREE_HITTEST_ONITEMBUTTON
 
     def select(self, selection):
+        """Select items whose PyData is in the selection list.
+        Returns the first selected tree item (for scrolling)."""
         items_found = 0
         items_selected = 0
+        first_selected_item = None
+        # First, unselect all
+        self.UnselectAll()
+        # Then select only the items that should be selected
         for item in self.GetItemChildren(recursively=True):
             items_found += 1
             pydata = self.GetItemPyData(item)
-            should_select = pydata in selection
-            if should_select:
+            if pydata in selection:
                 items_selected += 1
                 print(f"DEBUG select: selecting item with pydata={pydata}")
-            self.SelectItem(item, should_select)
+                self.SelectItem(item, True)
+                if first_selected_item is None:
+                    first_selected_item = item
         print(f"DEBUG select: found {items_found} items, selected {items_selected}")
+        return first_selected_item
 
     def clear_selection(self):
         self.UnselectAll()
@@ -276,23 +284,27 @@ class TreeListCtrl(
             root_item = self.AddRoot("Hidden root")
         self._addObjectRecursively(root_item)
         self.Thaw()
+        self.__refreshing = False
         # Restore selection AFTER Thaw - SelectItem doesn't work while Frozen
+        selected_item = None
         if self.__selection:
             print(f"DEBUG RefreshAllItems: calling select() with {len(self.__selection)} items")
-            self.select(self.__selection)
+            selected_item = self.select(self.__selection)
+            print(f"DEBUG RefreshAllItems: select() returned item: {selected_item}")
         else:
             print("DEBUG RefreshAllItems: __selection is empty, skipping select()")
-        self.__refreshing = False
         selections = self.GetSelections()
-        print(f"DEBUG RefreshAllItems: GetSelections() returned {len(selections)} items: {selections}")
-        if selections:
+        print(f"DEBUG RefreshAllItems: GetSelections() returned {len(selections)} items")
+        # Use the item returned by select() for scrolling if GetSelections fails
+        scroll_target = selections[0] if selections else selected_item
+        if scroll_target:
             self.GetMainWindow()._current = (
                 self.GetMainWindow()._key_current
-            ) = selections[0]
-            self.ScrollTo(selections[0])
-            print(f"DEBUG RefreshAllItems: ScrollTo called on {selections[0]}")
+            ) = scroll_target
+            self.ScrollTo(scroll_target)
+            print(f"DEBUG RefreshAllItems: ScrollTo called")
         else:
-            print("DEBUG RefreshAllItems: No selections, NOT scrolling")
+            print("DEBUG RefreshAllItems: No scroll target")
         # Force immediate repaint to reduce visible flicker after rebuild
         self.GetMainWindow().Refresh(eraseBackground=False)
 
