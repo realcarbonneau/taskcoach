@@ -250,6 +250,30 @@ class MainMenu(wx.MenuBar):
 
 
 class FileMenu(Menu):
+    """File menu with recent files list.
+
+    DESIGN NOTE (GTK3 Menu Size Bug Fix - December 2025):
+
+    The recent files list is populated at init time and updated via pub/sub
+    when the settings change. This avoids the GTK3 bug where modifying menu
+    items during EVT_MENU_OPEN causes incorrect size allocation on first popup,
+    resulting in scroll arrows appearing even when there's plenty of space.
+
+    See: GNOME GTK Issue #473, Stack Overflow "size-allocation issue -
+    not calculated on first-popup but is on subsequent pop-up's"
+
+    Previous (broken) approach:
+    - Menu items were removed and re-added on every EVT_MENU_OPEN
+    - GTK calculated size for N items, then N+3 items were shown
+    - Scroll arrows appeared on first open, disappeared on second
+
+    Current (fixed) approach:
+    - Populate recent files at init (full menu size from start)
+    - Subscribe to "settings.file.recentfiles" pub/sub topic
+    - Update menu only when settings actually change
+    - Never modify menu during popup
+    """
+
     def __init__(self, mainwindow, settings, iocontroller, viewerContainer):
         super().__init__(mainwindow)
         self.__settings = settings
@@ -310,13 +334,23 @@ class FileMenu(Menu):
                 )
         self.__recentFilesStartPosition = len(self)
         self.appendUICommands(None, uicommand.FileQuit())
-        self._window.Bind(wx.EVT_MENU_OPEN, self.onOpenMenu)
 
-    def onOpenMenu(self, event):
-        if event.GetMenu() == self:
-            self.__removeRecentFileMenuItems()
-            self.__insertRecentFileMenuItems()
-        event.Skip()
+        # Populate recent files at init (fixes GTK3 menu size bug)
+        self.__insertRecentFileMenuItems()
+
+        # Subscribe to settings changes to update recent files list
+        # This replaces the broken EVT_MENU_OPEN approach
+        pub.subscribe(self.__onRecentFilesChanged, "settings.file.recentfiles")
+
+    def __onRecentFilesChanged(self, value):
+        """Update recent files menu when settings change.
+
+        Called via pub/sub when a file is opened or the recent files list
+        is modified. This is the correct way to update dynamic menu content -
+        update when data changes, not on every menu open.
+        """
+        self.__removeRecentFileMenuItems()
+        self.__insertRecentFileMenuItems()
 
     def __insertRecentFileMenuItems(self):
         recentFiles = self.__settings.getlist("file", "recentfiles")

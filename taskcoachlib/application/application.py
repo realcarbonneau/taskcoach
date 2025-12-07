@@ -479,11 +479,7 @@ class Application(object, metaclass=patterns.Singleton):
             wx.Log.SetLogLevel(wx.LOG_Info)
             wx.Log.SetVerbose(True)
 
-        pos_before_show = self.mainwindow.GetPosition()
-        print(f"[DEBUG] application: BEFORE Show() pos=({pos_before_show.x}, {pos_before_show.y})")
         self.mainwindow.Show()
-        pos_after_show = self.mainwindow.GetPosition()
-        print(f"[DEBUG] application: AFTER Show() pos=({pos_after_show.x}, {pos_after_show.y})")
         # Position correction is handled automatically by WindowDimensionsTracker
         # via EVT_MOVE detection until EVT_ACTIVATE fires (window ready for input)
         # Use native wxPython main loop instead of Twisted reactor
