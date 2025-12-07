@@ -411,7 +411,7 @@ class FileMenu(Menu):
             _log_menu_debug(f"  _try_fix_gtk_menu_size failed: {e}")
 
     def _log_gtk_menu_introspection(self, is_first_open):
-        """Log GDK state for this menu using PyGObject (safe, no ctypes)."""
+        """Log GTK menu state for debugging the scroll arrows issue."""
         try:
             import gi
             gi.require_version('Gdk', '3.0')
@@ -433,6 +433,72 @@ class FileMenu(Menu):
             _log_menu_debug(f"  PyGObject not available: {e}")
         except Exception as e:
             _log_menu_debug(f"  GDK introspection error: {e}")
+
+        # Log GTK menu widget state using ctypes (safe read-only calls)
+        self._log_gtk_menu_widget_state(is_first_open)
+
+    def _log_gtk_menu_widget_state(self, is_first_open):
+        """Log detailed GTK menu widget state to understand what changes between opens."""
+        try:
+            import ctypes
+
+            menu_handle = self.GetHandle()
+            _log_menu_debug(f"  GTK Menu handle: {menu_handle} (hex: {hex(menu_handle) if menu_handle else 'None'})")
+
+            if not menu_handle:
+                _log_menu_debug(f"  No menu handle available")
+                return
+
+            try:
+                libgtk = ctypes.CDLL("libgtk-3.so.0")
+
+                # gtk_widget_get_realized - returns gboolean
+                gtk_widget_get_realized = libgtk.gtk_widget_get_realized
+                gtk_widget_get_realized.argtypes = [ctypes.c_void_p]
+                gtk_widget_get_realized.restype = ctypes.c_int
+
+                # gtk_widget_get_visible - returns gboolean
+                gtk_widget_get_visible = libgtk.gtk_widget_get_visible
+                gtk_widget_get_visible.argtypes = [ctypes.c_void_p]
+                gtk_widget_get_visible.restype = ctypes.c_int
+
+                # gtk_widget_get_mapped - returns gboolean
+                gtk_widget_get_mapped = libgtk.gtk_widget_get_mapped
+                gtk_widget_get_mapped.argtypes = [ctypes.c_void_p]
+                gtk_widget_get_mapped.restype = ctypes.c_int
+
+                # gtk_widget_get_allocated_height - returns gint
+                gtk_widget_get_allocated_height = libgtk.gtk_widget_get_allocated_height
+                gtk_widget_get_allocated_height.argtypes = [ctypes.c_void_p]
+                gtk_widget_get_allocated_height.restype = ctypes.c_int
+
+                # gtk_widget_get_allocated_width - returns gint
+                gtk_widget_get_allocated_width = libgtk.gtk_widget_get_allocated_width
+                gtk_widget_get_allocated_width.argtypes = [ctypes.c_void_p]
+                gtk_widget_get_allocated_width.restype = ctypes.c_int
+
+                # gtk_menu_get_monitor - returns gint
+                gtk_menu_get_monitor = libgtk.gtk_menu_get_monitor
+                gtk_menu_get_monitor.argtypes = [ctypes.c_void_p]
+                gtk_menu_get_monitor.restype = ctypes.c_int
+
+                # Query widget state
+                realized = gtk_widget_get_realized(menu_handle)
+                visible = gtk_widget_get_visible(menu_handle)
+                mapped = gtk_widget_get_mapped(menu_handle)
+                alloc_height = gtk_widget_get_allocated_height(menu_handle)
+                alloc_width = gtk_widget_get_allocated_width(menu_handle)
+                monitor_num = gtk_menu_get_monitor(menu_handle)
+
+                _log_menu_debug(f"  GTK widget state: realized={realized}, visible={visible}, mapped={mapped}")
+                _log_menu_debug(f"  GTK allocation: {alloc_width}x{alloc_height}")
+                _log_menu_debug(f"  GTK menu monitor: {monitor_num}")
+
+            except Exception as e:
+                _log_menu_debug(f"  GTK widget state query failed: {e}")
+
+        except Exception as e:
+            _log_menu_debug(f"  _log_gtk_menu_widget_state error: {e}")
 
     def _log_menu_geometry(self, event_name, is_first_open):
         """Log detailed geometry information for debugging menu display issues."""
