@@ -331,19 +331,56 @@ class FileMenu(Menu):
             is_first = self.__firstOpen
             self._log_menu_geometry("MENU_OPEN", is_first)
 
-            # Fix for menu scroll arrows appearing on first open:
-            # When the window is first realized, wxWidgets may calculate menu
-            # height based on stale work area dimensions. Force window UI
-            # update and size event on first open to ensure correct layout.
-            # This is a known class of wxWidgets timing issues where menus
-            # calculate available space before window geometry is finalized.
+            # Fix for menu scroll arrows appearing on first open (GTK3 multi-monitor bug):
+            # GTK caches monitor info during window init and may use wrong monitor's
+            # workarea for menu height calculations. Force GTK to recalculate.
             if self.__firstOpen:
                 self.__firstOpen = False
-                _log_menu_debug("  Applying first-open fix: UpdateWindowUI, SendSizeEvent, Refresh")
+                _log_menu_debug("  Applying first-open fix...")
+
+                # Try to force GTK to recalculate menu size
                 self._window.UpdateWindowUI()
                 self._window.SendSizeEvent()
-                # Force refresh to ensure display geometry is current
                 self._window.Refresh()
+
+                # Try to access GTK menu widget and force resize
+                try:
+                    # Get the GTK handle for the menu
+                    import gi
+                    gi.require_version('Gtk', '3.0')
+                    from gi.repository import Gtk, Gdk
+
+                    # Get the correct monitor for this window
+                    display_idx = wx.Display.GetFromWindow(self._window)
+                    _log_menu_debug(f"  Display index from wx: {display_idx}")
+
+                    # Get GDK display and monitor
+                    gdk_display = Gdk.Display.get_default()
+                    if gdk_display:
+                        n_monitors = gdk_display.get_n_monitors()
+                        _log_menu_debug(f"  GDK n_monitors: {n_monitors}")
+
+                        # Log each GDK monitor's workarea
+                        for i in range(n_monitors):
+                            mon = gdk_display.get_monitor(i)
+                            geom = mon.get_geometry()
+                            work = mon.get_workarea()
+                            _log_menu_debug(f"  GDK Monitor {i}: geom=({geom.x},{geom.y}) {geom.width}x{geom.height}")
+                            _log_menu_debug(f"  GDK Monitor {i}: workarea=({work.x},{work.y}) {work.width}x{work.height}")
+
+                        # Get window position to find the right monitor
+                        win_pos = self._window.GetPosition()
+                        gdk_mon = gdk_display.get_monitor_at_point(win_pos.x, win_pos.y)
+                        if gdk_mon:
+                            mon_geom = gdk_mon.get_geometry()
+                            mon_work = gdk_mon.get_workarea()
+                            _log_menu_debug(f"  GDK monitor at window: geom=({mon_geom.x},{mon_geom.y}) {mon_geom.width}x{mon_geom.height}")
+                            _log_menu_debug(f"  GDK monitor at window: workarea=({mon_work.x},{mon_work.y}) {mon_work.width}x{mon_work.height}")
+                except ImportError as e:
+                    _log_menu_debug(f"  PyGObject not available: {e}")
+                except Exception as e:
+                    _log_menu_debug(f"  GTK introspection error: {e}")
+
                 self._log_menu_geometry("AFTER_FIX", False)
             self.__removeRecentFileMenuItems()
             self.__insertRecentFileMenuItems()
