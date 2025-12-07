@@ -265,6 +265,10 @@ class TreeListCtrl(
         if not root_item:
             root_item = self.AddRoot("Hidden root")
         self._addObjectRecursively(root_item)
+        # Restore selection AFTER tree is fully built - SelectItem doesn't
+        # work reliably during tree construction
+        if self.__selection:
+            self.select(self.__selection)
         self.__refreshing = False
         selections = self.GetSelections()
         if selections:
@@ -386,10 +390,9 @@ class TreeListCtrl(
     def _refreshSelection(self, item, domain_object, check=False):
         select = domain_object in self.__selection
         if not check or (check and select != item.IsSelected()):
-            # Use SelectItem instead of SetHilight to properly update the
-            # selection list, so GetSelections() returns the correct items
-            # and ScrollTo() works after refresh
-            self.SelectItem(item, select)
+            # Use SetHilight for visual highlighting during tree construction.
+            # Actual selection is done via select() after tree is fully built.
+            item.SetHilight(select)
 
     # Event handlers
 
