@@ -331,7 +331,9 @@ class FileMenu(Menu):
             is_first = self.__firstOpen
             self._log_menu_geometry("MENU_OPEN", is_first)
 
-            # Log first open for debugging - the actual fix is in MainWindow.__prime_gtk_menus
+            # Log GTK menu state during open
+            self._log_gtk_menu_introspection(is_first)
+
             if self.__firstOpen:
                 self.__firstOpen = False
                 _log_menu_debug("  First File menu open in this session")
@@ -340,6 +342,85 @@ class FileMenu(Menu):
             self.__insertRecentFileMenuItems()
             _log_menu_debug(f"  Menu item count: {self.GetMenuItemCount()}")
         event.Skip()
+
+    def _log_gtk_menu_introspection(self, is_first_open):
+        """Log GTK's internal state for this menu using ctypes/PyGObject."""
+        try:
+            import ctypes
+
+            # Try to get the GTK menu handle
+            try:
+                menu_handle = self.GetHandle()
+                _log_menu_debug(f"  GTK menu handle: {menu_handle}")
+            except Exception as e:
+                _log_menu_debug(f"  GetHandle() failed: {e}")
+                menu_handle = None
+
+            if menu_handle:
+                try:
+                    libgtk = ctypes.CDLL("libgtk-3.so.0")
+
+                    # gtk_widget_get_preferred_height
+                    gtk_widget_get_preferred_height = libgtk.gtk_widget_get_preferred_height
+                    gtk_widget_get_preferred_height.argtypes = [
+                        ctypes.c_void_p,
+                        ctypes.POINTER(ctypes.c_int),
+                        ctypes.POINTER(ctypes.c_int)
+                    ]
+
+                    # gtk_widget_get_allocated_height
+                    gtk_widget_get_allocated_height = libgtk.gtk_widget_get_allocated_height
+                    gtk_widget_get_allocated_height.argtypes = [ctypes.c_void_p]
+                    gtk_widget_get_allocated_height.restype = ctypes.c_int
+
+                    # gtk_widget_get_realized
+                    gtk_widget_get_realized = libgtk.gtk_widget_get_realized
+                    gtk_widget_get_realized.argtypes = [ctypes.c_void_p]
+                    gtk_widget_get_realized.restype = ctypes.c_int
+
+                    # gtk_widget_get_visible
+                    gtk_widget_get_visible = libgtk.gtk_widget_get_visible
+                    gtk_widget_get_visible.argtypes = [ctypes.c_void_p]
+                    gtk_widget_get_visible.restype = ctypes.c_int
+
+                    # gtk_widget_get_mapped
+                    gtk_widget_get_mapped = libgtk.gtk_widget_get_mapped
+                    gtk_widget_get_mapped.argtypes = [ctypes.c_void_p]
+                    gtk_widget_get_mapped.restype = ctypes.c_int
+
+                    min_h = ctypes.c_int()
+                    nat_h = ctypes.c_int()
+                    gtk_widget_get_preferred_height(menu_handle, ctypes.byref(min_h), ctypes.byref(nat_h))
+                    alloc_h = gtk_widget_get_allocated_height(menu_handle)
+                    realized = gtk_widget_get_realized(menu_handle)
+                    visible = gtk_widget_get_visible(menu_handle)
+                    mapped = gtk_widget_get_mapped(menu_handle)
+
+                    _log_menu_debug(f"  GTK Menu: min_height={min_h.value}, natural_height={nat_h.value}, allocated_height={alloc_h}")
+                    _log_menu_debug(f"  GTK Menu: realized={realized}, visible={visible}, mapped={mapped}")
+
+                except Exception as e:
+                    _log_menu_debug(f"  GTK ctypes introspection error: {e}")
+
+            # Also try PyGObject introspection
+            try:
+                import gi
+                gi.require_version('Gdk', '3.0')
+                from gi.repository import Gdk
+
+                gdk_display = Gdk.Display.get_default()
+                if gdk_display:
+                    # Get monitor at window position
+                    win_pos = self._window.GetPosition()
+                    gdk_mon = gdk_display.get_monitor_at_point(win_pos.x, win_pos.y)
+                    if gdk_mon:
+                        work = gdk_mon.get_workarea()
+                        _log_menu_debug(f"  GDK workarea at window: ({work.x},{work.y}) {work.width}x{work.height}")
+            except Exception as e:
+                _log_menu_debug(f"  GDK introspection error: {e}")
+
+        except Exception as e:
+            _log_menu_debug(f"  Menu introspection failed: {e}")
 
     def _log_menu_geometry(self, event_name, is_first_open):
         """Log detailed geometry information for debugging menu display issues."""

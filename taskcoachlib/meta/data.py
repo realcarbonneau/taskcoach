@@ -24,8 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # IMPORTANT: Always increment version_patch with each change/commit!
 
 version = "1.6.1"  # Current version number of the application
-version_patch = "10"  # Patch level - INCREMENT THIS WITH EACH CHANGE!
-version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.10
+version_patch = "11"  # Patch level - INCREMENT THIS WITH EACH CHANGE!
+version_full = f"{version}.{version_patch}"  # Full version string: 1.6.1.11
 
 
 def _get_git_commit_hash():
