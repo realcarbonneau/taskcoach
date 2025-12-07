@@ -114,16 +114,16 @@ class HyperTreeList(draganddrop.TreeCtrlDragAndDropMixin, BaseHyperTreeList):
         items_found = 0
         items_selected = 0
         first_selected_item = None
-        # First, unselect all
-        self.UnselectAll()
-        # Then select only the items that should be selected
         for item in self.GetItemChildren(recursively=True):
             items_found += 1
             pydata = self.GetItemPyData(item)
             if pydata in selection:
                 items_selected += 1
-                print(f"DEBUG select: selecting item with pydata={pydata}")
+                print(f"DEBUG select: SelectItem on item with pydata={pydata}")
                 self.SelectItem(item, True)
+                # Check if it actually got selected
+                is_selected = item.IsSelected()
+                print(f"DEBUG select: after SelectItem, IsSelected()={is_selected}")
                 if first_selected_item is None:
                     first_selected_item = item
         print(f"DEBUG select: found {items_found} items, selected {items_selected}")
