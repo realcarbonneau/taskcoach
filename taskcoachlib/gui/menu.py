@@ -324,6 +324,8 @@ class FileMenu(Menu):
                 )
         self.__recentFilesStartPosition = len(self)
         self.appendUICommands(None, uicommand.FileQuit())
+        # Pre-populate recent files so menu has full size when GTK first creates it
+        self.__insertRecentFileMenuItems()
         self._window.Bind(wx.EVT_MENU_OPEN, self.onOpenMenu)
 
     def onOpenMenu(self, event):
