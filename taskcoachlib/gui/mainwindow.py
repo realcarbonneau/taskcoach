@@ -225,8 +225,37 @@ class MainWindow(
         is realized, ensuring correct menu height calculations.
         """
         if self:
+            self._log_window_geometry("UPDATE_LAYOUT_FOR_MENUS")
             self.SendSizeEvent()
             self.Refresh()
+            self._log_window_geometry("AFTER_UPDATE_LAYOUT")
+
+    def _log_window_geometry(self, event_name):
+        """Log detailed window geometry for debugging menu display issues."""
+        import time
+        now = time.time()
+        timestamp = time.strftime("%H:%M:%S", time.localtime(now))
+        ms = int((now % 1) * 1000)
+
+        pos = self.GetPosition()
+        size = self.GetSize()
+        client_size = self.GetClientSize()
+        is_max = self.IsMaximized()
+        is_icon = self.IsIconized()
+        is_shown = self.IsShown()
+        is_active = self.IsActive() if hasattr(self, 'IsActive') else 'N/A'
+
+        print(f"[{timestamp}.{ms:03d}] MainWindow.{event_name}:")
+        print(f"  pos=({pos.x}, {pos.y}) size=({size.width}x{size.height}) client=({client_size.width}x{client_size.height})")
+        print(f"  maximized={is_max} iconized={is_icon} shown={is_shown} active={is_active}")
+
+        display_idx = wx.Display.GetFromWindow(self)
+        if display_idx != wx.NOT_FOUND:
+            display = wx.Display(display_idx)
+            geom = display.GetGeometry()
+            client_area = display.GetClientArea()
+            print(f"  display={display_idx} geom=({geom.x},{geom.y}) {geom.width}x{geom.height}")
+            print(f"  client_area=({client_area.x},{client_area.y}) {client_area.width}x{client_area.height}")
 
     def addPane(self, page, caption, floating=False):  # pylint: disable=W0221
         name = page.settingsSection()
@@ -415,6 +444,13 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             event.Skip()
 
     def onResize(self, event):
+        # Log first few resize events for debugging menu issues
+        if not hasattr(self, '_resize_count'):
+            self._resize_count = 0
+        self._resize_count += 1
+        if self._resize_count <= 5:
+            self._log_window_geometry(f"RESIZE_{self._resize_count}")
+
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
             currentToolbar.window.SetSize((event.GetSize().GetWidth(), -1))

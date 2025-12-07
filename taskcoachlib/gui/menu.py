@@ -26,6 +26,19 @@ from . import uicommand
 import taskcoachlib.gui.viewer
 import wx
 import os
+import time
+
+# Debug logging for menu display issues
+_DEBUG_MENU = True
+
+
+def _log_menu_debug(msg):
+    """Log debug message for menu tracking with timestamp."""
+    if _DEBUG_MENU:
+        now = time.time()
+        timestamp = time.strftime("%H:%M:%S", time.localtime(now))
+        ms = int((now % 1) * 1000)
+        print(f"[{timestamp}.{ms:03d}] MenuDebug: {msg}")
 
 
 class Menu(wx.Menu, uicommand.UICommandContainerMixin):
@@ -315,6 +328,9 @@ class FileMenu(Menu):
 
     def onOpenMenu(self, event):
         if event.GetMenu() == self:
+            is_first = self.__firstOpen
+            self._log_menu_geometry("MENU_OPEN", is_first)
+
             # Fix for menu scroll arrows appearing on first open:
             # When the window is first realized, wxWidgets may calculate menu
             # height based on stale work area dimensions. Force window UI
@@ -323,13 +339,68 @@ class FileMenu(Menu):
             # calculate available space before window geometry is finalized.
             if self.__firstOpen:
                 self.__firstOpen = False
+                _log_menu_debug("  Applying first-open fix: UpdateWindowUI, SendSizeEvent, Refresh")
                 self._window.UpdateWindowUI()
                 self._window.SendSizeEvent()
                 # Force refresh to ensure display geometry is current
                 self._window.Refresh()
+                self._log_menu_geometry("AFTER_FIX", False)
             self.__removeRecentFileMenuItems()
             self.__insertRecentFileMenuItems()
+            _log_menu_debug(f"  Menu item count: {self.GetMenuItemCount()}")
         event.Skip()
+
+    def _log_menu_geometry(self, event_name, is_first_open):
+        """Log detailed geometry information for debugging menu display issues."""
+        win = self._window
+
+        # Window properties
+        win_pos = win.GetPosition()
+        win_size = win.GetSize()
+        win_client_size = win.GetClientSize()
+        win_rect = win.GetRect()
+        is_maximized = win.IsMaximized()
+        is_iconized = win.IsIconized()
+        is_shown = win.IsShown()
+        is_active = win.IsActive() if hasattr(win, 'IsActive') else 'N/A'
+
+        _log_menu_debug(f"{event_name}: first_open={is_first_open}")
+        _log_menu_debug(f"  Window: pos=({win_pos.x}, {win_pos.y}) size=({win_size.width}x{win_size.height})")
+        _log_menu_debug(f"  Window: client_size=({win_client_size.width}x{win_client_size.height})")
+        _log_menu_debug(f"  Window: rect=({win_rect.x}, {win_rect.y}, {win_rect.width}x{win_rect.height})")
+        _log_menu_debug(f"  Window: maximized={is_maximized} iconized={is_iconized} shown={is_shown} active={is_active}")
+
+        # Display info for the window
+        display_idx = wx.Display.GetFromWindow(win)
+        _log_menu_debug(f"  Display index from window: {display_idx}")
+
+        if display_idx != wx.NOT_FOUND:
+            display = wx.Display(display_idx)
+            geom = display.GetGeometry()
+            client_area = display.GetClientArea()
+            _log_menu_debug(f"  Display geometry: ({geom.x}, {geom.y}) {geom.width}x{geom.height}")
+            _log_menu_debug(f"  Display client_area: ({client_area.x}, {client_area.y}) {client_area.width}x{client_area.height}")
+
+            # Calculate available height below menu bar
+            menubar = win.GetMenuBar()
+            if menubar:
+                menubar_rect = menubar.GetRect()
+                _log_menu_debug(f"  MenuBar rect: ({menubar_rect.x}, {menubar_rect.y}) {menubar_rect.width}x{menubar_rect.height}")
+
+                # Estimate where menu would appear (below File menu item)
+                menu_top_y = win_pos.y + menubar_rect.y + menubar_rect.height
+                available_below = client_area.y + client_area.height - menu_top_y
+                _log_menu_debug(f"  Menu estimated top Y: {menu_top_y}")
+                _log_menu_debug(f"  Available height below menu: {available_below}")
+
+        # All displays info
+        num_displays = wx.Display.GetCount()
+        _log_menu_debug(f"  Total displays: {num_displays}")
+        for i in range(num_displays):
+            d = wx.Display(i)
+            g = d.GetGeometry()
+            c = d.GetClientArea()
+            _log_menu_debug(f"    Display {i}: geom=({g.x},{g.y}) {g.width}x{g.height}, client=({c.x},{c.y}) {c.width}x{c.height}")
 
     def __insertRecentFileMenuItems(self):
         recentFiles = self.__settings.getlist("file", "recentfiles")
