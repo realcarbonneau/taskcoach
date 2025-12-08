@@ -24,10 +24,7 @@ from . import uicommand
 
 class _Toolbar(aui.AuiToolBar):
     def __init__(self, parent, style):
-        # Note: Removed AUI_TB_NO_AUTORESIZE flag which was preventing proper
-        # item repositioning during resize. The flag was intended to prevent
-        # automatic Realize() calls, but it also prevented proper layout updates.
-        super().__init__(parent)
+        super().__init__(parent, agwStyle=aui.AUI_TB_NO_AUTORESIZE)
 
     def AddLabelTool(self, id, label, bitmap1, bitmap2, kind, **kwargs):
         long_help_string = kwargs.pop("longHelp", "")
@@ -216,8 +213,15 @@ class MainToolBar(ToolBar):
             pass  # C++ object deleted
 
     def Realize(self):
-        """Realize the toolbar and notify parent to update layout."""
+        """Realize the toolbar and notify parent to update layout.
+
+        Temporarily enables AUI_TB_AUTORESIZE during Realize() so AUI can
+        calculate proper toolbar dimensions, then disables it again to
+        prevent AUI from resizing the toolbar during sash operations.
+        """
+        self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
         super().Realize()
+        self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
         # Notify parent to recalculate layout - this triggers onResize which
         # sets the correct MinSize (with height=42) on both the window and
         # the AUI pane info
