@@ -189,35 +189,19 @@ class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
 
 
 class MainToolBar(ToolBar):
-    # Class-level guard to prevent SendSizeEvent feedback loop
-    # The loop is: toolbar._OnSize -> parent.SendSizeEvent -> mainwindow.onResize
-    #              -> toolbar.SetSize -> toolbar._OnSize -> REPEAT
-    _in_size_event = False
+    """Main window toolbar with proper AUI integration.
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.Bind(wx.EVT_SIZE, self._OnSize)
+    Note: The toolbar width is managed by mainwindow.onResize(), which sets
+    the toolbar size to match the window width. We do NOT use EVT_SIZE here
+    to avoid a feedback loop (toolbar._OnSize -> SendSizeEvent -> onResize
+    -> SetSize -> _OnSize -> repeat).
 
-    def _OnSize(self, event):
-        event.Skip()
-        # Guard against re-entrancy to prevent feedback loop with mainwindow.onResize
-        if MainToolBar._in_size_event:
-            return
-        # On Windows XP, the sizes are off by 1 pixel. I fear that this value depends
-        # on the user's config so let's take some margin.
-        if abs(event.GetSize()[0] - self.GetParent().GetClientSize()[0]) >= 10:
-            wx.CallAfter(self.__safeParentSendSizeEvent)
+    The only place we notify the parent is in Realize(), after toolbar
+    content changes and AUI needs to recalculate layout.
+    """
 
     def __safeParentSendSizeEvent(self):
-        """Safely send size event to parent, guarding against deleted C++ objects.
-
-        Uses class-level guard to prevent feedback loop:
-        toolbar._OnSize -> parent.SendSizeEvent -> mainwindow.onResize
-        -> toolbar.SetSize -> toolbar._OnSize -> REPEAT
-        """
-        if MainToolBar._in_size_event:
-            return
-        MainToolBar._in_size_event = True
+        """Safely send size event to parent, guarding against deleted C++ objects."""
         try:
             parent = self.GetParent()
             if parent:
@@ -225,8 +209,6 @@ class MainToolBar(ToolBar):
         except RuntimeError:
             # wrapped C/C++ object has been deleted
             pass
-        finally:
-            MainToolBar._in_size_event = False
 
     def __safeSetMinSize(self, size):
         """Safely set min size, guarding against deleted C++ objects."""
@@ -238,6 +220,12 @@ class MainToolBar(ToolBar):
             pass
 
     def Realize(self):
+        """Realize the toolbar and notify parent to update layout.
+
+        Temporarily enables AUI_TB_AUTORESIZE during Realize() so AUI can
+        calculate proper toolbar dimensions, then disables it again to
+        prevent AUI from resizing the toolbar during sash operations.
+        """
         self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
         super().Realize()
         self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
