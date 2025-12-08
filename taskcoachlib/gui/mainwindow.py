@@ -288,6 +288,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
         self.manager.Update()
+        # Initialize proportional resize tracking after perspective is loaded
+        wx.CallAfter(self.initProportionalResize)
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
         perspective = self.settings.get("view", "perspective")
@@ -403,6 +405,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         if currentToolbar.IsOk():
             currentToolbar.window.SetSize((event.GetSize().GetWidth(), -1))
             currentToolbar.window.SetMinSize((event.GetSize().GetWidth(), 42))
+        # Scale docked pane sizes proportionally to prevent them from being
+        # pushed off-screen when the window is resized
+        self.handleProportionalResize(self.GetClientSize())
         event.Skip()
 
     def showStatusBar(self, value=True):
