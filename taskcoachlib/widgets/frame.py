@@ -104,79 +104,72 @@ def _diagnose_manager_instance(manager):
 
 
 def _install_resize_tracing(manager):
-    """Monkey-patch AuiManager to trace sash resize events with timing."""
+    """Monkey-patch AuiManager to trace sash resize events with call stacks."""
     import time
+    import traceback
 
     # Store original methods
-    original_on_motion_resize = manager.OnMotion_Resize if hasattr(manager, 'OnMotion_Resize') else None
     original_update = manager.Update if hasattr(manager, 'Update') else None
     original_do_update = manager.DoUpdate if hasattr(manager, 'DoUpdate') else None
 
-    stats = {
-        'motion_resize_count': 0,
-        'motion_resize_total_ms': 0,
-        'update_count': 0,
-        'update_total_ms': 0,
+    state = {
         'do_update_count': 0,
-        'do_update_total_ms': 0,
-        'last_report_time': time.time(),
+        'in_do_update': False,  # Re-entrancy guard
+        'last_stack_time': 0,
     }
-
-    if original_on_motion_resize:
-        def traced_on_motion_resize(event):
-            start = time.time()
-            result = original_on_motion_resize(event)
-            elapsed_ms = (time.time() - start) * 1000
-            stats['motion_resize_count'] += 1
-            stats['motion_resize_total_ms'] += elapsed_ms
-            if elapsed_ms > 50:  # Log slow operations
-                print(f"AUI SLOW: OnMotion_Resize took {elapsed_ms:.1f}ms")
-            return result
-        manager.OnMotion_Resize = traced_on_motion_resize
 
     if original_update:
         def traced_update():
             start = time.time()
+            # Show abbreviated call stack for first few calls
+            if state['do_update_count'] < 15:
+                stack = traceback.extract_stack()
+                # Get caller info (skip traced_update and Update frames)
+                callers = []
+                for frame in stack[-6:-2]:  # Last 4 meaningful frames
+                    callers.append(f"{frame.filename.split('/')[-1]}:{frame.lineno}:{frame.name}")
+                print(f"AUI TRACE: Update() called from: {' <- '.join(callers)}")
             result = original_update()
             elapsed_ms = (time.time() - start) * 1000
-            stats['update_count'] += 1
-            stats['update_total_ms'] += elapsed_ms
-            if elapsed_ms > 50:  # Log slow operations
-                print(f"AUI SLOW: Update() took {elapsed_ms:.1f}ms (count={stats['update_count']})")
+            if elapsed_ms > 30:
+                print(f"AUI SLOW: Update() took {elapsed_ms:.1f}ms")
             return result
         manager.Update = traced_update
 
     if original_do_update:
         def traced_do_update():
+            state['do_update_count'] += 1
+            count = state['do_update_count']
+
+            # Check for re-entrancy (cascade)
+            if state['in_do_update']:
+                stack = traceback.extract_stack()
+                callers = [f"{f.filename.split('/')[-1]}:{f.lineno}" for f in stack[-5:-1]]
+                print(f"AUI CASCADE: DoUpdate() re-entered! count={count} from: {' <- '.join(callers)}")
+                return  # Skip re-entrant calls
+
+            state['in_do_update'] = True
             start = time.time()
-            result = original_do_update()
+
+            # Show call stack for first 10 DoUpdate calls
+            if count <= 10:
+                stack = traceback.extract_stack()
+                callers = []
+                for frame in stack[-8:-2]:  # More context
+                    callers.append(f"{frame.filename.split('/')[-1]}:{frame.lineno}:{frame.name}")
+                print(f"AUI TRACE: DoUpdate() #{count} from: {' <- '.join(callers)}")
+
+            try:
+                result = original_do_update()
+            finally:
+                state['in_do_update'] = False
+
             elapsed_ms = (time.time() - start) * 1000
-            stats['do_update_count'] += 1
-            stats['do_update_total_ms'] += elapsed_ms
-            if elapsed_ms > 50:  # Log slow operations
-                print(f"AUI SLOW: DoUpdate() took {elapsed_ms:.1f}ms (count={stats['do_update_count']})")
+            print(f"AUI: DoUpdate() #{count} took {elapsed_ms:.1f}ms")
             return result
         manager.DoUpdate = traced_do_update
 
-    # Periodic stats report
-    def report_stats():
-        now = time.time()
-        if now - stats['last_report_time'] > 2.0 and stats['motion_resize_count'] > 0:
-            avg_motion = stats['motion_resize_total_ms'] / max(1, stats['motion_resize_count'])
-            avg_update = stats['update_total_ms'] / max(1, stats['update_count'])
-            print(f"AUI STATS: motion_resize={stats['motion_resize_count']} (avg={avg_motion:.1f}ms), "
-                  f"update={stats['update_count']} (avg={avg_update:.1f}ms)")
-            stats['last_report_time'] = now
-            stats['motion_resize_count'] = 0
-            stats['motion_resize_total_ms'] = 0
-            stats['update_count'] = 0
-            stats['update_total_ms'] = 0
-
-    # Store for periodic reporting
-    manager._resize_stats = stats
-    manager._report_stats = report_stats
-
-    print("AUI: Resize timing tracing installed")
+    print("AUI: Call stack tracing installed")
 
 
 class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
