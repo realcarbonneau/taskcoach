@@ -189,6 +189,12 @@ class BaseCategoryViewer(
         )
         return columns
 
+    def createToolBarUICommands(self):
+        # Skip FilterableViewerMixin's ResetFilter command - it's confusing on
+        # the categories pane since the checkboxes here define the filter, they
+        # don't apply it. Call the next class in MRO after FilterableViewerMixin.
+        return super(mixin.FilterableViewerMixin, self).createToolBarUICommands()
+
     def createCreationToolBarUICommands(self):
         return (
             uicommand.CategoryNew(
