@@ -189,19 +189,35 @@ class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
 
 
 class MainToolBar(ToolBar):
+    # Class-level guard to prevent SendSizeEvent feedback loop
+    # The loop is: toolbar._OnSize -> parent.SendSizeEvent -> mainwindow.onResize
+    #              -> toolbar.SetSize -> toolbar._OnSize -> REPEAT
+    _in_size_event = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.Bind(wx.EVT_SIZE, self._OnSize)
 
     def _OnSize(self, event):
         event.Skip()
+        # Guard against re-entrancy to prevent feedback loop with mainwindow.onResize
+        if MainToolBar._in_size_event:
+            return
         # On Windows XP, the sizes are off by 1 pixel. I fear that this value depends
         # on the user's config so let's take some margin.
         if abs(event.GetSize()[0] - self.GetParent().GetClientSize()[0]) >= 10:
             wx.CallAfter(self.__safeParentSendSizeEvent)
 
     def __safeParentSendSizeEvent(self):
-        """Safely send size event to parent, guarding against deleted C++ objects."""
+        """Safely send size event to parent, guarding against deleted C++ objects.
+
+        Uses class-level guard to prevent feedback loop:
+        toolbar._OnSize -> parent.SendSizeEvent -> mainwindow.onResize
+        -> toolbar.SetSize -> toolbar._OnSize -> REPEAT
+        """
+        if MainToolBar._in_size_event:
+            return
+        MainToolBar._in_size_event = True
         try:
             parent = self.GetParent()
             if parent:
@@ -209,6 +225,8 @@ class MainToolBar(ToolBar):
         except RuntimeError:
             # wrapped C/C++ object has been deleted
             pass
+        finally:
+            MainToolBar._in_size_event = False
 
     def __safeSetMinSize(self, size):
         """Safely set min size, guarding against deleted C++ objects."""
