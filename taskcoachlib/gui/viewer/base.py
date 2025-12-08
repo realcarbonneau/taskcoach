@@ -135,6 +135,27 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
     def activate(self):
         pass
 
+    def _bindActivationEvents(self, window):
+        """Bind click events to activate this viewer's pane.
+
+        This ensures clicking anywhere on the viewer (toolbar, title bar area,
+        empty space) will activate the pane. We skip text controls to avoid
+        interfering with text input focus.
+        """
+        # Skip text input controls - they handle their own focus
+        if isinstance(window, (wx.TextCtrl, wx.SearchCtrl, wx.ComboBox)):
+            return
+        window.Bind(wx.EVT_LEFT_DOWN, self._onViewerClick)
+        # Recursively bind to children, but skip the main widget (tree/list)
+        for child in window.GetChildren():
+            if child != self.widget:
+                self._bindActivationEvents(child)
+
+    def _onViewerClick(self, event):
+        """Handle clicks on the viewer to activate its pane."""
+        wx.PostEvent(self, wx.ChildFocusEvent(self))
+        event.Skip()
+
     def domainObjectsToView(self):
         """Return the domain objects that this viewer should display. For
         global viewers this will be part of the task file,
@@ -220,6 +241,8 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self.SetSizer(self._sizer)  # Changed from SetSizerAndFit to prevent locking MinSize
         # Prevent GetEffectiveMinSize() from returning child's BestSize
         self.SetMinSize((100, 50))
+        # Bind click events to activate pane when clicking on toolbar/empty space
+        self._bindActivationEvents(self)
 
     def createWidget(self, *args):
         raise NotImplementedError
