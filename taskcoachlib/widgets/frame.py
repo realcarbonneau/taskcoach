@@ -103,6 +103,71 @@ def _diagnose_manager_instance(manager):
     return "\n".join(info) if info else "AUI: No flag methods found on manager instance"
 
 
+def _install_resize_tracing(manager):
+    """Monkey-patch AuiManager to trace sash resize events."""
+    import functools
+
+    # Store original methods
+    original_on_motion = manager.OnMotion if hasattr(manager, 'OnMotion') else None
+    original_on_motion_resize = manager.OnMotion_Resize if hasattr(manager, 'OnMotion_Resize') else None
+    original_on_left_down = manager.OnLeftDown if hasattr(manager, 'OnLeftDown') else None
+    original_on_left_up = manager.OnLeftUp if hasattr(manager, 'OnLeftUp') else None
+    original_on_left_up_resize = manager.OnLeftUp_Resize if hasattr(manager, 'OnLeftUp_Resize') else None
+
+    call_count = {'motion': 0, 'motion_resize': 0, 'left_down': 0, 'left_up': 0, 'left_up_resize': 0}
+
+    if original_on_motion:
+        def traced_on_motion(event):
+            call_count['motion'] += 1
+            if call_count['motion'] <= 5:  # Only log first 5 to avoid spam
+                print(f"AUI TRACE: OnMotion called (count={call_count['motion']})")
+            return original_on_motion(event)
+        manager.OnMotion = traced_on_motion
+
+    if original_on_motion_resize:
+        def traced_on_motion_resize(event):
+            call_count['motion_resize'] += 1
+            print(f"AUI TRACE: OnMotion_Resize called (count={call_count['motion_resize']})")
+            return original_on_motion_resize(event)
+        manager.OnMotion_Resize = traced_on_motion_resize
+
+    if original_on_left_down:
+        def traced_on_left_down(event):
+            call_count['left_down'] += 1
+            print(f"AUI TRACE: OnLeftDown called (count={call_count['left_down']})")
+            # Check what action would be taken
+            if hasattr(manager, '_action'):
+                print(f"AUI TRACE: Current _action = {manager._action}")
+            if hasattr(manager, '_action_part'):
+                print(f"AUI TRACE: Current _action_part = {manager._action_part}")
+            return original_on_left_down(event)
+        manager.OnLeftDown = traced_on_left_down
+
+    if original_on_left_up:
+        def traced_on_left_up(event):
+            call_count['left_up'] += 1
+            print(f"AUI TRACE: OnLeftUp called (count={call_count['left_up']})")
+            if hasattr(manager, '_action'):
+                print(f"AUI TRACE: _action before OnLeftUp = {manager._action}")
+            return original_on_left_up(event)
+        manager.OnLeftUp = traced_on_left_up
+
+    if original_on_left_up_resize:
+        def traced_on_left_up_resize(event):
+            call_count['left_up_resize'] += 1
+            print(f"AUI TRACE: OnLeftUp_Resize called (count={call_count['left_up_resize']})")
+            return original_on_left_up_resize(event)
+        manager.OnLeftUp_Resize = traced_on_left_up_resize
+
+    # Also check the action constants
+    print("AUI: Action constants:")
+    for name in dir(aui):
+        if name.startswith('actionResize') or name.startswith('action'):
+            val = getattr(aui, name, None)
+            if isinstance(val, int):
+                print(f"  {name} = {val}")
+
+
 class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -134,6 +199,10 @@ class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
 
         # Comprehensive manager instance diagnostics
         print(_diagnose_manager_instance(self.manager))
+
+        # Install event tracing to debug sash drag behavior
+        _install_resize_tracing(self.manager)
+
         self.manager.SetAutoNotebookStyle(
             aui.AUI_NB_TOP
             | aui.AUI_NB_CLOSE_BUTTON
