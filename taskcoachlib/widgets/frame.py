@@ -104,7 +104,7 @@ def _diagnose_manager_instance(manager):
 
 
 def _install_resize_tracing(manager):
-    """Monkey-patch AuiManager to trace sash resize events with call stacks."""
+    """Monkey-patch AuiManager to add Freeze/Thaw around resize operations."""
     import time
     import traceback
 
@@ -116,47 +116,29 @@ def _install_resize_tracing(manager):
 
     state = {
         'do_update_count': 0,
-        'left_up_count': 0,
-        'left_up_resize_count': 0,
         'in_do_update': False,
     }
 
-    # Trace OnLeftUp to see why it's called multiple times
-    if original_on_left_up:
-        def traced_on_left_up(event):
-            state['left_up_count'] += 1
-            count = state['left_up_count']
-            action = getattr(manager, '_action', 'unknown')
-            print(f"AUI TRACE: OnLeftUp #{count} _action={action}")
-            return original_on_left_up(event)
-        manager.OnLeftUp = traced_on_left_up
+    # Get the managed frame for Freeze/Thaw
+    frame = manager.GetManagedWindow() if hasattr(manager, 'GetManagedWindow') else None
 
-    # Trace OnLeftUp_Resize specifically
-    if original_on_left_up_resize:
-        def traced_on_left_up_resize(event):
-            state['left_up_resize_count'] += 1
-            count = state['left_up_resize_count']
-            print(f"AUI TRACE: OnLeftUp_Resize #{count} called")
-            stack = traceback.extract_stack()
-            callers = [f"{f.filename.split('/')[-1]}:{f.lineno}:{f.name}" for f in stack[-6:-2]]
-            print(f"  from: {' <- '.join(callers)}")
-            return original_on_left_up_resize(event)
-        manager.OnLeftUp_Resize = traced_on_left_up_resize
-
-    if original_update:
-        def traced_update():
-            start = time.time()
-            # Show abbreviated call stack
-            if state['do_update_count'] < 20:
-                stack = traceback.extract_stack()
-                callers = [f"{f.filename.split('/')[-1]}:{f.lineno}:{f.name}" for f in stack[-6:-2]]
-                print(f"AUI TRACE: Update() from: {' <- '.join(callers)}")
-            result = original_update()
-            elapsed_ms = (time.time() - start) * 1000
-            if elapsed_ms > 30:
-                print(f"AUI SLOW: Update() took {elapsed_ms:.1f}ms")
-            return result
-        manager.Update = traced_update
+    # Apply Freeze/Thaw fix around OnLeftUp to prevent flicker
+    # This is a known community workaround for AUI sash flicker
+    if original_on_left_up and frame:
+        def fixed_on_left_up(event):
+            action = getattr(manager, '_action', 0)
+            # Only apply Freeze/Thaw for resize actions (action 3 = actionResize)
+            if action == 3:  # actionResize
+                print(f"AUI: OnLeftUp with resize - applying Freeze/Thaw fix")
+                frame.Freeze()
+                try:
+                    result = original_on_left_up(event)
+                finally:
+                    frame.Thaw()
+                return result
+            else:
+                return original_on_left_up(event)
+        manager.OnLeftUp = fixed_on_left_up
 
     if original_do_update:
         def traced_do_update():
@@ -165,10 +147,8 @@ def _install_resize_tracing(manager):
 
             # Check for re-entrancy (cascade)
             if state['in_do_update']:
-                stack = traceback.extract_stack()
-                callers = [f"{f.filename.split('/')[-1]}:{f.lineno}" for f in stack[-5:-1]]
-                print(f"AUI CASCADE: DoUpdate() re-entered! #{count} from: {' <- '.join(callers)}")
-                return  # Skip re-entrant calls
+                print(f"AUI CASCADE: DoUpdate() re-entered! #{count}")
+                return
 
             state['in_do_update'] = True
             start = time.time()
@@ -184,7 +164,7 @@ def _install_resize_tracing(manager):
             return result
         manager.DoUpdate = traced_do_update
 
-    print("AUI: Resize event tracing installed")
+    print("AUI: Freeze/Thaw fix installed for sash resize")
 
 
 class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
