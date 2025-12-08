@@ -8,10 +8,11 @@ Toggle the flags below to isolate the root cause:
 - ADD_ITEMS_AFTER_SPACER: Add items after the spacer
 """
 
-VERSION = "1.7"
+VERSION = "1.8"
 
 import wx
 import wx.lib.agw.aui as aui
+from wx.lib.platebtn import PlateButton, PB_STYLE_NOBG
 
 # === TOGGLE TO TEST ===
 USE_LIVE_RESIZE = True
@@ -45,14 +46,14 @@ class TestPanel(wx.Panel):
             "Tool (jitters?)"
         )
 
-        # 2. BitmapButton control (flat, no border - like toolbar icon)
-        bmp_btn = wx.BitmapButton(
+        # 2. PlateButton (flat toolbar-style button with proper hover)
+        plate_btn = PlateButton(
             self.toolbar, wx.ID_ANY,
-            wx.ArtProvider.GetBitmap(wx.ART_PRINT, wx.ART_TOOLBAR, (16, 16)),
-            style=wx.BORDER_NONE | wx.BU_EXACTFIT
+            bmp=wx.ArtProvider.GetBitmap(wx.ART_PRINT, wx.ART_TOOLBAR, (16, 16)),
+            style=PB_STYLE_NOBG
         )
-        bmp_btn.SetToolTip("BitmapButton (flat)")
-        self.toolbar.AddControl(bmp_btn)
+        plate_btn.SetToolTip("PlateButton")
+        self.toolbar.AddControl(plate_btn)
 
         # 3. Regular Button
         btn = wx.Button(self.toolbar, wx.ID_ANY, "Btn", size=(40, -1))
@@ -85,7 +86,7 @@ class TestPanel(wx.Panel):
             self, wx.ID_ANY,
             f"Panel: {name}\n\nToolbar has ALL control types after stretch spacer:\n"
             "1. Tool (save icon) - JITTERS?\n"
-            "2. BitmapButton (print icon)\n"
+            "2. PlateButton (print icon) - Safari-style flat button\n"
             "3. Button ('Btn')\n"
             "4. Choice dropdown\n"
             "5. TextCtrl\n"

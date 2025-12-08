@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from taskcoachlib import operating_system
 from wx.lib.agw import aui
+from wx.lib.platebtn import PlateButton, PB_STYLE_NOBG
 import wx
 from . import uicommand
 
@@ -51,13 +52,10 @@ class _Toolbar(aui.AuiToolBar):
         bitmap2 = self.MakeDisabledBitmap(bitmap1)
 
         if self._after_stretch_spacer:
-            # Use BitmapButton control instead of tool to avoid jitter
+            # Use PlateButton control instead of tool to avoid jitter
             # during AUI sash drag (tools are drawn, controls are positioned)
-            # Use BORDER_NONE and BU_EXACTFIT for flat, compact appearance
-            btn = wx.BitmapButton(
-                self, id, bitmap1,
-                style=wx.BORDER_NONE | wx.BU_EXACTFIT
-            )
+            # PlateButton provides flat toolbar-style appearance with proper hover
+            btn = PlateButton(self, id, bmp=bitmap1, style=PB_STYLE_NOBG)
             btn.SetToolTip(short_help_string)
             btn.SetBitmapDisabled(bitmap2)
             # Bind button click to forward as menu event
