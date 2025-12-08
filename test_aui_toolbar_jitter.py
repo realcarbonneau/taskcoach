@@ -8,7 +8,7 @@ Toggle the flags below to isolate the root cause:
 - ADD_ITEMS_AFTER_SPACER: Add items after the spacer
 """
 
-VERSION = "1.6"
+VERSION = "1.7"
 
 import wx
 import wx.lib.agw.aui as aui
@@ -45,12 +45,13 @@ class TestPanel(wx.Panel):
             "Tool (jitters?)"
         )
 
-        # 2. BitmapButton control
+        # 2. BitmapButton control (flat, no border - like toolbar icon)
         bmp_btn = wx.BitmapButton(
             self.toolbar, wx.ID_ANY,
-            wx.ArtProvider.GetBitmap(wx.ART_PRINT, wx.ART_TOOLBAR, (16, 16))
+            wx.ArtProvider.GetBitmap(wx.ART_PRINT, wx.ART_TOOLBAR, (16, 16)),
+            style=wx.BORDER_NONE | wx.BU_EXACTFIT
         )
-        bmp_btn.SetToolTip("BitmapButton")
+        bmp_btn.SetToolTip("BitmapButton (flat)")
         self.toolbar.AddControl(bmp_btn)
 
         # 3. Regular Button

@@ -47,7 +47,11 @@ class _Toolbar(aui.AuiToolBar):
         if self._after_stretch_spacer:
             # Use BitmapButton control instead of tool to avoid jitter
             # during AUI sash drag (tools are drawn, controls are positioned)
-            btn = wx.BitmapButton(self, id, bitmap1)
+            # Use BORDER_NONE and BU_EXACTFIT for flat, compact appearance like toolbar icons
+            btn = wx.BitmapButton(
+                self, id, bitmap1,
+                style=wx.BORDER_NONE | wx.BU_EXACTFIT
+            )
             btn.SetToolTip(short_help_string)
             self._bitmap_buttons[id] = (bitmap1, bitmap2)
             self.AddControl(btn)
