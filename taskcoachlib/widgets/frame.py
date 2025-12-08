@@ -21,18 +21,78 @@ import wx.lib.agw.aui as aui
 from taskcoachlib import operating_system
 
 
+def _diagnose_aui_capabilities():
+    """Diagnose AUI capabilities for debugging sash drag issues."""
+    import sys
+    info = []
+    info.append(f"wx.Platform: {wx.Platform}")
+    info.append(f"wx.PlatformInfo: {wx.PlatformInfo}")
+    info.append(f"wxPython version: {wx.version()}")
+
+    # Check what AUI flags are available
+    flags_to_check = [
+        'AUI_MGR_DEFAULT', 'AUI_MGR_ALLOW_FLOATING', 'AUI_MGR_ALLOW_ACTIVE_PANE',
+        'AUI_MGR_TRANSPARENT_DRAG', 'AUI_MGR_TRANSPARENT_HINT', 'AUI_MGR_VENETIAN_BLINDS_HINT',
+        'AUI_MGR_RECTANGLE_HINT', 'AUI_MGR_HINT_FADE', 'AUI_MGR_NO_VENETIAN_BLINDS_FADE',
+        'AUI_MGR_LIVE_RESIZE', 'AUI_MGR_ANIMATE_FRAMES', 'AUI_MGR_AERO_DOCKING_GUIDES',
+        'AUI_MGR_PREVIEW_MINIMIZED_PANES', 'AUI_MGR_WHIDBEY_DOCKING_GUIDES',
+        'AUI_MGR_SMOOTH_DOCKING', 'AUI_MGR_USE_NATIVE_MINIFRAMES',
+    ]
+    info.append("AGW AUI Flags available:")
+    for flag in flags_to_check:
+        val = getattr(aui, flag, None)
+        if val is not None:
+            info.append(f"  {flag} = {val} (0x{val:04x})")
+
+    # Check if HasLiveResize exists
+    info.append(f"AuiManager has HasLiveResize: {hasattr(aui.AuiManager, 'HasLiveResize')}")
+    info.append(f"AuiManager has AlwaysUsesLiveResize: {hasattr(aui.AuiManager, 'AlwaysUsesLiveResize')}")
+
+    # Check for static function
+    has_static = hasattr(aui, 'AuiManager_HasLiveResize')
+    info.append(f"aui.AuiManager_HasLiveResize exists: {has_static}")
+
+    return "\n".join(info)
+
+
 class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Note: AUI_MGR_LIVE_RESIZE causes flickering/refresh loops on GTK3/X11
-        # when releasing the mouse after dragging sashes. The flag is documented
-        # to provide live resize feedback, but on GTK3/X11 it triggers redraw
-        # loops instead. Keeping only the stable default flags for now.
+
+        # Diagnose AUI capabilities once
+        if not hasattr(AuiManagedFrameWithDynamicCenterPane, '_aui_diagnosed'):
+            AuiManagedFrameWithDynamicCenterPane._aui_diagnosed = True
+            print("=" * 60)
+            print("AUI DIAGNOSTIC INFO")
+            print("=" * 60)
+            print(_diagnose_aui_capabilities())
+            print("=" * 60)
+
+        # Build AUI style flags
         agwStyle = aui.AUI_MGR_DEFAULT | aui.AUI_MGR_ALLOW_ACTIVE_PANE
+
+        # Try enabling live resize - this is what SHOULD provide visual feedback
+        # during sash dragging. If it causes issues, we need to understand why.
+        if hasattr(aui, 'AUI_MGR_LIVE_RESIZE'):
+            agwStyle |= aui.AUI_MGR_LIVE_RESIZE
+            print(f"AUI: Enabled AUI_MGR_LIVE_RESIZE (flag={aui.AUI_MGR_LIVE_RESIZE})")
+
         if not operating_system.isWindows():
             # With this style on Windows, you can't dock back floating frames
             agwStyle |= aui.AUI_MGR_USE_NATIVE_MINIFRAMES
+
+        print(f"AUI: Final agwStyle = {agwStyle} (0x{agwStyle:04x})")
         self.manager = aui.AuiManager(self, agwStyle)
+
+        # Check HasLiveResize after manager creation
+        if hasattr(self.manager, 'HasLiveResize'):
+            print(f"AUI: manager.HasLiveResize() = {self.manager.HasLiveResize()}")
+        if hasattr(self.manager, 'GetFlags'):
+            flags = self.manager.GetFlags()
+            print(f"AUI: manager.GetFlags() = {flags} (0x{flags:04x})")
+            if hasattr(aui, 'AUI_MGR_LIVE_RESIZE'):
+                has_live = bool(flags & aui.AUI_MGR_LIVE_RESIZE)
+                print(f"AUI: LIVE_RESIZE flag is {'SET' if has_live else 'NOT SET'}")
         self.manager.SetAutoNotebookStyle(
             aui.AUI_NB_TOP
             | aui.AUI_NB_CLOSE_BUTTON
