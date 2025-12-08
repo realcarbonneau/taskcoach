@@ -193,13 +193,16 @@ class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
             print("=" * 60)
 
         # Build AUI style flags
+        # NOTE: AUI_MGR_LIVE_RESIZE causes slow updates (50-190ms per DoUpdate)
+        # which leads to dropped mouse events and flickering. Instead, we rely
+        # on AGW AUI's hint/ghost line drawing during sash dragging.
         agwStyle = aui.AUI_MGR_DEFAULT | aui.AUI_MGR_ALLOW_ACTIVE_PANE
 
-        # Try enabling live resize - this is what SHOULD provide visual feedback
-        # during sash dragging. If it causes issues, we need to understand why.
-        if hasattr(aui, 'AUI_MGR_LIVE_RESIZE'):
-            agwStyle |= aui.AUI_MGR_LIVE_RESIZE
-            print(f"AUI: Enabled AUI_MGR_LIVE_RESIZE (flag={aui.AUI_MGR_LIVE_RESIZE})")
+        # Explicitly set hint drawing mode for sash feedback
+        # RECTANGLE_HINT should show a rectangle outline during drag
+        if hasattr(aui, 'AUI_MGR_RECTANGLE_HINT'):
+            agwStyle |= aui.AUI_MGR_RECTANGLE_HINT
+            print(f"AUI: Enabled AUI_MGR_RECTANGLE_HINT for sash feedback")
 
         if not operating_system.isWindows():
             # With this style on Windows, you can't dock back floating frames
