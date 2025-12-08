@@ -1856,6 +1856,58 @@ This was a complex debugging journey that illustrates the importance of understa
 
 ## Future Work
 
+### TODO: Right-Aligned Toolbar Icon Jitter During Sash Drag
+
+**Date Identified:** December 2025
+**Status:** Workaround implemented, toggle buttons need refinement
+
+#### Root Cause
+
+Right-aligned toolbar icons (after stretch spacer) jitter horizontally during AUI sash drag. Investigation revealed the issue is in the AGW AUI library itself:
+
+- **Tools** are DRAWN by `AuiToolBar.OnPaint()` and undergo `GetToolFitsByIndex()` filtering during resize
+- **Controls** (wxWindow children) are POSITIONED by wxWidgets' native layout system and remain stable
+- The filtering causes positional mismatch during drag, resulting in visual jitter
+
+This only affects tools added after a stretch spacer. Left-aligned tools and all controls (SearchCtrl, Choice dropdowns) do not jitter.
+
+#### Current Workaround
+
+Icons after the stretch spacer are now created as `PlateButton` controls instead of native toolbar tools via `AddControl()` instead of `AddTool()`. This prevents jitter since controls are positioned by wxWidgets, not drawn by AuiToolBar.
+
+Files modified:
+- `taskcoachlib/gui/toolbar.py` - PlateButton substitution for post-spacer icons
+- `taskcoachlib/widgets/frame.py` - Re-enabled `AUI_MGR_LIVE_RESIZE`
+
+#### Outstanding Issues
+
+1. **Toggle buttons (ITEM_CHECK)**: Commands like `ViewerHideTasks_completed`, `ViewerHideTasks_inactive`, and `ResetFilter` are toggle buttons. PlateButton has a `PB_STYLE_TOGGLE` style but:
+   - Known wxPython issue: `SetState()` is overridden by mouse actions (see [wxPython discussion](https://discuss.wxpython.org/t/how-to-manually-set-the-toggle-state-of-wxpython-platebutton/28745))
+   - `EVT_UPDATE_UI` integration needs work to sync initial toggle state from settings
+   - Toggle buttons need proper visual feedback (pressed/unpressed state)
+
+2. **Appearance matching**: PlateButton hover highlight may differ from native AuiToolBar tools:
+   - Native tools: Light grey square background on hover
+   - PlateButton with `PB_STYLE_SQUARE | PB_STYLE_NOBG`: Blue oval highlight
+   - May need custom hover styling to match
+
+3. **Event forwarding complexity**: PlateButton clicks are forwarded as `EVT_MENU` events to maintain compatibility with UICommand binding. This works for simple buttons but toggle state requires additional handling.
+
+#### Future Work
+
+- Investigate upstream AGW AUI fix for `GetToolFitsByIndex()` during resize
+- Or implement proper toggle button support with:
+  - `PB_STYLE_TOGGLE` for visual toggle state
+  - `EVT_TOGGLEBUTTON` binding for toggle events
+  - Proper `EVT_UPDATE_UI` handling to sync initial state
+  - Custom styling to match native toolbar appearance
+
+#### Test Application
+
+A minimal test app exists at `test_aui_toolbar_jitter.py` (v1.9) that reproduces the issue and can be used to test fixes.
+
+---
+
 ### Areas for Investigation
 
 1. **AuiNotebook Perspective Management**
