@@ -21,6 +21,57 @@ import wx.lib.agw.aui as aui
 from taskcoachlib import operating_system
 
 
+def _install_sash_resize_optimization(manager):
+    """Install optimizations for AUI sash resize operations.
+
+    AUI's LIVE_RESIZE mode calls Update() on every mouse move during sash drag,
+    which can cause flickering due to expensive repaints. This wrapper:
+    1. Throttles updates during drag to reduce CPU load
+    2. Adds Freeze/Thaw around the final resize to reduce flickering
+    """
+    import time
+
+    original_on_left_up = getattr(manager, 'OnLeftUp', None)
+    original_on_motion = getattr(manager, 'OnMotion', None)
+    frame = manager.GetManagedWindow() if hasattr(manager, 'GetManagedWindow') else None
+
+    # Throttle state
+    state = {
+        'last_update_time': 0,
+        'min_update_interval': 0.033,  # ~30fps max update rate
+    }
+
+    # Throttle updates during sash drag
+    if original_on_motion and frame:
+        def throttled_on_motion(event):
+            action = getattr(manager, '_action', 0)
+            # action 3 = actionResize (sash drag)
+            if action == 3:
+                now = time.time()
+                if now - state['last_update_time'] < state['min_update_interval']:
+                    # Skip this update to reduce CPU load
+                    event.Skip()
+                    return
+                state['last_update_time'] = now
+            return original_on_motion(event)
+        manager.OnMotion = throttled_on_motion
+
+    # Freeze/Thaw around final resize
+    if original_on_left_up and frame:
+        def optimized_on_left_up(event):
+            action = getattr(manager, '_action', 0)
+            # action 3 = actionResize (sash drag)
+            if action == 3:
+                frame.Freeze()
+                try:
+                    return original_on_left_up(event)
+                finally:
+                    frame.Thaw()
+            else:
+                return original_on_left_up(event)
+        manager.OnLeftUp = optimized_on_left_up
+
+
 class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,6 +88,9 @@ class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
             agwStyle |= aui.AUI_MGR_USE_NATIVE_MINIFRAMES
 
         self.manager = aui.AuiManager(self, agwStyle)
+
+        # Install optimization for sash resize to reduce flickering
+        _install_sash_resize_optimization(self.manager)
 
         self.manager.SetAutoNotebookStyle(
             aui.AUI_NB_TOP
