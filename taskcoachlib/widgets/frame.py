@@ -62,8 +62,7 @@ class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
         agwStyle = (
             aui.AUI_MGR_DEFAULT
             | aui.AUI_MGR_ALLOW_ACTIVE_PANE
-            # TEMPORARILY DISABLED for testing - AUI_MGR_LIVE_RESIZE may cause icon jitter
-            # | aui.AUI_MGR_LIVE_RESIZE  # Live visual feedback when dragging sashes
+            | aui.AUI_MGR_LIVE_RESIZE  # Live visual feedback when dragging sashes
         )
 
         if not operating_system.isWindows():
