@@ -42,6 +42,10 @@ class ViewerContainer(object):
 
     def componentsCreated(self):
         self._notifyActiveViewer = True
+        # Ensure the first viewer (TaskViewer) is active after startup,
+        # overriding whatever pane was active in the saved perspective
+        if self.viewers:
+            self.activateViewer(self.viewers[0])
 
     def advanceSelection(self, forward):
         """Activate the next viewer if forward is true else the previous
@@ -146,7 +150,14 @@ class ViewerContainer(object):
         pub.sendMessage("viewer.status")
 
     def __ensure_active_viewer_has_focus(self):
-        if not self.activeViewer():
+        """Ensure focus is within the active viewer.
+
+        This method is called when a pane is activated. If focus is outside
+        the active viewer, we schedule setting focus on it. We store the
+        viewer reference to verify it's still active when the callback runs.
+        """
+        active = self.activeViewer()
+        if not active:
             return
         window = wx.Window.FindFocus()
         if operating_system.isMacOsXTiger_OrOlder() and window is None:
@@ -157,18 +168,31 @@ class ViewerContainer(object):
             # control.
             return
         while window:
-            if window == self.activeViewer():
+            if window == active:
                 break
             window = window.GetParent()
         else:
-            wx.CallAfter(self.__safeSetFocusOnActiveViewer)
+            # Store the viewer so we can verify it's still active when
+            # the CallAfter callback runs
+            wx.CallAfter(self.__safeSetFocusOnActiveViewer, active)
 
-    def __safeSetFocusOnActiveViewer(self):
-        """Safely set focus on active viewer, guarding against deleted C++ objects."""
+    def __safeSetFocusOnActiveViewer(self, intended_viewer=None):
+        """Safely set focus on active viewer, guarding against deleted C++ objects.
+
+        Args:
+            intended_viewer: The viewer that was active when this callback was
+                scheduled. If provided, we verify it's still active before
+                setting focus. This prevents focus flickering when panes are
+                rapidly activated.
+        """
         try:
-            viewer = self.activeViewer()
-            if viewer:
-                viewer.SetFocus()
+            current_active = self.activeViewer()
+            # Only set focus if the intended viewer is still active
+            # This prevents focus flickering when switching panes quickly
+            if intended_viewer is not None and intended_viewer != current_active:
+                return
+            if current_active:
+                current_active.SetFocus()
         except RuntimeError:
             # wrapped C/C++ object has been deleted
             pass
@@ -196,6 +220,11 @@ class ViewerContainer(object):
         # be prepared:
         if viewer in self.viewers:
             self.viewers.remove(viewer)
+            # Unsubscribe from the viewer's status event before detaching
+            try:
+                pub.unsubscribe(self.onStatusChanged, viewer.viewerStatusEventType())
+            except Exception:
+                pass  # May already be unsubscribed
             viewer.detach()
 
     @staticmethod
