@@ -1752,6 +1752,39 @@ agwStyle = (
 )
 ```
 
+**Fix 5: Throttle sash resize updates** (frame.py)
+
+AUI's `LIVE_RESIZE` mode calls `Update()` on every mouse move, which triggers expensive repaints (50-190ms). Added throttling to limit updates to ~30fps:
+
+```python
+def _install_sash_resize_optimization(manager):
+    state = {'last_update_time': 0, 'min_update_interval': 0.033}  # ~30fps
+
+    original_on_motion = getattr(manager, 'OnMotion', None)
+    if original_on_motion:
+        def throttled_on_motion(event):
+            action = getattr(manager, '_action', 0)
+            if action == 3:  # actionResize (sash drag)
+                now = time.time()
+                if now - state['last_update_time'] < state['min_update_interval']:
+                    event.Skip()
+                    return
+                state['last_update_time'] = now
+            return original_on_motion(event)
+        manager.OnMotion = throttled_on_motion
+```
+
+**Fix 6: Defer column resize on all platforms** (autowidth.py)
+
+The `AutoColumnWidthMixin` was calling `DoResize()` directly on Linux during EVT_SIZE, causing cascade repaints. Windows already used `wx.CallAfter` to defer this. Changed to defer on all platforms:
+
+```python
+def OnResize(self, event):
+    event.Skip()
+    # Always defer to avoid cascade repaints during AUI sash drag
+    wx.CallAfter(self.DoResize)
+```
+
 ### Investigation Process
 
 This was a complex debugging journey that illustrates the importance of understanding root causes:
@@ -1781,9 +1814,10 @@ This was a complex debugging journey that illustrates the importance of understa
 
 | File | Change |
 |------|--------|
-| `taskcoachlib/widgets/frame.py` | Added `AUI_MGR_LIVE_RESIZE` flag, removed diagnostic code |
+| `taskcoachlib/widgets/frame.py` | Added `AUI_MGR_LIVE_RESIZE` flag, added ~30fps throttling for sash drag |
 | `taskcoachlib/gui/mainwindow.py` | Added `.MinSize((-1, 42))` to toolbar pane, added `paneInfo.MinSize()` in onResize |
 | `taskcoachlib/gui/toolbar.py` | Removed EVT_SIZE handler and feedback loop code, removed wrong SetMinSize in Realize() |
+| `taskcoachlib/widgets/autowidth.py` | Changed `DoResize()` to use `wx.CallAfter` on all platforms, not just Windows |
 
 ### Testing Checklist
 
@@ -1816,7 +1850,7 @@ This was a complex debugging journey that illustrates the importance of understa
 - ✅ GTK/Linux window position persistence - WM ignores initial position (November 2025) - See [WINDOW_POSITION_PERSISTENCE_ANALYSIS.md](WINDOW_POSITION_PERSISTENCE_ANALYSIS.md)
 - ✅ GTK3 menu scroll arrows on first open (December 2025) - FileMenu refactored to use pub/sub
 - ✅ Search box text input invisible in AUI toolbars (December 2025) - Added SetMinSize to SearchCtrl
-- ✅ AUI divider drag has no visual feedback (December 2025) - Added AUI_MGR_LIVE_RESIZE and related flags
+- ✅ AUI divider drag has no visual feedback (December 2025) - Added AUI_MGR_LIVE_RESIZE, throttling, and deferred column resize
 
 ---
 
