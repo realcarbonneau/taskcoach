@@ -8,6 +8,8 @@ Toggle the flags below to isolate the root cause:
 - ADD_ITEMS_AFTER_SPACER: Add items after the spacer
 """
 
+VERSION = "1.2"
+
 import wx
 import wx.lib.agw.aui as aui
 
@@ -74,7 +76,7 @@ class MainFrame(wx.Frame):
     """Main frame with AUI manager."""
 
     def __init__(self):
-        super().__init__(None, title="AUI Toolbar Jitter Test", size=(800, 600))
+        super().__init__(None, title=f"AUI Toolbar Jitter Test v{VERSION}", size=(800, 600))
 
         # Build AUI manager flags
         agwStyle = aui.AUI_MGR_DEFAULT
@@ -102,7 +104,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
         # Print current settings
-        print(f"Settings: LIVE_RESIZE={USE_LIVE_RESIZE}, STRETCH_SPACER={USE_STRETCH_SPACER}, ITEMS_AFTER_SPACER={ADD_ITEMS_AFTER_SPACER}")
+        print(f"Version {VERSION}: LIVE_RESIZE={USE_LIVE_RESIZE}, STRETCH_SPACER={USE_STRETCH_SPACER}, ITEMS_AFTER_SPACER={ADD_ITEMS_AFTER_SPACER}")
 
     def on_close(self, event):
         self.manager.UnInit()
