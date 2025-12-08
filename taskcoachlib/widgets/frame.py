@@ -21,189 +21,22 @@ import wx.lib.agw.aui as aui
 from taskcoachlib import operating_system
 
 
-def _diagnose_aui_capabilities():
-    """Diagnose AUI capabilities for debugging sash drag issues."""
-    import sys
-    info = []
-    info.append(f"wx.Platform: {wx.Platform}")
-    info.append(f"wx.PlatformInfo: {wx.PlatformInfo}")
-    info.append(f"wxPython version: {wx.version()}")
-
-    # Check what AUI flags are available
-    flags_to_check = [
-        'AUI_MGR_DEFAULT', 'AUI_MGR_ALLOW_FLOATING', 'AUI_MGR_ALLOW_ACTIVE_PANE',
-        'AUI_MGR_TRANSPARENT_DRAG', 'AUI_MGR_TRANSPARENT_HINT', 'AUI_MGR_VENETIAN_BLINDS_HINT',
-        'AUI_MGR_RECTANGLE_HINT', 'AUI_MGR_HINT_FADE', 'AUI_MGR_NO_VENETIAN_BLINDS_FADE',
-        'AUI_MGR_LIVE_RESIZE', 'AUI_MGR_ANIMATE_FRAMES', 'AUI_MGR_AERO_DOCKING_GUIDES',
-        'AUI_MGR_PREVIEW_MINIMIZED_PANES', 'AUI_MGR_WHIDBEY_DOCKING_GUIDES',
-        'AUI_MGR_SMOOTH_DOCKING', 'AUI_MGR_USE_NATIVE_MINIFRAMES',
-    ]
-    info.append("AGW AUI Flags available:")
-    for flag in flags_to_check:
-        val = getattr(aui, flag, None)
-        if val is not None:
-            info.append(f"  {flag} = {val} (0x{val:04x})")
-
-    # Check if HasLiveResize exists
-    info.append(f"AuiManager has HasLiveResize: {hasattr(aui.AuiManager, 'HasLiveResize')}")
-    info.append(f"AuiManager has AlwaysUsesLiveResize: {hasattr(aui.AuiManager, 'AlwaysUsesLiveResize')}")
-
-    # Check for static function
-    has_static = hasattr(aui, 'AuiManager_HasLiveResize')
-    info.append(f"aui.AuiManager_HasLiveResize exists: {has_static}")
-
-    # List all methods on AuiManager that might be related to flags or resize
-    info.append("AuiManager methods containing 'flag', 'resize', 'live', 'sash':")
-    for name in dir(aui.AuiManager):
-        name_lower = name.lower()
-        if any(x in name_lower for x in ['flag', 'resize', 'live', 'sash', 'hint', 'draw']):
-            info.append(f"  {name}")
-
-    return "\n".join(info)
-
-
-def _diagnose_manager_instance(manager):
-    """Diagnose a specific AuiManager instance."""
-    info = []
-
-    # Check for internal flags attribute
-    for attr in ['_agwFlags', '_flags', 'agwFlags', 'flags', '_mgr_flags']:
-        if hasattr(manager, attr):
-            val = getattr(manager, attr)
-            info.append(f"AUI: manager.{attr} = {val} (0x{val:04x})")
-
-    # Check GetFlags and GetAGWFlags
-    for method in ['GetFlags', 'GetAGWFlags', 'GetAGWWindowStyleFlag']:
-        if hasattr(manager, method):
-            try:
-                val = getattr(manager, method)()
-                info.append(f"AUI: manager.{method}() = {val} (0x{val:04x})")
-                if hasattr(aui, 'AUI_MGR_LIVE_RESIZE'):
-                    has_live = bool(val & aui.AUI_MGR_LIVE_RESIZE)
-                    info.append(f"AUI: LIVE_RESIZE in {method}: {'YES' if has_live else 'NO'}")
-            except Exception as e:
-                info.append(f"AUI: manager.{method}() raised: {e}")
-
-    # Try the static function
-    if hasattr(aui, 'AuiManager_HasLiveResize'):
-        try:
-            result = aui.AuiManager_HasLiveResize(manager)
-            info.append(f"AUI: AuiManager_HasLiveResize(manager) = {result}")
-        except Exception as e:
-            info.append(f"AUI: AuiManager_HasLiveResize raised: {e}")
-
-    # Check for HasLiveResize method
-    if hasattr(manager, 'HasLiveResize'):
-        try:
-            result = manager.HasLiveResize()
-            info.append(f"AUI: manager.HasLiveResize() = {result}")
-        except Exception as e:
-            info.append(f"AUI: manager.HasLiveResize() raised: {e}")
-
-    return "\n".join(info) if info else "AUI: No flag methods found on manager instance"
-
-
-def _install_resize_tracing(manager):
-    """Monkey-patch AuiManager to add Freeze/Thaw around resize operations."""
-    import time
-    import traceback
-
-    # Store original methods
-    original_update = manager.Update if hasattr(manager, 'Update') else None
-    original_do_update = manager.DoUpdate if hasattr(manager, 'DoUpdate') else None
-    original_on_left_up = manager.OnLeftUp if hasattr(manager, 'OnLeftUp') else None
-    original_on_left_up_resize = manager.OnLeftUp_Resize if hasattr(manager, 'OnLeftUp_Resize') else None
-
-    state = {
-        'do_update_count': 0,
-        'in_do_update': False,
-    }
-
-    # Get the managed frame for Freeze/Thaw
-    frame = manager.GetManagedWindow() if hasattr(manager, 'GetManagedWindow') else None
-
-    # Apply Freeze/Thaw fix around OnLeftUp to prevent flicker
-    # This is a known community workaround for AUI sash flicker
-    if original_on_left_up and frame:
-        def fixed_on_left_up(event):
-            action = getattr(manager, '_action', 0)
-            # Only apply Freeze/Thaw for resize actions (action 3 = actionResize)
-            if action == 3:  # actionResize
-                print(f"AUI: OnLeftUp with resize - applying Freeze/Thaw fix")
-                frame.Freeze()
-                try:
-                    result = original_on_left_up(event)
-                finally:
-                    frame.Thaw()
-                return result
-            else:
-                return original_on_left_up(event)
-        manager.OnLeftUp = fixed_on_left_up
-
-    if original_do_update:
-        def traced_do_update():
-            state['do_update_count'] += 1
-            count = state['do_update_count']
-
-            # Check for re-entrancy (cascade)
-            if state['in_do_update']:
-                print(f"AUI CASCADE: DoUpdate() re-entered! #{count}")
-                return
-
-            state['in_do_update'] = True
-            start = time.time()
-
-            try:
-                result = original_do_update()
-            finally:
-                state['in_do_update'] = False
-
-            elapsed_ms = (time.time() - start) * 1000
-            if elapsed_ms > 20:
-                print(f"AUI: DoUpdate() #{count} took {elapsed_ms:.1f}ms")
-            return result
-        manager.DoUpdate = traced_do_update
-
-    print("AUI: Freeze/Thaw fix installed for sash resize")
-
-
 class AuiManagedFrameWithDynamicCenterPane(wx.Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Diagnose AUI capabilities once
-        if not hasattr(AuiManagedFrameWithDynamicCenterPane, '_aui_diagnosed'):
-            AuiManagedFrameWithDynamicCenterPane._aui_diagnosed = True
-            print("=" * 60)
-            print("AUI DIAGNOSTIC INFO")
-            print("=" * 60)
-            print(_diagnose_aui_capabilities())
-            print("=" * 60)
-
-        # Build AUI style flags
-        # NOTE: AUI_MGR_LIVE_RESIZE causes slow updates (50-190ms per DoUpdate)
-        # which leads to dropped mouse events and flickering. Instead, we rely
-        # on AGW AUI's hint/ghost line drawing during sash dragging.
-        agwStyle = aui.AUI_MGR_DEFAULT | aui.AUI_MGR_ALLOW_ACTIVE_PANE
-
-        # Explicitly set hint drawing mode for sash feedback
-        # RECTANGLE_HINT should show a rectangle outline during drag
-        if hasattr(aui, 'AUI_MGR_RECTANGLE_HINT'):
-            agwStyle |= aui.AUI_MGR_RECTANGLE_HINT
-            print(f"AUI: Enabled AUI_MGR_RECTANGLE_HINT for sash feedback")
+        # Build AUI style flags with live resize for visual feedback when dragging sashes
+        agwStyle = (
+            aui.AUI_MGR_DEFAULT
+            | aui.AUI_MGR_ALLOW_ACTIVE_PANE
+            | aui.AUI_MGR_LIVE_RESIZE  # Live visual feedback when dragging sashes
+        )
 
         if not operating_system.isWindows():
             # With this style on Windows, you can't dock back floating frames
             agwStyle |= aui.AUI_MGR_USE_NATIVE_MINIFRAMES
 
-        print(f"AUI: Final agwStyle = {agwStyle} (0x{agwStyle:04x})")
         self.manager = aui.AuiManager(self, agwStyle)
-
-        # Comprehensive manager instance diagnostics
-        print(_diagnose_manager_instance(self.manager))
-
-        # Install event tracing to debug sash drag behavior
-        _install_resize_tracing(self.manager)
 
         self.manager.SetAutoNotebookStyle(
             aui.AUI_NB_TOP
