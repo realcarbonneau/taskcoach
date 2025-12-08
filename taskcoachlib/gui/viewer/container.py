@@ -34,6 +34,7 @@ class ViewerContainer(object):
     def __init__(self, containerWidget, settings, *args, **kwargs):
         self.containerWidget = containerWidget
         self._notifyActiveViewer = False
+        self._pendingActivation = False
         self.__bind_event_handlers()
         self._settings = settings
         self.viewers = []
@@ -41,14 +42,33 @@ class ViewerContainer(object):
 
     def componentsCreated(self):
         self._notifyActiveViewer = True
+        # Schedule center pane activation for after initial event processing.
+        # This uses EVT_IDLE to ensure activation happens after:
+        # 1. LoadPerspective() has restored the saved layout
+        # 2. Show() has been called and initial focus events processed
+        # 3. All pending events in the queue have been handled
+        # This prevents focus events from Show() from overriding our activation.
+        self._pendingActivation = True
+        self.containerWidget.Bind(wx.EVT_IDLE, self._onIdleActivateCenterPane)
+
+    def _onIdleActivateCenterPane(self, event):
+        """Activate center pane during idle processing after startup.
+
+        This one-shot handler runs after all initial events have been processed,
+        ensuring our activation isn't overridden by focus events from Show().
+        """
+        # Unbind immediately - this is a one-shot handler
+        self.containerWidget.Unbind(wx.EVT_IDLE, handler=self._onIdleActivateCenterPane)
+        self._pendingActivation = False
+
         # Activate the center pane (the one that resizes with the window).
-        # This is the proper default active pane at startup.
         center_viewer = self._findCenterPaneViewer()
         if center_viewer:
             self.activateViewer(center_viewer)
         elif self.viewers:
             # Fallback to first viewer if no center pane found
             self.activateViewer(self.viewers[0])
+        event.Skip()
 
     def _findCenterPaneViewer(self):
         """Find the viewer that is in the center pane (the resizable one).
