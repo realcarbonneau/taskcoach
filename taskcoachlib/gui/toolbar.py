@@ -211,23 +211,18 @@ class MainToolBar(ToolBar):
         """Handle toolbar size changes and fix AUI layout miscalculations.
 
         When AUI performs operations like sash resize or pane maximize/restore,
-        it can miscalculate the space for the toolbar, causing panes to overlap.
-        This handler detects when the toolbar width differs significantly from
-        the parent width and triggers a layout recalculation to fix it.
+        it can miscalculate the space for the toolbar, causing panes to overlap
+        or have small gaps. This handler triggers a layout recalculation to fix it.
+
+        The re-entrancy guard prevents feedback loops - the scheduled SendSizeEvent
+        will trigger onResize -> SetSize -> _OnSize, but the guard blocks recursion.
         """
         event.Skip()
         # Guard: if we're already processing a size event cascade, don't recurse
         if MainToolBar._in_size_event:
             return
-        # Only trigger fixup if toolbar width differs significantly from parent
-        # (The 10px threshold handles minor rounding differences)
-        try:
-            toolbar_width = event.GetSize()[0]
-            parent_width = self.GetParent().GetClientSize()[0]
-            if abs(toolbar_width - parent_width) >= 10:
-                wx.CallAfter(self.__safeParentSendSizeEvent)
-        except RuntimeError:
-            pass  # C++ object deleted
+        # Always schedule a layout fixup - the guard prevents loops
+        wx.CallAfter(self.__safeParentSendSizeEvent)
 
     def __safeParentSendSizeEvent(self):
         """Send size event to parent with re-entrancy guard."""
