@@ -8,18 +8,14 @@ Toggle the flags below to isolate the root cause:
 - ADD_ITEMS_AFTER_SPACER: Add items after the spacer
 """
 
-VERSION = "1.5"
+VERSION = "1.6"
 
 import wx
 import wx.lib.agw.aui as aui
 
-# === TOGGLE THESE TO TEST ===
-USE_LIVE_RESIZE = True        # Try False - does jitter still happen?
-
-# Control type for right-aligned "icon" - try each one!
-# Options: "tool", "bitmapbutton", "button", "choice", "combobox", "searchctrl"
-RIGHT_CONTROL_TYPE = "bitmapbutton"  # CHANGE THIS: "tool", "bitmapbutton", "button", "choice", "combobox", "searchctrl"
-# ============================
+# === TOGGLE TO TEST ===
+USE_LIVE_RESIZE = True
+# ======================
 
 
 class TestPanel(wx.Panel):
@@ -31,58 +27,70 @@ class TestPanel(wx.Panel):
 
         self.toolbar = aui.AuiToolBar(self, agwStyle=aui.AUI_TB_DEFAULT_STYLE)
 
-        # Left icon - always a tool
+        # Left icon - tool (for comparison)
         self.toolbar.AddSimpleTool(
-            wx.ID_ANY, "Left",
+            wx.ID_ANY, "Tool1",
             wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR, (16, 16)),
-            "Left icon"
+            "Tool (left)"
         )
 
         self.toolbar.AddStretchSpacer(1)
 
-        # Middle - TextCtrl (known to not jitter)
-        text_ctrl = wx.TextCtrl(self.toolbar, wx.ID_ANY, "Search", size=(100, -1))
-        self.toolbar.AddControl(text_ctrl)
+        # === ALL CONTROLS AFTER STRETCH SPACER - compare which jitter ===
 
-        # Right "icon" - try different control types
-        if RIGHT_CONTROL_TYPE == "tool":
-            # Standard tool - JITTERS
-            self.toolbar.AddSimpleTool(
-                wx.ID_ANY, "Right",
-                wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR, (16, 16)),
-                "Right icon (tool)"
-            )
-        elif RIGHT_CONTROL_TYPE == "bitmapbutton":
-            # BitmapButton control
-            btn = wx.BitmapButton(
-                self.toolbar, wx.ID_ANY,
-                wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR, (16, 16))
-            )
-            self.toolbar.AddControl(btn)
-        elif RIGHT_CONTROL_TYPE == "button":
-            # Regular button with label
-            btn = wx.Button(self.toolbar, wx.ID_ANY, "Save", size=(50, -1))
-            self.toolbar.AddControl(btn)
-        elif RIGHT_CONTROL_TYPE == "choice":
-            # Choice dropdown
-            choice = wx.Choice(self.toolbar, wx.ID_ANY, choices=["Option1", "Option2", "Option3"])
-            choice.SetSelection(0)
-            self.toolbar.AddControl(choice)
-        elif RIGHT_CONTROL_TYPE == "combobox":
-            # ComboBox
-            combo = wx.ComboBox(self.toolbar, wx.ID_ANY, "Select", choices=["A", "B", "C"], size=(80, -1))
-            self.toolbar.AddControl(combo)
-        elif RIGHT_CONTROL_TYPE == "searchctrl":
-            # SearchCtrl
-            search = wx.SearchCtrl(self.toolbar, wx.ID_ANY, size=(100, -1))
-            self.toolbar.AddControl(search)
+        # 1. Tool icon (AddSimpleTool) - EXPECTED TO JITTER
+        self.toolbar.AddSimpleTool(
+            wx.ID_ANY, "Tool2",
+            wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR, (16, 16)),
+            "Tool (jitters?)"
+        )
+
+        # 2. BitmapButton control
+        bmp_btn = wx.BitmapButton(
+            self.toolbar, wx.ID_ANY,
+            wx.ArtProvider.GetBitmap(wx.ART_PRINT, wx.ART_TOOLBAR, (16, 16))
+        )
+        bmp_btn.SetToolTip("BitmapButton")
+        self.toolbar.AddControl(bmp_btn)
+
+        # 3. Regular Button
+        btn = wx.Button(self.toolbar, wx.ID_ANY, "Btn", size=(40, -1))
+        self.toolbar.AddControl(btn)
+
+        # 4. Choice dropdown
+        choice = wx.Choice(self.toolbar, wx.ID_ANY, choices=["A", "B", "C"], size=(50, -1))
+        choice.SetSelection(0)
+        self.toolbar.AddControl(choice)
+
+        # 5. TextCtrl
+        text = wx.TextCtrl(self.toolbar, wx.ID_ANY, "Text", size=(50, -1))
+        self.toolbar.AddControl(text)
+
+        # 6. SearchCtrl
+        search = wx.SearchCtrl(self.toolbar, wx.ID_ANY, size=(80, -1))
+        self.toolbar.AddControl(search)
+
+        # 7. Another Tool icon at the end
+        self.toolbar.AddSimpleTool(
+            wx.ID_ANY, "Tool3",
+            wx.ArtProvider.GetBitmap(wx.ART_QUIT, wx.ART_TOOLBAR, (16, 16)),
+            "Tool (end)"
+        )
 
         self.toolbar.Realize()
 
         # Create content
         content = wx.TextCtrl(
             self, wx.ID_ANY,
-            f"Panel: {name}\nControl type: {RIGHT_CONTROL_TYPE}\n\nDrag the sash and observe if the right control jitters.",
+            f"Panel: {name}\n\nToolbar has ALL control types after stretch spacer:\n"
+            "1. Tool (save icon) - JITTERS?\n"
+            "2. BitmapButton (print icon)\n"
+            "3. Button ('Btn')\n"
+            "4. Choice dropdown\n"
+            "5. TextCtrl\n"
+            "6. SearchCtrl\n"
+            "7. Tool (quit icon) - JITTERS?\n\n"
+            "Drag the sash and observe which controls jitter!",
             style=wx.TE_MULTILINE
         )
 
@@ -125,7 +133,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
         # Print current settings
-        print(f"Version {VERSION}: LIVE_RESIZE={USE_LIVE_RESIZE}, RIGHT_CONTROL={RIGHT_CONTROL_TYPE}")
+        print(f"Version {VERSION}: LIVE_RESIZE={USE_LIVE_RESIZE} - ALL controls shown")
 
     def on_close(self, event):
         self.manager.UnInit()
