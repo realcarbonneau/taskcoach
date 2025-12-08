@@ -154,6 +154,7 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
     def _onViewerClick(self, event):
         """Handle clicks on the viewer to activate its pane."""
         wx.PostEvent(self, wx.ChildFocusEvent(self))
+        self.SetFocus()  # Clear focus from other controls (e.g., search box)
         event.Skip()
 
     def domainObjectsToView(self):
