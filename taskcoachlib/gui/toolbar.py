@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from taskcoachlib import operating_system
 from wx.lib.agw import aui
-from wx.lib.platebtn import PlateButton, PB_STYLE_NOBG
+from wx.lib.platebtn import PlateButton, PB_STYLE_NOBG, PB_STYLE_SQUARE, PB_STYLE_TOGGLE
 import wx
 from . import uicommand
 
@@ -28,6 +28,8 @@ class _Toolbar(aui.AuiToolBar):
         super().__init__(parent, agwStyle=aui.AUI_TB_NO_AUTORESIZE)
         self._after_stretch_spacer = False
         self._bitmap_buttons = {}  # Map button id -> button widget
+        self._button_toggle_state = {}  # Map button id -> current toggle state (for ITEM_CHECK)
+        self._button_is_toggle = {}  # Map button id -> whether it's a toggle button
 
     def AddStretchSpacer(self, proportion=1):
         """Override to track when we're past the stretch spacer."""
@@ -38,13 +40,38 @@ class _Toolbar(aui.AuiToolBar):
         """Reset stretch spacer tracking on clear."""
         self._after_stretch_spacer = False
         self._bitmap_buttons = {}
+        self._button_toggle_state = {}
+        self._button_is_toggle = {}
         super().Clear()
+
+    def EnableTool(self, toolid, enable):
+        """Override to support enabling/disabling PlateButtons."""
+        if toolid in self._bitmap_buttons:
+            self._bitmap_buttons[toolid].Enable(enable)
+        else:
+            super().EnableTool(toolid, enable)
 
     def _onBitmapButtonClick(self, event):
         """Forward BitmapButton click as EVT_MENU so command binding works."""
-        menu_event = wx.CommandEvent(wx.wxEVT_MENU, event.GetId())
+        btn_id = event.GetId()
+        is_checked = False
+
+        # For toggle buttons (PB_STYLE_TOGGLE), the button manages its own state
+        if btn_id in self._button_is_toggle:
+            # Get the new state from the button itself (it's already toggled)
+            btn = self._bitmap_buttons.get(btn_id)
+            if btn and hasattr(btn, 'IsPressed'):
+                is_checked = btn.IsPressed()
+            else:
+                # Fallback: manually track toggle state
+                current_state = self._button_toggle_state.get(btn_id, False)
+                is_checked = not current_state
+            self._button_toggle_state[btn_id] = is_checked
+
+        menu_event = wx.CommandEvent(wx.wxEVT_MENU, btn_id)
         menu_event.SetEventObject(self)
-        self.GetEventHandler().ProcessEvent(menu_event)
+        menu_event.SetInt(1 if is_checked else 0)  # SetInt is used for IsChecked()
+        wx.PostEvent(self, menu_event)
 
     def AddLabelTool(self, id, label, bitmap1, bitmap2, kind, **kwargs):
         long_help_string = kwargs.pop("longHelp", "")
@@ -55,11 +82,23 @@ class _Toolbar(aui.AuiToolBar):
             # Use PlateButton control instead of tool to avoid jitter
             # during AUI sash drag (tools are drawn, controls are positioned)
             # PlateButton provides flat toolbar-style appearance with proper hover
-            btn = PlateButton(self, id, bmp=bitmap1, style=PB_STYLE_NOBG)
+            style = PB_STYLE_SQUARE | PB_STYLE_NOBG
+            if kind == wx.ITEM_CHECK:
+                # Use PB_STYLE_TOGGLE for toggle buttons - this maintains pressed state
+                style |= PB_STYLE_TOGGLE
+                self._button_is_toggle[id] = True
+                self._button_toggle_state[id] = False
+
+            btn = PlateButton(self, id, bmp=bitmap1, style=style)
             btn.SetToolTip(short_help_string)
             btn.SetBitmapDisabled(bitmap2)
-            # Bind button click to forward as menu event
-            btn.Bind(wx.EVT_BUTTON, self._onBitmapButtonClick)
+
+            # Bind appropriate event based on button type
+            if kind == wx.ITEM_CHECK:
+                btn.Bind(wx.EVT_TOGGLEBUTTON, self._onBitmapButtonClick)
+            else:
+                btn.Bind(wx.EVT_BUTTON, self._onBitmapButtonClick)
+
             self._bitmap_buttons[id] = btn
             self.AddControl(btn)
         else:
@@ -77,6 +116,24 @@ class _Toolbar(aui.AuiToolBar):
 
     def GetToolState(self, toolid):
         return self.GetToolToggled(toolid)
+
+    def GetToolToggled(self, toolid):
+        """Override to support PlateButton toggle state."""
+        if toolid in self._button_toggle_state:
+            return self._button_toggle_state[toolid]
+        return super().GetToolToggled(toolid)
+
+    def ToggleTool(self, toolid, toggle):
+        """Override to support PlateButton toggle state."""
+        if toolid in self._button_is_toggle:
+            self._button_toggle_state[toolid] = toggle
+            # Update PlateButton visual state - SetState with PLATE_PRESSED (1) or PLATE_NORMAL (0)
+            btn = self._bitmap_buttons.get(toolid)
+            if btn:
+                # PlateButton uses SetState(state) where state is 0=normal, 1=pressed
+                btn.SetState(1 if toggle else 0)
+        else:
+            super().ToggleTool(toolid, toggle)
 
     def SetToolBitmapSize(self, size):
         self.__size = size

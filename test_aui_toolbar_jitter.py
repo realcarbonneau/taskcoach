@@ -8,11 +8,11 @@ Toggle the flags below to isolate the root cause:
 - ADD_ITEMS_AFTER_SPACER: Add items after the spacer
 """
 
-VERSION = "1.8"
+VERSION = "1.9"
 
 import wx
 import wx.lib.agw.aui as aui
-from wx.lib.platebtn import PlateButton, PB_STYLE_NOBG
+from wx.lib.platebtn import PlateButton, PB_STYLE_NOBG, PB_STYLE_SQUARE
 
 # === TOGGLE TO TEST ===
 USE_LIVE_RESIZE = True
@@ -47,12 +47,14 @@ class TestPanel(wx.Panel):
         )
 
         # 2. PlateButton (flat toolbar-style button with proper hover)
+        self.plate_btn_id = wx.NewId()
         plate_btn = PlateButton(
-            self.toolbar, wx.ID_ANY,
+            self.toolbar, self.plate_btn_id,
             bmp=wx.ArtProvider.GetBitmap(wx.ART_PRINT, wx.ART_TOOLBAR, (16, 16)),
-            style=PB_STYLE_NOBG
+            style=PB_STYLE_SQUARE | PB_STYLE_NOBG
         )
-        plate_btn.SetToolTip("PlateButton")
+        plate_btn.SetToolTip("PlateButton - click me!")
+        plate_btn.Bind(wx.EVT_BUTTON, self.on_plate_button_click)
         self.toolbar.AddControl(plate_btn)
 
         # 3. Regular Button
@@ -101,6 +103,11 @@ class TestPanel(wx.Panel):
         sizer.Add(self.toolbar, flag=wx.EXPAND)
         sizer.Add(content, proportion=1, flag=wx.EXPAND)
         self.SetSizer(sizer)
+
+    def on_plate_button_click(self, event):
+        """Handler for PlateButton click."""
+        print(f"PlateButton clicked! Event ID: {event.GetId()}, Expected ID: {self.plate_btn_id}")
+        wx.MessageBox(f"PlateButton clicked!\nEvent ID: {event.GetId()}", "Click Test")
 
 
 class MainFrame(wx.Frame):
