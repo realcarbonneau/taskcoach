@@ -149,29 +149,30 @@ class ViewerContainer(object):
         pub.sendMessage("viewer.status")
 
     def __ensure_active_viewer_has_focus(self):
-        """Set focus on active viewer, but only if focus isn't already inside it.
+        """Set focus on active viewer, unless a text control inside it has focus.
 
-        This handles title bar clicks (sets focus) while protecting the search
-        box (doesn't steal focus if user clicked inside the viewer).
+        Simple rule: always set focus on the active viewer EXCEPT when a text
+        control (search box, etc.) inside that viewer already has focus.
         """
         viewer = self.activeViewer()
         if not viewer:
             return
+
+        # Check if a text control inside the active viewer has focus
         window = wx.Window.FindFocus()
-        is_text_control = isinstance(window, (wx.TextCtrl, wx.SearchCtrl, wx.ComboBox))
-        # Check if focus is already within the active viewer
-        while window:
-            if window == viewer:
-                # Focus is inside active viewer - only protect text controls here
-                if is_text_control:
-                    return  # Don't steal focus from search box in active viewer
-                return  # Focus already inside viewer
-            window = window.GetParent()
-        # Focus is outside the active viewer, so set it directly
+        if isinstance(window, (wx.TextCtrl, wx.SearchCtrl, wx.ComboBox)):
+            # Walk up to see if this text control is inside the active viewer
+            parent = window
+            while parent:
+                if parent == viewer:
+                    return  # Text control is in active viewer, don't steal focus
+                parent = parent.GetParent()
+
+        # Set focus on the viewer
         try:
             viewer.SetFocus()
         except RuntimeError:
-            pass  # wrapped C/C++ object has been deleted
+            pass
 
     def onPageClosed(self, event):
         if event.GetPane().IsToolbar():
