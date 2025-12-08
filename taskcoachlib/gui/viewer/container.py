@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import taskcoachlib.gui.menu
+from taskcoachlib import operating_system
 from pubsub import pub
 import wx.lib.agw.aui as aui
 import wx
@@ -139,14 +140,48 @@ class ViewerContainer(object):
 
     def onPageChanged(self, event):
         """Handle pane activation events from AUI."""
-        active = self.activeViewer()
-        if active is not None and self._notifyActiveViewer:
-            active.activate()
+        self.__ensure_active_viewer_has_focus()
         self.sendViewerStatusEvent()
+        if self._notifyActiveViewer and self.activeViewer() is not None:
+            self.activeViewer().activate()
         event.Skip()
 
     def sendViewerStatusEvent(self):
         pub.sendMessage("viewer.status")
+
+    def __ensure_active_viewer_has_focus(self):
+        """Set focus on active viewer, but only if focus isn't already inside it.
+
+        This handles title bar clicks (sets focus) while protecting the search
+        box (doesn't steal focus if user clicked inside the viewer).
+        """
+        if not self.activeViewer():
+            return
+        window = wx.Window.FindFocus()
+        if operating_system.isMacOsXTiger_OrOlder() and window is None:
+            # If the SearchCtrl has focus on Mac OS X Tiger,
+            # wx.Window.FindFocus returns None. If we would continue,
+            # the focus would be set to the active viewer right away,
+            # making it impossible for the user to type in the search
+            # control.
+            return
+        # Check if focus is already within the active viewer
+        while window:
+            if window == self.activeViewer():
+                break
+            window = window.GetParent()
+        else:
+            # Focus is outside the active viewer, so set it
+            wx.CallAfter(self.__safeSetFocusOnActiveViewer)
+
+    def __safeSetFocusOnActiveViewer(self):
+        """Safely set focus on active viewer, guarding against deleted C++ objects."""
+        try:
+            viewer = self.activeViewer()
+            if viewer:
+                viewer.SetFocus()
+        except RuntimeError:
+            pass  # wrapped C/C++ object has been deleted
 
     def onPageClosed(self, event):
         if event.GetPane().IsToolbar():
