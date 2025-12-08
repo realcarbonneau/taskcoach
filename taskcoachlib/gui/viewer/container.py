@@ -52,44 +52,24 @@ class ViewerContainer(object):
         self.containerWidget.Bind(wx.EVT_IDLE, self._onIdleActivateCenterPane)
 
     def _onIdleActivateCenterPane(self, event):
-        """Activate center pane during idle processing after startup.
+        """Activate first viewer (TaskViewer) during idle processing after startup.
 
         This one-shot handler runs after all initial events have been processed,
         ensuring our activation isn't overridden by focus events from Show().
+
+        We activate the first viewer in the list, which is the TaskViewer
+        (added first in factory.py). We don't try to detect the "center" pane
+        by dock direction because LoadPerspective() changes dock directions
+        based on saved layout, making center detection unreliable.
         """
         # Unbind immediately - this is a one-shot handler
         self.containerWidget.Unbind(wx.EVT_IDLE, handler=self._onIdleActivateCenterPane)
         self._pendingActivation = False
 
-        # Activate the center pane (the one that resizes with the window).
-        center_viewer = self._findCenterPaneViewer()
-        if center_viewer:
-            self.activateViewer(center_viewer)
-        elif self.viewers:
-            # Fallback to first viewer if no center pane found
+        # Activate the first viewer (TaskViewer, added first in factory.py)
+        if self.viewers:
             self.activateViewer(self.viewers[0])
         event.Skip()
-
-    def _findCenterPaneViewer(self):
-        """Find the viewer that is in the center pane (the resizable one).
-
-        The center pane is the main content area that resizes with the window,
-        while other panes have fixed sizes. This should be the default active
-        pane at startup.
-        """
-        for pane in self.containerWidget.manager.GetAllPanes():
-            if pane.IsToolbar():
-                continue
-            if self.containerWidget.isCenterPane(pane):
-                # Handle notebook pages
-                if pane.IsNotebookControl():
-                    notebook = aui.GetNotebookRoot(
-                        self.containerWidget.manager.GetAllPanes(),
-                        pane.notebook_id
-                    )
-                    return notebook.window.GetCurrentPage()
-                return pane.window
-        return None
 
     def advanceSelection(self, forward):
         """Activate the next viewer if forward is true else the previous
