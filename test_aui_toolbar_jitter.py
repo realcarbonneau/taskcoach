@@ -18,7 +18,7 @@ USE_LIVE_RESIZE = True        # Try False - does jitter still happen?
 
 # Control type for right-aligned "icon" - try each one!
 # Options: "tool", "bitmapbutton", "button", "choice", "combobox", "searchctrl"
-RIGHT_CONTROL_TYPE = "tool"
+RIGHT_CONTROL_TYPE = "bitmapbutton"  # CHANGE THIS: "tool", "bitmapbutton", "button", "choice", "combobox", "searchctrl"
 # ============================
 
 
