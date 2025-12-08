@@ -4,19 +4,19 @@ Minimal test case for AUI toolbar icon jitter during sash drag.
 
 Toggle the flags below to isolate the root cause:
 - USE_LIVE_RESIZE: Enable/disable live resize during sash drag
-- USE_STRETCH_SPACER: Use stretch spacer vs fixed spacer
+- USE_STRETCH_SPACER: Use stretch spacer vs two-toolbar approach
 - ADD_ITEMS_AFTER_SPACER: Add items after the spacer
 """
 
-VERSION = "1.2"
+VERSION = "1.3"
 
 import wx
 import wx.lib.agw.aui as aui
 
 # === TOGGLE THESE TO TEST ===
 USE_LIVE_RESIZE = True        # Try False - does jitter still happen?
-USE_STRETCH_SPACER = True     # Try False - use AddSpacer instead
-ADD_ITEMS_AFTER_SPACER = True # Try False - no items after spacer
+USE_STRETCH_SPACER = True     # Try False - use TWO TOOLBARS instead
+ADD_ITEMS_AFTER_SPACER = True # Try False - no items after spacer (only if USE_STRETCH_SPACER=True)
 # ============================
 
 
@@ -27,35 +27,60 @@ class TestPanel(wx.Panel):
         super().__init__(parent)
         self.name = name
 
-        # Create toolbar
-        self.toolbar = aui.AuiToolBar(self, agwStyle=aui.AUI_TB_DEFAULT_STYLE)
-
-        # Left icon
-        self.toolbar.AddSimpleTool(
-            wx.ID_ANY, "Left",
-            wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR, (16, 16)),
-            "Left icon"
-        )
-
-        # Spacer
         if USE_STRETCH_SPACER:
-            self.toolbar.AddStretchSpacer(1)
-        else:
-            self.toolbar.AddSpacer(50)  # Fixed 50px spacer
+            # APPROACH 1: Single toolbar with stretch spacer
+            self.toolbar = aui.AuiToolBar(self, agwStyle=aui.AUI_TB_DEFAULT_STYLE)
 
-        if ADD_ITEMS_AFTER_SPACER:
-            # Right-aligned control (TextCtrl)
-            text_ctrl = wx.TextCtrl(self.toolbar, wx.ID_ANY, "Search", size=(100, -1))
-            self.toolbar.AddControl(text_ctrl)
-
-            # Right icon
+            # Left icon
             self.toolbar.AddSimpleTool(
+                wx.ID_ANY, "Left",
+                wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR, (16, 16)),
+                "Left icon"
+            )
+
+            self.toolbar.AddStretchSpacer(1)
+
+            if ADD_ITEMS_AFTER_SPACER:
+                # Right-aligned control (TextCtrl)
+                text_ctrl = wx.TextCtrl(self.toolbar, wx.ID_ANY, "Search", size=(100, -1))
+                self.toolbar.AddControl(text_ctrl)
+
+                # Right icon
+                self.toolbar.AddSimpleTool(
+                    wx.ID_ANY, "Right",
+                    wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR, (16, 16)),
+                    "Right icon"
+                )
+
+            self.toolbar.Realize()
+            toolbar_sizer = self.toolbar  # Will add directly
+        else:
+            # APPROACH 2: Two toolbars in a horizontal sizer (no stretch spacer)
+            toolbar_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+            # Left toolbar
+            left_toolbar = aui.AuiToolBar(self, agwStyle=aui.AUI_TB_DEFAULT_STYLE)
+            left_toolbar.AddSimpleTool(
+                wx.ID_ANY, "Left",
+                wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR, (16, 16)),
+                "Left icon"
+            )
+            left_toolbar.Realize()
+            toolbar_sizer.Add(left_toolbar, proportion=1, flag=wx.EXPAND)
+
+            # Right toolbar
+            right_toolbar = aui.AuiToolBar(self, agwStyle=aui.AUI_TB_DEFAULT_STYLE)
+            text_ctrl = wx.TextCtrl(right_toolbar, wx.ID_ANY, "Search", size=(100, -1))
+            right_toolbar.AddControl(text_ctrl)
+            right_toolbar.AddSimpleTool(
                 wx.ID_ANY, "Right",
                 wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR, (16, 16)),
                 "Right icon"
             )
+            right_toolbar.Realize()
+            toolbar_sizer.Add(right_toolbar, proportion=0, flag=wx.EXPAND)
 
-        self.toolbar.Realize()
+            self.toolbar = left_toolbar  # For reference
 
         # Create content
         flags_info = f"LIVE_RESIZE={USE_LIVE_RESIZE}, STRETCH={USE_STRETCH_SPACER}, ITEMS_AFTER={ADD_ITEMS_AFTER_SPACER}"
@@ -67,7 +92,10 @@ class TestPanel(wx.Panel):
 
         # Layout
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.toolbar, flag=wx.EXPAND)
+        if USE_STRETCH_SPACER:
+            sizer.Add(toolbar_sizer, flag=wx.EXPAND)
+        else:
+            sizer.Add(toolbar_sizer, flag=wx.EXPAND)
         sizer.Add(content, proportion=1, flag=wx.EXPAND)
         self.SetSizer(sizer)
 
