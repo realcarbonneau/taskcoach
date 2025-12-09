@@ -18,6 +18,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from taskcoachlib import patterns
 from pubsub import pub
+import logging
+
+# Enable debug logging for Sorter
+_log = logging.getLogger('Sorter')
+_log.setLevel(logging.DEBUG)
+if not _log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    _log.addHandler(_handler)
 
 
 class Sorter(patterns.ListDecorator):
@@ -95,7 +105,9 @@ class Sorter(patterns.ListDecorator):
     def reset(self, forceEvent=False):
         """reset does the actual sorting. If the order of the list changes,
         observers are notified by means of the list-sorted event."""
+        _log.debug("reset: called, isFrozen=%s, forceEvent=%s", self.isFrozen(), forceEvent)
         if self.isFrozen():
+            _log.debug("reset: frozen, returning early")
             return
 
         oldSelf = self[:]
@@ -107,6 +119,7 @@ class Sorter(patterns.ListDecorator):
                 reverse=sortKey.startswith("-"),
             )
         if forceEvent or self != oldSelf:
+            _log.debug("reset: sending sortEventType, changed=%s", self != oldSelf)
             pub.sendMessage(self.sortEventType(), sender=self)
 
     def createSortKeyFunction(self, sortKey):
@@ -144,9 +157,11 @@ class Sorter(patterns.ListDecorator):
                 )
 
     def onAttributeChanged(self, newValue, sender):  # pylint: disable=W0613
+        _log.debug("onAttributeChanged: newValue=%s, sender=%s", newValue, sender)
         self.reset()
 
     def onAttributeChanged_Deprecated(self, event):  # pylint: disable=W0613
+        _log.debug("onAttributeChanged_Deprecated: event=%s", event)
         self.reset()
 
     def _getSortEventTypes(self, attribute):
