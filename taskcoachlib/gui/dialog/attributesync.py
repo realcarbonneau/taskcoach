@@ -21,6 +21,7 @@ from pubsub import pub
 from taskcoachlib.i18n import _
 import wx
 import logging
+import threading
 
 # Enable debug logging for AttributeSync
 _log = logging.getLogger('AttributeSync')
@@ -67,17 +68,11 @@ class AttributeSync(object):
         self.__debounce_ms = debounce_ms
         self.__pendingValue = None
         self.__debounceTimer = None
+        self.__timerLock = threading.Lock()  # Protect timer access across threads
         _log.debug("AttributeSync.__init__: getter=%s, entry=%s (%s), debounce_ms=%s, editedEventType=%s",
                    attributeGetterName, entry, type(entry).__name__, debounce_ms, editedEventType)
-        if debounce_ms > 0:
-            # Create timer bound to the entry widget for event delivery
-            # Using same pattern as SearchCtrl which works correctly
-            self.__debounceTimer = wx.Timer(entry)
-            _log.debug("AttributeSync.__init__: Created timer %s bound to entry %s",
-                       self.__debounceTimer, entry)
-            entry.Bind(wx.EVT_TIMER, self.__onDebounceTimer, self.__debounceTimer)
-            _log.debug("AttributeSync.__init__: Bound EVT_TIMER to __onDebounceTimer with source=%s",
-                       self.__debounceTimer)
+        # Note: debounce_ms > 0 means we use threading.Timer + wx.CallAfter
+        # This avoids wx.Timer issues with widget hierarchies
         entry.Bind(editedEventType, self.onAttributeEdited)
         _log.debug("AttributeSync.__init__: Bound %s to onAttributeEdited", editedEventType)
         if len(items) == 1:
@@ -91,33 +86,52 @@ class AttributeSync(object):
                    new_value, self._currentValue, new_value != self._currentValue)
         if new_value != self._currentValue:
             if self.__debounce_ms > 0:
-                # Debounced: store value and restart timer
-                # Using Start(delay, oneShot=True) like SearchCtrl
-                self.__pendingValue = new_value
-                self.__debounceTimer.Stop()
-                started = self.__debounceTimer.Start(self.__debounce_ms, oneShot=True)
-                _log.debug("onAttributeEdited: Timer.Start(%s, oneShot=True) returned %s, timer.IsRunning()=%s, timer.GetId()=%s",
-                           self.__debounce_ms, started, self.__debounceTimer.IsRunning(), self.__debounceTimer.GetId())
+                # Debounced: store value and restart timer using threading.Timer + wx.CallAfter
+                # This is more reliable than wx.Timer for composite widgets
+                with self.__timerLock:
+                    self.__pendingValue = new_value
+                    # Cancel existing timer if any
+                    if self.__debounceTimer is not None:
+                        self.__debounceTimer.cancel()
+                        _log.debug("onAttributeEdited: Cancelled existing timer")
+                    # Start new timer (threading.Timer uses seconds, not ms)
+                    delay_seconds = self.__debounce_ms / 1000.0
+                    self.__debounceTimer = threading.Timer(delay_seconds, self.__onDebounceTimerThread)
+                    self.__debounceTimer.daemon = True  # Don't block app exit
+                    self.__debounceTimer.start()
+                    _log.debug("onAttributeEdited: Started threading.Timer for %.3f seconds", delay_seconds)
             else:
                 # Immediate: execute command now
                 _log.debug("onAttributeEdited: executing command immediately (no debounce)")
                 self.__executeCommand(new_value)
 
-    def __onDebounceTimer(self, event):
-        """Timer fired - execute the command with the pending value."""
+    def __onDebounceTimerThread(self):
+        """Called on timer thread - use wx.CallAfter to execute on main thread."""
+        _log.debug("__onDebounceTimerThread: Timer fired on thread %s, using wx.CallAfter",
+                   threading.current_thread().name)
+        # wx.CallAfter safely posts to the main thread's event queue
+        wx.CallAfter(self.__onDebounceTimerMain)
+
+    def __onDebounceTimerMain(self):
+        """Called on main thread via wx.CallAfter - execute the command."""
         try:
-            _log.debug("__onDebounceTimer: TIMER FIRED! event=%s, pendingValue=%s, entry=%s",
-                       event, self.__pendingValue, self._entry)
+            _log.debug("__onDebounceTimerMain: Executing on main thread, pendingValue=%s, entry=%s",
+                       self.__pendingValue, self._entry)
             # Safety check: make sure the entry widget is still valid
             if self._entry and hasattr(self._entry, 'IsShown'):
-                _log.debug("__onDebounceTimer: entry.IsShown()=%s", self._entry.IsShown())
-            if self.__pendingValue is not None:
-                self.__executeCommand(self.__pendingValue)
+                _log.debug("__onDebounceTimerMain: entry.IsShown()=%s", self._entry.IsShown())
+
+            with self.__timerLock:
+                pending = self.__pendingValue
                 self.__pendingValue = None
+                self.__debounceTimer = None
+
+            if pending is not None:
+                self.__executeCommand(pending)
             else:
-                _log.debug("__onDebounceTimer: pendingValue is None, nothing to execute")
+                _log.debug("__onDebounceTimerMain: pendingValue is None, nothing to execute")
         except Exception as e:
-            _log.exception("__onDebounceTimer: Exception occurred: %s", e)
+            _log.exception("__onDebounceTimerMain: Exception occurred: %s", e)
 
     def __executeCommand(self, new_value):
         """Execute the command to update the model."""
@@ -132,12 +146,20 @@ class AttributeSync(object):
         _log.debug("__executeCommand: command executed successfully")
         self.__invokeCallback(new_value)
 
+    def __cancelPendingDebounce(self):
+        """Cancel any pending debounced change."""
+        with self.__timerLock:
+            self.__pendingValue = None
+            if self.__debounceTimer is not None:
+                self.__debounceTimer.cancel()
+                self.__debounceTimer = None
+
     def onAttributeChanged_Deprecated(self, event):  # pylint: disable=W0613
         if self._entry:
             new_value = getattr(self._items[0], self._getter)()
             if new_value != self._currentValue:
                 self._currentValue = new_value
-                self.__pendingValue = None  # Cancel any pending debounced change
+                self.__cancelPendingDebounce()  # Cancel any pending debounced change
                 self.setValue(new_value)
                 self.__invokeCallback(new_value)
         else:
@@ -148,7 +170,7 @@ class AttributeSync(object):
             if self._entry:
                 if newValue != self._currentValue:
                     self._currentValue = newValue
-                    self.__pendingValue = None  # Cancel any pending debounced change
+                    self.__cancelPendingDebounce()  # Cancel any pending debounced change
                     self.setValue(newValue)
                     self.__invokeCallback(newValue)
             else:
