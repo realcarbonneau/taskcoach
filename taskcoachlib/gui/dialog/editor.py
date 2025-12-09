@@ -573,6 +573,7 @@ class DatesPage(Page):
             commandClass,
             entry.EVT_DATETIMEENTRY,
             eventType,
+            commit_on_focus_loss=True,  # Only commit when focus leaves the field
             keep_delta=keep_delta,
             callback=(
                 self.__onPlannedStartDateTimeChanged
@@ -612,6 +613,7 @@ class DatesPage(Page):
             command.EditReminderDateTimeCommand,
             entry.EVT_DATETIMEENTRY,
             self.items[0].reminderChangedEventType(),
+            commit_on_focus_loss=True,  # Only commit when focus leaves the field
         )
         self.addEntry(
             _("Reminder"),
@@ -1652,6 +1654,7 @@ class EffortEditBook(Page):
             command.EditEffortStartDateTimeCommand,
             entry.EVT_DATETIMEENTRY,
             self.items[0].startChangedEventType(),
+            commit_on_focus_loss=True,  # Only commit when focus leaves the field
             callback=self.__onStartDateTimeChanged,
         )
         self._startDateTimeEntry.Bind(
@@ -1690,6 +1693,7 @@ class EffortEditBook(Page):
             command.EditEffortStopDateTimeCommand,
             entry.EVT_DATETIMEENTRY,
             self.items[0].stopChangedEventType(),
+            commit_on_focus_loss=True,  # Only commit when focus leaves the field
             callback=self.__onStopDateTimeChanged,
         )
         self._stopDateTimeEntry.Bind(
@@ -1888,6 +1892,11 @@ class Editor(BalloonTipManager, widgets.Dialog):
             )
         self.Bind(wx.EVT_CLOSE, self.on_close_editor)
 
+        # Note: We intentionally do NOT freeze viewers while the dialog is open.
+        # Updates should propagate immediately so other windows stay in sync.
+        # The commit_on_focus_loss option on AttributeSync handles batching
+        # rapid edits into single commands.
+
         if operating_system.isMac():
             # Sigh. On OS X, if you open an editor, switch back to the main window, open
             # another editor, then hit Escape twice, the second editor disappears without any
@@ -1966,6 +1975,7 @@ class Editor(BalloonTipManager, widgets.Dialog):
         if self.__timer is not None:
             IdProvider.put(self.__timer.GetId())
         IdProvider.put(self.__new_effort_id)
+        # Note: No need to thaw viewers since we don't freeze them on open anymore
         self.Destroy()
 
     def on_activate(self, event):

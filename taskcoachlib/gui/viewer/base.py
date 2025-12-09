@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import wx
+import logging
 from taskcoachlib import patterns, widgets, command, render
 from taskcoachlib.i18n import _
 from taskcoachlib.gui import uicommand, toolbar, artprovider
@@ -28,6 +29,15 @@ from wx.lib.agw import hypertreelist
 from pubsub import pub
 from taskcoachlib.widgets import ToolTipMixin
 from . import mixin
+
+# Enable debug logging for Viewer
+_log = logging.getLogger('Viewer')
+_log.setLevel(logging.DEBUG)
+if not _log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    _log.addHandler(_handler)
 
 
 class ViewerMeta(type(wx.Panel), patterns.NumberedInstances):
@@ -50,6 +60,8 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self.settings = settings
         self.__settingsSection = kwargs.pop("settingsSection")
         self.__freezeCount = 0
+        # Track items changed during bulk operations
+        self.__pendingRefreshItems = set()
         # The how maniest of this viewer type are we? Used for settings
         self.__instanceNumber = kwargs.pop("instanceNumber")
         self.__use_separate_settings_section = kwargs.pop(
@@ -82,6 +94,9 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         pub.subscribe(self.onEndIO, "taskfile.justRead")
         pub.subscribe(self.onEndIO, "taskfile.justCleared")
         pub.subscribe(self.onEndIO, "taskfile.justSaved")
+        # Subscribe to bulk operation signals to freeze/thaw during batch updates
+        pub.subscribe(self.onBeginBulkOperation, "command.aboutToBulkModify")
+        pub.subscribe(self.onEndBulkOperation, "command.justBulkModified")
 
         if isinstance(self.widget, ToolTipMixin):
             pub.subscribe(
@@ -131,6 +146,23 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self.__presentation.thaw()
         if self.__freezeCount == 0:
             self.refresh()
+
+    def onBeginBulkOperation(self):
+        """Freeze viewer and presentation to batch updates during bulk operations."""
+        self.__freezeCount += 1
+        self.__presentation.freeze()
+
+    def onEndBulkOperation(self):
+        """Thaw viewer and presentation after bulk operation, refresh only changed items."""
+        self.__freezeCount -= 1
+        self.__presentation.thaw()
+        if self.__freezeCount == 0 and self.__pendingRefreshItems:
+            # Refresh only items that changed during the bulk operation
+            items = [item for item in self.__pendingRefreshItems
+                     if item in self.presentation()]
+            self.__pendingRefreshItems.clear()
+            if items:
+                self.widget.RefreshItems(*items)
 
     def activate(self):
         pass
@@ -208,6 +240,8 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         pub.unsubscribe(self.onEndIO, "taskfile.justRead")
         pub.unsubscribe(self.onEndIO, "taskfile.justCleared")
         pub.unsubscribe(self.onEndIO, "taskfile.justSaved")
+        pub.unsubscribe(self.onBeginBulkOperation, "command.aboutToBulkModify")
+        pub.unsubscribe(self.onEndBulkOperation, "command.justBulkModified")
 
         self.presentation().detach()
         self.toolbar.detach()
@@ -283,11 +317,24 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         return collection
 
     def onAttributeChanged(self, newValue, sender):  # pylint: disable=W0613
+        _log.debug("onAttributeChanged: viewer=%s, newValue=%s, sender=%s, self=%s, freezeCount=%s",
+                   self.__class__.__name__, newValue, sender, bool(self), self.__freezeCount)
         if self:
-            self.refreshItems(sender)
+            if self.__freezeCount:
+                # During bulk operation, collect items to refresh later
+                self.__pendingRefreshItems.add(sender)
+                _log.debug("onAttributeChanged: frozen, added to pending")
+            else:
+                _log.debug("onAttributeChanged: calling refreshItems")
+                self.refreshItems(sender)
 
     def onAttributeChanged_Deprecated(self, event):
-        self.refreshItems(*event.sources())
+        _log.debug("onAttributeChanged_Deprecated: viewer=%s, event=%s", self.__class__.__name__, event)
+        if self.__freezeCount:
+            # During bulk operation, collect items to refresh later
+            self.__pendingRefreshItems.update(event.sources())
+        else:
+            self.refreshItems(*event.sources())
 
     def onNewItem(self, event):
         self.select(
@@ -361,8 +408,11 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
             self.widget.RefreshAllItems(len(self.presentation()))
 
     def refreshItems(self, *items):
+        _log.debug("refreshItems: viewer=%s, items=%s, freezeCount=%s",
+                   self.__class__.__name__, items, self.__freezeCount)
         if not self.__freezeCount:
             items = [item for item in items if item in self.presentation()]
+            _log.debug("refreshItems: filtered items=%s, calling widget.RefreshItems", items)
             self.widget.RefreshItems(*items)  # pylint: disable=W0142
 
     def select(self, items):
