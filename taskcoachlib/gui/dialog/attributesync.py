@@ -106,7 +106,11 @@ class AttributeSync(object):
     def __onDebounceTimer(self, event):
         """Timer fired - execute the command with the pending value."""
         try:
-            _log.debug("__onDebounceTimer: TIMER FIRED! event=%s, pendingValue=%s", event, self.__pendingValue)
+            _log.debug("__onDebounceTimer: TIMER FIRED! event=%s, pendingValue=%s, entry=%s",
+                       event, self.__pendingValue, self._entry)
+            # Safety check: make sure the entry widget is still valid
+            if self._entry and hasattr(self._entry, 'IsShown'):
+                _log.debug("__onDebounceTimer: entry.IsShown()=%s", self._entry.IsShown())
             if self.__pendingValue is not None:
                 self.__executeCommand(self.__pendingValue)
                 self.__pendingValue = None
