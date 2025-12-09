@@ -50,6 +50,8 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self.settings = settings
         self.__settingsSection = kwargs.pop("settingsSection")
         self.__freezeCount = 0
+        # Track items changed during bulk operations
+        self.__pendingRefreshItems = set()
         # The how maniest of this viewer type are we? Used for settings
         self.__instanceNumber = kwargs.pop("instanceNumber")
         self.__use_separate_settings_section = kwargs.pop(
@@ -141,11 +143,16 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self.__presentation.freeze()
 
     def onEndBulkOperation(self):
-        """Thaw viewer and presentation after bulk operation, triggering single refresh."""
+        """Thaw viewer and presentation after bulk operation, refresh only changed items."""
         self.__freezeCount -= 1
         self.__presentation.thaw()
-        if self.__freezeCount == 0:
-            self.refresh()
+        if self.__freezeCount == 0 and self.__pendingRefreshItems:
+            # Refresh only items that changed during the bulk operation
+            items = [item for item in self.__pendingRefreshItems
+                     if item in self.presentation()]
+            self.__pendingRefreshItems.clear()
+            if items:
+                self.widget.RefreshItems(*items)
 
     def activate(self):
         pass
@@ -301,10 +308,18 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
 
     def onAttributeChanged(self, newValue, sender):  # pylint: disable=W0613
         if self:
-            self.refreshItems(sender)
+            if self.__freezeCount:
+                # During bulk operation, collect items to refresh later
+                self.__pendingRefreshItems.add(sender)
+            else:
+                self.refreshItems(sender)
 
     def onAttributeChanged_Deprecated(self, event):
-        self.refreshItems(*event.sources())
+        if self.__freezeCount:
+            # During bulk operation, collect items to refresh later
+            self.__pendingRefreshItems.update(event.sources())
+        else:
+            self.refreshItems(*event.sources())
 
     def onNewItem(self, event):
         self.select(

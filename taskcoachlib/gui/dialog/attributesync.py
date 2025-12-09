@@ -27,7 +27,10 @@ class AttributeSync(object):
     a control in a dialog. If the user edits the value using the control,
     the domain object is changed, using the appropriate command. If the
     attribute of the domain object is changed (e.g. in another dialog) the
-    value of the control is updated."""
+    value of the control is updated.
+
+    When debounce_ms > 0, command execution is delayed until typing stops.
+    This creates a single undo entry for rapid edits (e.g., typing a date)."""
 
     def __init__(
         self,
@@ -39,6 +42,7 @@ class AttributeSync(object):
         editedEventType,
         changedEventType,
         callback=None,
+        debounce_ms=0,
         **kwargs
     ):
         self._getter = attributeGetterName
@@ -49,6 +53,13 @@ class AttributeSync(object):
         self.__commandKwArgs = kwargs
         self.__changedEventType = changedEventType
         self.__callback = callback
+        self.__debounce_ms = debounce_ms
+        self.__pendingValue = None
+        self.__debounceTimer = None
+        if debounce_ms > 0:
+            # Create timer bound to the entry widget for reliable event delivery
+            self.__debounceTimer = wx.Timer(entry)
+            entry.Bind(wx.EVT_TIMER, self.__onDebounceTimer, self.__debounceTimer)
         entry.Bind(editedEventType, self.onAttributeEdited)
         if len(items) == 1:
             self.__start_observing_attribute(changedEventType, items[0])
@@ -57,18 +68,36 @@ class AttributeSync(object):
         event.Skip()
         new_value = self.getValue()
         if new_value != self._currentValue:
-            self._currentValue = new_value
-            commandKwArgs = self.commandKwArgs(new_value)
-            self._commandClass(
-                None, self._items, **commandKwArgs
-            ).do()  # pylint: disable=W0142
-            self.__invokeCallback(new_value)
+            if self.__debounce_ms > 0:
+                # Debounced: store value and restart timer
+                self.__pendingValue = new_value
+                self.__debounceTimer.Stop()
+                self.__debounceTimer.StartOnce(self.__debounce_ms)
+            else:
+                # Immediate: execute command now
+                self.__executeCommand(new_value)
+
+    def __onDebounceTimer(self, event):
+        """Timer fired - execute the command with the pending value."""
+        if self.__pendingValue is not None:
+            self.__executeCommand(self.__pendingValue)
+            self.__pendingValue = None
+
+    def __executeCommand(self, new_value):
+        """Execute the command to update the model."""
+        self._currentValue = new_value
+        commandKwArgs = self.commandKwArgs(new_value)
+        self._commandClass(
+            None, self._items, **commandKwArgs
+        ).do()  # pylint: disable=W0142
+        self.__invokeCallback(new_value)
 
     def onAttributeChanged_Deprecated(self, event):  # pylint: disable=W0613
         if self._entry:
             new_value = getattr(self._items[0], self._getter)()
             if new_value != self._currentValue:
                 self._currentValue = new_value
+                self.__pendingValue = None  # Cancel any pending debounced change
                 self.setValue(new_value)
                 self.__invokeCallback(new_value)
         else:
@@ -79,6 +108,7 @@ class AttributeSync(object):
             if self._entry:
                 if newValue != self._currentValue:
                     self._currentValue = newValue
+                    self.__pendingValue = None  # Cancel any pending debounced change
                     self.setValue(newValue)
                     self.__invokeCallback(newValue)
             else:
