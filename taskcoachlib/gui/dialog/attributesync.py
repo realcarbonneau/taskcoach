@@ -67,18 +67,17 @@ class AttributeSync(object):
         self.__debounce_ms = debounce_ms
         self.__pendingValue = None
         self.__debounceTimer = None
-        self.__debounceTimerId = None
         _log.debug("AttributeSync.__init__: getter=%s, entry=%s (%s), debounce_ms=%s, editedEventType=%s",
                    attributeGetterName, entry, type(entry).__name__, debounce_ms, editedEventType)
         if debounce_ms > 0:
-            # Create timer bound to the entry widget with explicit ID for reliable event delivery
-            # (Using ID-based binding like other timers in the codebase)
-            self.__debounceTimerId = wx.NewId()
-            self.__debounceTimer = wx.Timer(entry, self.__debounceTimerId)
-            _log.debug("AttributeSync.__init__: Created timer %s with id=%s bound to entry %s",
-                       self.__debounceTimer, self.__debounceTimerId, entry)
-            entry.Bind(wx.EVT_TIMER, self.__onDebounceTimer, id=self.__debounceTimerId)
-            _log.debug("AttributeSync.__init__: Bound EVT_TIMER (id=%s) to __onDebounceTimer", self.__debounceTimerId)
+            # Create timer bound to the entry widget for event delivery
+            # Using same pattern as SearchCtrl which works correctly
+            self.__debounceTimer = wx.Timer(entry)
+            _log.debug("AttributeSync.__init__: Created timer %s bound to entry %s",
+                       self.__debounceTimer, entry)
+            entry.Bind(wx.EVT_TIMER, self.__onDebounceTimer, self.__debounceTimer)
+            _log.debug("AttributeSync.__init__: Bound EVT_TIMER to __onDebounceTimer with source=%s",
+                       self.__debounceTimer)
         entry.Bind(editedEventType, self.onAttributeEdited)
         _log.debug("AttributeSync.__init__: Bound %s to onAttributeEdited", editedEventType)
         if len(items) == 1:
@@ -93,11 +92,12 @@ class AttributeSync(object):
         if new_value != self._currentValue:
             if self.__debounce_ms > 0:
                 # Debounced: store value and restart timer
+                # Using Start(delay, oneShot=True) like SearchCtrl
                 self.__pendingValue = new_value
                 self.__debounceTimer.Stop()
-                started = self.__debounceTimer.StartOnce(self.__debounce_ms)
-                _log.debug("onAttributeEdited: Timer.StartOnce(%s) returned %s, timer.IsRunning()=%s",
-                           self.__debounce_ms, started, self.__debounceTimer.IsRunning())
+                started = self.__debounceTimer.Start(self.__debounce_ms, oneShot=True)
+                _log.debug("onAttributeEdited: Timer.Start(%s, oneShot=True) returned %s, timer.IsRunning()=%s, timer.GetId()=%s",
+                           self.__debounce_ms, started, self.__debounceTimer.IsRunning(), self.__debounceTimer.GetId())
             else:
                 # Immediate: execute command now
                 _log.debug("onAttributeEdited: executing command immediately (no debounce)")
