@@ -20,6 +20,17 @@ from taskcoachlib import patterns
 from pubsub import pub
 from taskcoachlib.i18n import _
 import wx
+import logging
+
+# Enable debug logging for AttributeSync
+_log = logging.getLogger('AttributeSync')
+_log.setLevel(logging.DEBUG)
+# Add console handler if not already present
+if not _log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    _log.addHandler(_handler)
 
 
 class AttributeSync(object):
@@ -56,40 +67,59 @@ class AttributeSync(object):
         self.__debounce_ms = debounce_ms
         self.__pendingValue = None
         self.__debounceTimer = None
+        _log.debug("AttributeSync.__init__: getter=%s, entry=%s (%s), debounce_ms=%s, editedEventType=%s",
+                   attributeGetterName, entry, type(entry).__name__, debounce_ms, editedEventType)
         if debounce_ms > 0:
             # Create timer bound to the entry widget for reliable event delivery
             self.__debounceTimer = wx.Timer(entry)
+            _log.debug("AttributeSync.__init__: Created timer %s bound to entry %s",
+                       self.__debounceTimer, entry)
             entry.Bind(wx.EVT_TIMER, self.__onDebounceTimer, self.__debounceTimer)
+            _log.debug("AttributeSync.__init__: Bound EVT_TIMER to __onDebounceTimer")
         entry.Bind(editedEventType, self.onAttributeEdited)
+        _log.debug("AttributeSync.__init__: Bound %s to onAttributeEdited", editedEventType)
         if len(items) == 1:
             self.__start_observing_attribute(changedEventType, items[0])
 
     def onAttributeEdited(self, event):
+        _log.debug("onAttributeEdited: event=%s, event.GetEventType()=%s", event, event.GetEventType())
         event.Skip()
         new_value = self.getValue()
+        _log.debug("onAttributeEdited: new_value=%s, current_value=%s, changed=%s",
+                   new_value, self._currentValue, new_value != self._currentValue)
         if new_value != self._currentValue:
             if self.__debounce_ms > 0:
                 # Debounced: store value and restart timer
                 self.__pendingValue = new_value
                 self.__debounceTimer.Stop()
-                self.__debounceTimer.StartOnce(self.__debounce_ms)
+                started = self.__debounceTimer.StartOnce(self.__debounce_ms)
+                _log.debug("onAttributeEdited: Timer.StartOnce(%s) returned %s, timer.IsRunning()=%s",
+                           self.__debounce_ms, started, self.__debounceTimer.IsRunning())
             else:
                 # Immediate: execute command now
+                _log.debug("onAttributeEdited: executing command immediately (no debounce)")
                 self.__executeCommand(new_value)
 
     def __onDebounceTimer(self, event):
         """Timer fired - execute the command with the pending value."""
+        _log.debug("__onDebounceTimer: TIMER FIRED! event=%s, pendingValue=%s", event, self.__pendingValue)
         if self.__pendingValue is not None:
             self.__executeCommand(self.__pendingValue)
             self.__pendingValue = None
+        else:
+            _log.debug("__onDebounceTimer: pendingValue is None, nothing to execute")
 
     def __executeCommand(self, new_value):
         """Execute the command to update the model."""
+        _log.debug("__executeCommand: executing command with new_value=%s", new_value)
         self._currentValue = new_value
         commandKwArgs = self.commandKwArgs(new_value)
+        _log.debug("__executeCommand: commandClass=%s, items=%s, kwargs=%s",
+                   self._commandClass, self._items, commandKwArgs)
         self._commandClass(
             None, self._items, **commandKwArgs
         ).do()  # pylint: disable=W0142
+        _log.debug("__executeCommand: command executed successfully")
         self.__invokeCallback(new_value)
 
     def onAttributeChanged_Deprecated(self, event):  # pylint: disable=W0613

@@ -23,9 +23,19 @@ from taskcoachlib.domain import date
 from taskcoachlib.gui import artprovider
 from taskcoachlib.i18n import _
 import datetime
+import logging
 from wx.lib import combotreebox, newevent
 import wx
 import wx.adv
+
+# Enable debug logging for DateTimeEntry
+_log = logging.getLogger('DateTimeEntry')
+_log.setLevel(logging.DEBUG)
+if not _log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    _log.addHandler(_handler)
 
 
 DateTimeEntryEvent, EVT_DATETIMEENTRY = newevent.NewEvent()
@@ -81,6 +91,7 @@ class DateTimeEntry(widgets.DateTimeCtrl):
         super().SetNone()
 
     def onDateTimeCtrlEdited(self, *args, **kwargs):  # pylint: disable=W0613
+        _log.debug("onDateTimeCtrlEdited: Posting DateTimeEntryEvent to %s", self)
         wx.PostEvent(self, DateTimeEntryEvent())
 
 
