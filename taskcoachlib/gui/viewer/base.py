@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import wx
-import logging
 from taskcoachlib import patterns, widgets, command, render
 from taskcoachlib.i18n import _
 from taskcoachlib.gui import uicommand, toolbar, artprovider
@@ -29,15 +28,6 @@ from wx.lib.agw import hypertreelist
 from pubsub import pub
 from taskcoachlib.widgets import ToolTipMixin
 from . import mixin
-
-# Enable debug logging for Viewer
-_log = logging.getLogger('Viewer')
-_log.setLevel(logging.DEBUG)
-if not _log.handlers:
-    _handler = logging.StreamHandler()
-    _handler.setLevel(logging.DEBUG)
-    _handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    _log.addHandler(_handler)
 
 
 class ViewerMeta(type(wx.Panel), patterns.NumberedInstances):
@@ -317,19 +307,14 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         return collection
 
     def onAttributeChanged(self, newValue, sender):  # pylint: disable=W0613
-        _log.debug("onAttributeChanged: viewer=%s, newValue=%s, sender=%s, self=%s, freezeCount=%s",
-                   self.__class__.__name__, newValue, sender, bool(self), self.__freezeCount)
         if self:
             if self.__freezeCount:
                 # During bulk operation, collect items to refresh later
                 self.__pendingRefreshItems.add(sender)
-                _log.debug("onAttributeChanged: frozen, added to pending")
             else:
-                _log.debug("onAttributeChanged: calling refreshItems")
                 self.refreshItems(sender)
 
     def onAttributeChanged_Deprecated(self, event):
-        _log.debug("onAttributeChanged_Deprecated: viewer=%s, event=%s", self.__class__.__name__, event)
         if self.__freezeCount:
             # During bulk operation, collect items to refresh later
             self.__pendingRefreshItems.update(event.sources())
@@ -408,11 +393,8 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
             self.widget.RefreshAllItems(len(self.presentation()))
 
     def refreshItems(self, *items):
-        _log.debug("refreshItems: viewer=%s, items=%s, freezeCount=%s",
-                   self.__class__.__name__, items, self.__freezeCount)
         if not self.__freezeCount:
             items = [item for item in items if item in self.presentation()]
-            _log.debug("refreshItems: filtered items=%s, calling widget.RefreshItems", items)
             self.widget.RefreshItems(*items)  # pylint: disable=W0142
 
     def select(self, items):
