@@ -82,6 +82,9 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         pub.subscribe(self.onEndIO, "taskfile.justRead")
         pub.subscribe(self.onEndIO, "taskfile.justCleared")
         pub.subscribe(self.onEndIO, "taskfile.justSaved")
+        # Subscribe to bulk operation signals to freeze/thaw during batch updates
+        pub.subscribe(self.onBeginBulkOperation, "command.aboutToBulkModify")
+        pub.subscribe(self.onEndBulkOperation, "command.justBulkModified")
 
         if isinstance(self.widget, ToolTipMixin):
             pub.subscribe(
@@ -127,6 +130,18 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         self.__presentation.freeze()
 
     def onEndIO(self, taskFile):
+        self.__freezeCount -= 1
+        self.__presentation.thaw()
+        if self.__freezeCount == 0:
+            self.refresh()
+
+    def onBeginBulkOperation(self):
+        """Freeze viewer and presentation to batch updates during bulk operations."""
+        self.__freezeCount += 1
+        self.__presentation.freeze()
+
+    def onEndBulkOperation(self):
+        """Thaw viewer and presentation after bulk operation, triggering single refresh."""
         self.__freezeCount -= 1
         self.__presentation.thaw()
         if self.__freezeCount == 0:
@@ -208,6 +223,8 @@ class Viewer(wx.Panel, patterns.Observer, metaclass=ViewerMeta):
         pub.unsubscribe(self.onEndIO, "taskfile.justRead")
         pub.unsubscribe(self.onEndIO, "taskfile.justCleared")
         pub.unsubscribe(self.onEndIO, "taskfile.justSaved")
+        pub.unsubscribe(self.onBeginBulkOperation, "command.aboutToBulkModify")
+        pub.unsubscribe(self.onEndBulkOperation, "command.justBulkModified")
 
         self.presentation().detach()
         self.toolbar.detach()

@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 
+from pubsub import pub
 from taskcoachlib import patterns
 from taskcoachlib.domain import task, effort, date
 from taskcoachlib.i18n import _
@@ -247,17 +248,29 @@ class MarkCompletedCommand(base.SaveStateMixin, EffortCommand):
         self.saveStates(itemsToSave)
 
     def do_command(self):
-        super().do_command()
-        for item in self.items:
-            item.setCompletionDateTime(task.Task.suggestedCompletionDateTime())
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            super().do_command()
+            for item in self.items:
+                item.setCompletionDateTime(task.Task.suggestedCompletionDateTime())
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def undo_command(self):
-        self.undoStates()
-        super().undo_command()
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            self.undoStates()
+            super().undo_command()
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def redo_command(self):
-        self.redoStates()
-        super().redo_command()
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            self.redoStates()
+            super().redo_command()
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def tasksToStopTracking(self):
         return self.items
@@ -281,20 +294,32 @@ class MarkActiveCommand(base.SaveStateMixin, base.BaseCommand):
         self.saveStates(itemsToSave)
 
     def do_command(self):
-        super().do_command()
-        for item in self.items:
-            item.setActualStartDateTime(
-                task.Task.suggestedActualStartDateTime()
-            )
-            item.setCompletionDateTime(date.DateTime())
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            super().do_command()
+            for item in self.items:
+                item.setActualStartDateTime(
+                    task.Task.suggestedActualStartDateTime()
+                )
+                item.setCompletionDateTime(date.DateTime())
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def undo_command(self):
-        self.undoStates()
-        super().undo_command()
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            self.undoStates()
+            super().undo_command()
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def redo_command(self):
-        self.redoStates()
-        super().redo_command()
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            self.redoStates()
+            super().redo_command()
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
 
 class MarkInactiveCommand(base.SaveStateMixin, base.BaseCommand):
@@ -315,18 +340,30 @@ class MarkInactiveCommand(base.SaveStateMixin, base.BaseCommand):
         self.saveStates(itemsToSave)
 
     def do_command(self):
-        super().do_command()
-        for item in self.items:
-            item.setActualStartDateTime(date.DateTime())
-            item.setCompletionDateTime(date.DateTime())
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            super().do_command()
+            for item in self.items:
+                item.setActualStartDateTime(date.DateTime())
+                item.setCompletionDateTime(date.DateTime())
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def undo_command(self):
-        self.undoStates()
-        super().undo_command()
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            self.undoStates()
+            super().undo_command()
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
     def redo_command(self):
-        self.redoStates()
-        super().redo_command()
+        pub.sendMessage("command.aboutToBulkModify")
+        try:
+            self.redoStates()
+            super().redo_command()
+        finally:
+            pub.sendMessage("command.justBulkModified")
 
 
 class StartEffortCommand(EffortCommand):
