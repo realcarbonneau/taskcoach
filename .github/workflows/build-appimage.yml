@@ -165,30 +165,25 @@ jobs:
           echo "Python relative path: $PYTHON_REL"
           echo "Python directory: $PYTHON_DIR"
 
-          # Create AppRun that uses the correct path
-          cat > TaskCoach.AppDir/AppRun << 'APPRUNEOF'
-#!/bin/bash
-APPDIR="$(dirname "$(readlink -f "$0")")"
-APPRUNEOF
-
-          # Add the Python path dynamically
-          echo "PYTHON=\"\$APPDIR/$PYTHON_REL\"" >> TaskCoach.AppDir/AppRun
-          echo "export PYTHONHOME=\"\$APPDIR/$PYTHON_DIR\"" >> TaskCoach.AppDir/AppRun
-
-          cat >> TaskCoach.AppDir/AppRun << 'APPRUNEOF'
-export PYTHONPATH="$APPDIR/usr/share/taskcoach:$PYTHONHOME/lib/python3.11/site-packages"
-export LD_LIBRARY_PATH="$PYTHONHOME/lib:$APPDIR/usr/lib:$LD_LIBRARY_PATH"
-export PATH="$PYTHONHOME/bin:$APPDIR/usr/bin:$PATH"
-export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
-export PYTHONDONTWRITEBYTECODE=1
-
-# If first arg is -c, run Python with the command (for testing)
-if [ "$1" = "-c" ]; then
-    exec "$PYTHON" "$@"
-fi
-
-exec "$PYTHON" "$APPDIR/usr/share/taskcoach/taskcoach.py" "$@"
-APPRUNEOF
+          # Create AppRun using echo to avoid YAML heredoc issues
+          {
+            echo '#!/bin/bash'
+            echo 'APPDIR="$(dirname "$(readlink -f "$0")")"'
+            echo "PYTHON=\"\$APPDIR/$PYTHON_REL\""
+            echo "export PYTHONHOME=\"\$APPDIR/$PYTHON_DIR\""
+            echo 'export PYTHONPATH="$APPDIR/usr/share/taskcoach:$PYTHONHOME/lib/python3.11/site-packages"'
+            echo 'export LD_LIBRARY_PATH="$PYTHONHOME/lib:$APPDIR/usr/lib:$LD_LIBRARY_PATH"'
+            echo 'export PATH="$PYTHONHOME/bin:$APPDIR/usr/bin:$PATH"'
+            echo 'export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"'
+            echo 'export PYTHONDONTWRITEBYTECODE=1'
+            echo ''
+            echo '# If first arg is -c, run Python with the command (for testing)'
+            echo 'if [ "$1" = "-c" ]; then'
+            echo '    exec "$PYTHON" "$@"'
+            echo 'fi'
+            echo ''
+            echo 'exec "$PYTHON" "$APPDIR/usr/share/taskcoach/taskcoach.py" "$@"'
+          } > TaskCoach.AppDir/AppRun
 
           chmod +x TaskCoach.AppDir/AppRun
           echo "=== Created AppRun ==="
