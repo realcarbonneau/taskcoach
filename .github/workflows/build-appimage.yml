@@ -156,7 +156,7 @@ jobs:
         run: |
           # First, find where Python actually is in the extracted AppImage
           echo "Finding Python binary location..."
-          PYTHON_BIN=$(find TaskCoach.AppDir -name "python3.11" -type f -path "*/bin/*" | head -1)
+          PYTHON_BIN=$(find TaskCoach.AppDir/opt -name "python3.11" -type f -path "*/bin/*" | head -1)
           echo "Found Python at: $PYTHON_BIN"
 
           # Get the relative path from TaskCoach.AppDir
@@ -164,6 +164,11 @@ jobs:
           PYTHON_DIR=$(dirname $(dirname "$PYTHON_REL"))
           echo "Python relative path: $PYTHON_REL"
           echo "Python directory: $PYTHON_DIR"
+
+          # IMPORTANT: Remove the AppRun symlink first, otherwise writing to it
+          # will write to the target file instead of replacing the symlink
+          rm -f TaskCoach.AppDir/AppRun
+          echo "Removed original AppRun symlink"
 
           # Create AppRun using echo to avoid YAML heredoc issues
           {
