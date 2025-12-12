@@ -83,11 +83,10 @@ jobs:
           # Upgrade pip first
           $PYTHON -m pip install --upgrade pip setuptools wheel
 
-          # Install wxPython - this may take a while as it might need to compile
-          # Try pre-built wheel first, fall back to source
+          # Install wxPython - use pre-built wheels from wxPython extras repository
           echo "Installing wxPython..."
-          $PYTHON -m pip install wxPython --prefer-binary || \
-            $PYTHON -m pip install wxPython
+          $PYTHON -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04 wxPython || \
+            $PYTHON -m pip install wxPython --prefer-binary
 
           # Install all TaskCoach dependencies
           echo "Installing TaskCoach dependencies..."

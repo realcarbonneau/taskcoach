@@ -89,10 +89,10 @@ install_dependencies() {
     # Upgrade pip
     $PYTHON -m pip install --upgrade pip setuptools wheel
 
-    # Install wxPython (try wheel first, then source)
+    # Install wxPython - use pre-built wheels from wxPython extras repository
     echo "Installing wxPython..."
-    $PYTHON -m pip install wxPython --prefer-binary || \
-        $PYTHON -m pip install wxPython
+    $PYTHON -m pip install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04 wxPython || \
+        $PYTHON -m pip install wxPython --prefer-binary
 
     # Install TaskCoach dependencies
     echo "Installing TaskCoach dependencies..."
