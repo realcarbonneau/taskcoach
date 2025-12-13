@@ -209,5 +209,5 @@ If you encounter Trixie-specific issues or have solutions, please:
 ## See Also
 
 - [DEBIAN_BOOKWORM_SETUP.md](DEBIAN_BOOKWORM_SETUP.md) - Main setup guide (recommended)
-- [setup_bookworm.sh](setup_bookworm.sh) - Automated setup script
-- [README.md](README.md) - General TaskCoach information
+- [setup_bookworm.sh](../setup_bookworm.sh) - Automated setup script
+- [README.md](../README.md) - General TaskCoach information
