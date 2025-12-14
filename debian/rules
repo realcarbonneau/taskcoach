@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=taskcoach
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install desktop file
+	install -D -m 644 build.in/linux_common/taskcoach.desktop \
+		debian/taskcoach/usr/share/applications/taskcoach.desktop
+	# Install appdata/metainfo
+	install -D -m 644 build.in/debian/taskcoach.appdata.xml \
+		debian/taskcoach/usr/share/metainfo/taskcoach.appdata.xml
+	# Install bundled wxPython patch for hypertreelist (needed until wxPython >= 4.2.4)
+	install -D -m 644 patches/wxpython/hypertreelist.py \
+		debian/taskcoach/usr/share/taskcoach/lib/hypertreelist.py

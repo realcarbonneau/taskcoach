@@ -8,7 +8,7 @@ This document describes the preparation and requirements for submitting Task Coa
 |------|--------|
 | License | GPL-3+ (Debian-compatible) |
 | Source format | 3.0 (quilt) |
-| debian/ directory | Partial (patches only) |
+| debian/ directory | Complete |
 | Lintian compliance | Not yet tested |
 | ITP bug filed | No |
 
@@ -16,26 +16,33 @@ This document describes the preparation and requirements for submitting Task Coa
 
 ```
 debian/
+├── changelog                                         # Version history
+├── compat                                            # Debhelper compat (13)
+├── control                                           # Package metadata
+├── copyright                                         # DEP-5 license info
 ├── patches/
 │   ├── fix-hypertreelist-background-coloring.patch  # wxPython fix (DEP-3)
 │   └── series                                        # Patch order
-└── source/
-    └── format                                        # 3.0 (quilt)
+├── rules                                             # Build instructions
+├── source/
+│   └── format                                        # 3.0 (quilt)
+├── taskcoach.install                                 # Installation notes
+└── watch                                             # Upstream version tracking
 ```
 
-### Files Still Needed
+### Files Status
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `debian/control` | Package metadata and dependencies | TODO |
-| `debian/rules` | Build instructions | TODO |
-| `debian/changelog` | Version history (Debian format) | TODO |
-| `debian/copyright` | License info (DEP-5 format) | TODO |
-| `debian/compat` | Debhelper compatibility level | TODO |
-| `debian/watch` | Upstream version tracking | TODO |
-| `debian/taskcoach.install` | File installation list | TODO |
-| `debian/taskcoach.desktop` | Desktop entry | Exists in build.in/ |
-| `debian/taskcoach.manpages` | Man page list | TODO |
+| `debian/control` | Package metadata and dependencies | Done |
+| `debian/rules` | Build instructions | Done |
+| `debian/changelog` | Version history (Debian format) | Done |
+| `debian/copyright` | License info (DEP-5 format) | Done |
+| `debian/compat` | Debhelper compatibility level (13) | Done |
+| `debian/watch` | Upstream version tracking | Done |
+| `debian/taskcoach.install` | File installation notes | Done |
+| `debian/taskcoach.desktop` | Desktop entry | Uses build.in/ |
+| `debian/taskcoach.manpages` | Man page list | Skipped (optional) |
 
 ## wxPython Patch Strategy
 
