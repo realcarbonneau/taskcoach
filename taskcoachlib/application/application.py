@@ -37,16 +37,27 @@ import subprocess
 def _log_gui_environment():
     """Log GUI environment details for debugging window positioning issues."""
     import platform
+    from taskcoachlib import meta
 
     print("\n" + "="*60)
     print("GUI ENVIRONMENT INFO")
     print("="*60)
+
+    # TaskCoach version first - critical for debugging
+    print(f"TaskCoach: {meta.data.version}")
 
     # Basic info
     print(f"Platform: {sys.platform}")
     print(f"Python: {platform.python_version()}")
     print(f"wx.Version: {wx.version()}")
     print(f"wx.PlatformInfo: {wx.PlatformInfo}")
+
+    # Additional package versions
+    try:
+        from pubsub import __version__ as pubsub_version
+        print(f"pubsub: {pubsub_version}")
+    except (ImportError, AttributeError):
+        pass
 
     # Platform-specific info
     if sys.platform == 'win32':
