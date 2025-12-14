@@ -4,7 +4,7 @@
 
 ## ⚠️ CRITICAL: Debian Bookworm Users
 
-**If you're on Debian 12 (Bookworm), you MUST read [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) first!**
+**If you're on Debian 12 (Bookworm), you MUST read [CRITICAL_WXPYTHON_PATCH.md](docs/CRITICAL_WXPYTHON_PATCH.md) first!**
 
 Debian Bookworm ships wxPython 4.2.0 which has critical bugs affecting category row background coloring. A patch is automatically applied during setup, but understanding why it's needed is important for future maintenance.
 
@@ -40,7 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ### For Debian Users
 
-See [DEBIAN_BOOKWORM_SETUP.md](DEBIAN_BOOKWORM_SETUP.md) for detailed Debian-specific installation instructions including shallow clone and ZIP download options.
+See [DEBIAN_BOOKWORM_SETUP.md](docs/DEBIAN_BOOKWORM_SETUP.md) for detailed Debian-specific installation instructions including shallow clone and ZIP download options.
 
 ### General Instructions
 
