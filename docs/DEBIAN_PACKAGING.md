@@ -17,8 +17,7 @@ This document describes the preparation and requirements for submitting Task Coa
 ```
 debian/
 ├── changelog                                         # Version history
-├── compat                                            # Debhelper compat (13)
-├── control                                           # Package metadata
+├── control                                           # Package metadata (includes compat via debhelper-compat)
 ├── copyright                                         # DEP-5 license info
 ├── patches/
 │   └── series                                        # Empty (see note below)
@@ -42,7 +41,6 @@ install it via `debian/rules` to `/usr/share/taskcoach/lib/`.
 | `debian/rules` | Build instructions | Done |
 | `debian/changelog` | Version history (Debian format) | Done |
 | `debian/copyright` | License info (DEP-5 format) | Done |
-| `debian/compat` | Debhelper compatibility level (13) | Done |
 | `debian/watch` | Upstream version tracking | Done |
 | `debian/taskcoach.install` | File installation notes | Done |
 | `debian/taskcoach.desktop` | Desktop entry | Uses build.in/ |
@@ -50,7 +48,7 @@ install it via `debian/rules` to `/usr/share/taskcoach/lib/`.
 
 ## wxPython Patch Strategy
 
-Task Coach requires a patch to wxPython's `hypertreelist.py` for correct background coloring. Since the Debian package cannot modify the system `python3-wxgtk4.0` package, we use a bundling approach:
+Task Coach requires a patch to wxPython's `hypertreelist.py` for correct background coloring. Since the Debian package cannot modify the system `python3-wxgtk4.0` package, we use a bundling approach with an import hook.
 
 ### The Problem
 
@@ -63,19 +61,42 @@ Task Coach requires a patch to wxPython's `hypertreelist.py` for correct backgro
 
 ### The Solution
 
-1. **Bundle the patched file** in Task Coach at `/usr/share/taskcoach/lib/hypertreelist.py`
-2. **Import hook** in Task Coach intercepts `wx.lib.agw.hypertreelist` imports
-3. **Redirects** to the bundled patched version
+1. **Bundle the patched file** at `/usr/share/taskcoach/lib/hypertreelist.py`
+2. **Import hook** in `taskcoachlib/workarounds/monkeypatches.py` intercepts imports
+3. **Redirects** `wx.lib.agw.hypertreelist` to the bundled patched version
 4. System wxPython remains unmodified
 
-### Patch Files
+### Implementation Details
 
-- Source patch: `patches/wxpython/hypertreelist.py` (full patched file)
-- Quilt patch: `debian/patches/fix-hypertreelist-background-coloring.patch` (diff with DEP-3 headers)
+The import hook is implemented in `taskcoachlib/workarounds/monkeypatches.py`:
+
+```python
+class HyperTreeListPatchFinder(MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "wx.lib.agw.hypertreelist":
+            return spec_from_file_location(fullname, self.patched_file_path)
+        return None
+```
+
+The hook searches for the patched file in this order:
+1. `/usr/share/taskcoach/lib/hypertreelist.py` (Debian package install)
+2. `<project>/patches/wxpython/hypertreelist.py` (source install)
+3. `.venv/` site-packages (handled by `usercustomize.py` for venv installs)
+
+### Files Involved
+
+| File | Purpose |
+|------|---------|
+| `patches/wxpython/hypertreelist.py` | Pre-patched source file |
+| `taskcoachlib/workarounds/monkeypatches.py` | Import hook implementation |
+| `debian/rules` | Installs patched file to `/usr/share/taskcoach/lib/` |
 
 ### When to Remove
 
-The patch can be removed when Debian ships wxPython >= 4.2.4. The `debian/control` file should include version-conditional logic or the patch should be maintained until all supported Debian releases have the fix.
+The patch can be removed when Debian ships wxPython >= 4.2.4. At that point:
+1. Remove the import hook code from `monkeypatches.py`
+2. Remove `patches/wxpython/` directory
+3. Remove the install line from `debian/rules`
 
 ## Dependencies
 
