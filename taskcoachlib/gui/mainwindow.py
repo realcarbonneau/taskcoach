@@ -259,9 +259,10 @@ class MainWindow(
 
         try:
             self.manager.LoadPerspective(perspective)
-        except ValueError as reason:
-            # This has been reported to happen. Don't know why. Keep going
-            # if it does.
+        except Exception as reason:
+            # wxPython's AUI LoadPerspective can raise Exception (not ValueError)
+            # with "Bad perspective string" when the saved layout is corrupt.
+            # Keep going if it does.
             wx.MessageBox(
                 _(
                     """Couldn't restore the pane layout from TaskCoach.ini:
@@ -287,6 +288,10 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             # incorrect when the user changes translation:
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
+            # Reset toolbar MinSize - width is derived from window, not saved.
+            # Old INI files may have hard-coded widths like minw=1840.
+            if pane.name == "toolbar":
+                pane.MinSize((-1, 42))
         self.manager.Update()
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
@@ -402,12 +407,13 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
             width = event.GetSize().GetWidth()
-            # Set size on the window widget
+            # Set size on the window widget for current display
             currentToolbar.window.SetSize((width, -1))
             currentToolbar.window.SetMinSize((width, 42))
-            # ALSO set MinSize on the AUI pane info - this is what AUI uses
-            # for layout calculations, not the window's MinSize
-            currentToolbar.MinSize((width, 42))
+            # Use -1 for width on pane info so SavePerspective doesn't save
+            # a hard-coded width value. The toolbar width is derived from
+            # window width at runtime, not a user preference to persist.
+            currentToolbar.MinSize((-1, 42))
         event.Skip()
 
     def showStatusBar(self, value=True):
