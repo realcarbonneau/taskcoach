@@ -2,9 +2,19 @@
 
 This directory contains a patched version of wxPython's `hypertreelist.py` file.
 
+## Patch Status (2025-12-14)
+
+| Debian Release | wxPython Version | Patch Required? |
+|----------------|------------------|-----------------|
+| Bookworm (12)  | 4.2.0+dfsg-3     | YES |
+| Trixie (13)    | 4.2.3+dfsg-2     | YES |
+| Sid (unstable) | 4.2.3+dfsg-2     | YES |
+
+**Upstream fix**: wxPython 4.2.4 (released October 28, 2025) - not yet in Debian.
+
 ## What This Fixes
 
-The patch applies fixes from wxPython [PR #2088](https://github.com/wxWidgets/Phoenix/pull/2088) (included in wxPython 4.2.4) to wxPython 4.2.1:
+The patch applies fixes from wxPython [PR #2088](https://github.com/wxWidgets/Phoenix/pull/2088) (included in wxPython 4.2.4) to wxPython < 4.2.4:
 
 - ✓ Full-row background colors (not just text backgrounds)
 - ✓ Right-aligned columns (date fields) now fully colored
@@ -85,8 +95,16 @@ To update this patch:
 3. Save to `patches/wxpython/hypertreelist.py`
 4. Run `./apply-wxpython-patch.sh` to update the venv
 
+## Debian Package Patch
+
+For official Debian packaging, a quilt-format patch is available at:
+`debian/patches/fix-hypertreelist-background-coloring.patch`
+
+This patch includes DEP-3 headers and is suitable for Debian package builds.
+
 ## References
 
-- wxPython Issue #2081: TR_FULL_ROW_HIGHLIGHT broken in Phoenix 4.x
-- wxPython Issue #1898: TR_FILL_WHOLE_COLUMN_BACKGROUND broken for right-aligned columns
-- wxPython PR #2088: Fix for both issues (included in 4.2.4)
+- [wxPython Issue #2081](https://github.com/wxWidgets/Phoenix/issues/2081): TR_FULL_ROW_HIGHLIGHT broken in Phoenix 4.x
+- [wxPython Issue #1898](https://github.com/wxWidgets/Phoenix/issues/1898): TR_FILL_WHOLE_COLUMN_BACKGROUND broken for right-aligned columns
+- [wxPython PR #2088](https://github.com/wxWidgets/Phoenix/pull/2088): Fix for both issues (merged August 5, 2025)
+- [wxPython 4.2.4 Release](https://wxpython.org/news/2025-10-28-wxpython-424-release/index.html): Released October 28, 2025
