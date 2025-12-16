@@ -5,6 +5,9 @@ export PYBUILD_NAME=taskcoach
 %:
 	dh $@ --with python3 --buildsystem=pybuild
 
+# Skip tests during build - they require wxPython and a display
+override_dh_auto_test:
+
 override_dh_auto_install:
 	dh_auto_install
 	# Install desktop file for application menu
