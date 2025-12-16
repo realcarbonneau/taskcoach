@@ -117,7 +117,7 @@ a_ = CK("a")
 an_ = CK("an")
 of_ = CK("of")
 the_ = CK("the")
-adverb_ = pp.MatchFirst(CK.using_each("just only exactly".split())).suppress()
+adverb_ = pp.MatchFirst([CK("just"), CK("only"), CK("exactly")]).suppress()
 
 couple = (
     (pp.Opt(CK("a")) + CK("couple") + pp.Opt(CK("of")))
@@ -134,7 +134,7 @@ time_ref_present = pp.Tag("time_ref_present")
 
 # get weekday names from the calendar module
 weekday_names = list(calendar.day_name)
-weekday_name = pp.MatchFirst(CK.using_each(weekday_names)).set_name("weekday_name")
+weekday_name = pp.MatchFirst([CK(name) for name in weekday_names]).set_name("weekday_name")
 
 # expressions for military 2400 time
 _24hour_time = ~(pp.Word(pp.nums) + any_time_units).set_name(
