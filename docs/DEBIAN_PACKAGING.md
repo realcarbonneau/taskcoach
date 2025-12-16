@@ -61,42 +61,41 @@ Task Coach requires a patch to wxPython's `hypertreelist.py` for correct backgro
 
 ### The Solution
 
-1. **Bundle the patched file** at `/usr/share/taskcoach/lib/hypertreelist.py`
+1. **Bundle the patched file** inside the Python package at `taskcoachlib/patches/hypertreelist.py`
 2. **Import hook** in `taskcoachlib/workarounds/monkeypatches.py` intercepts imports
 3. **Redirects** `wx.lib.agw.hypertreelist` to the bundled patched version
 4. System wxPython remains unmodified
+
+This approach works for **all installation methods** (Debian, Fedora, pip, Windows, macOS) because the patch is bundled with the Python package and found via `__file__`-relative paths.
 
 ### Implementation Details
 
 The import hook is implemented in `taskcoachlib/workarounds/monkeypatches.py`:
 
 ```python
-class HyperTreeListPatchFinder(MetaPathFinder):
-    def find_spec(self, fullname, path, target=None):
-        if fullname == "wx.lib.agw.hypertreelist":
-            return spec_from_file_location(fullname, self.patched_file_path)
-        return None
+def _find_patched_hypertreelist():
+    # Path relative to this file: workarounds/ -> taskcoachlib/ -> patches/
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    taskcoachlib_dir = os.path.dirname(this_dir)
+    patch_path = os.path.join(taskcoachlib_dir, "patches", "hypertreelist.py")
+    if os.path.exists(patch_path):
+        return patch_path
+    return None
 ```
-
-The hook searches for the patched file in this order:
-1. `/usr/share/taskcoach/lib/hypertreelist.py` (Debian package install)
-2. `<project>/patches/wxpython/hypertreelist.py` (source install)
-3. `.venv/` site-packages (handled by `usercustomize.py` for venv installs)
 
 ### Files Involved
 
 | File | Purpose |
 |------|---------|
-| `patches/wxpython/hypertreelist.py` | Pre-patched source file |
+| `taskcoachlib/patches/hypertreelist.py` | Pre-patched file (bundled in package) |
+| `taskcoachlib/patches/__init__.py` | Package marker |
 | `taskcoachlib/workarounds/monkeypatches.py` | Import hook implementation |
-| `debian/rules` | Installs patched file to `/usr/share/taskcoach/lib/` |
 
 ### When to Remove
 
 The patch can be removed when Debian ships wxPython >= 4.2.4. At that point:
 1. Remove the import hook code from `monkeypatches.py`
-2. Remove `patches/wxpython/` directory
-3. Remove the install line from `debian/rules`
+2. Remove `taskcoachlib/patches/` directory
 
 ## Dependencies
 
@@ -226,6 +225,115 @@ License: GPL-3+
  [Full license text or reference]
 ```
 
+## Desktop Integration (Start Menu Icons)
+
+Each platform has its own method for application menu/start menu integration:
+
+| Platform | File | Installed To | Standard |
+|----------|------|-------------|----------|
+| **Linux (all)** | `.desktop` | `/usr/share/applications/` | [XDG Desktop Entry](https://specifications.freedesktop.org/desktop-entry-spec/latest/) |
+| **Linux** | `.appdata.xml` | `/usr/share/metainfo/` | [AppStream](https://www.freedesktop.org/software/appstream/docs/) |
+| **Windows** | `.iss` script | Start Menu | [Inno Setup](https://jrsoftware.org/isinfo.php) |
+| **macOS** | `.app` bundle | `/Applications/` | [Apple Bundle](https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFBundles/) |
+
+### Linux Desktop File
+
+Task Coach uses `build.in/linux_common/taskcoach.desktop`:
+
+```ini
+[Desktop Entry]
+Name=Task Coach
+Comment=Your friendly task manager
+Exec=taskcoach
+Icon=taskcoach
+Terminal=false
+Type=Application
+Categories=Office;ProjectManagement;
+```
+
+Installed by `debian/rules` to `/usr/share/applications/`.
+
+### AppStream Metadata
+
+For software centers (GNOME Software, KDE Discover), use `build.in/debian/taskcoach.appdata.xml`.
+
+## Building with GitHub Actions
+
+You can automate `.deb` package builds using GitHub Actions:
+
+### Example Workflow (`.github/workflows/build-deb.yml`)
+
+```yaml
+name: Build Debian Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    container: debian:bookworm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y build-essential debhelper dh-python \
+            python3-all python3-setuptools devscripts
+
+      - name: Build package
+        run: |
+          dpkg-buildpackage -us -uc -b
+
+      - name: Run lintian
+        run: |
+          apt-get install -y lintian
+          lintian --info ../*.changes || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-package
+          path: |
+            ../*.deb
+            ../*.changes
+            ../*.buildinfo
+```
+
+### Multi-Distribution Builds
+
+For building packages for multiple Debian/Ubuntu versions:
+
+```yaml
+jobs:
+  build:
+    strategy:
+      matrix:
+        distro: [debian:bookworm, debian:trixie, ubuntu:noble]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.distro }}
+    steps:
+      # ... same steps as above
+```
+
+### Automatic Releases
+
+Add a release step to publish `.deb` files:
+
+```yaml
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ../*.deb
+```
+
 ## References
 
 - [Debian New Maintainers' Guide](https://www.debian.org/doc/manuals/maint-guide/)
@@ -233,6 +341,8 @@ License: GPL-3+
 - [DEP-3: Patch Tagging Guidelines](https://dep-team.pages.debian.net/deps/dep3/)
 - [DEP-5: Machine-readable copyright](https://dep-team.pages.debian.net/deps/dep5/)
 - [Python Policy](https://www.debian.org/doc/packaging-manuals/python-policy/)
+- [XDG Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+- [AppStream Metadata](https://www.freedesktop.org/software/appstream/docs/)
 
 ## Related Documentation
 

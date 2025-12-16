@@ -12,10 +12,8 @@ import inspect
 # TR_FULL_ROW_HIGHLIGHT and TR_FILL_WHOLE_COLUMN_BACKGROUND that break
 # background coloring in tree list widgets.
 #
-# The hook checks for the patched file in these locations (in order):
-#   1. /usr/share/taskcoach/lib/hypertreelist.py (Debian package install)
-#   2. <script_dir>/patches/wxpython/hypertreelist.py (source install)
-#   3. .venv site-packages (handled separately by usercustomize.py)
+# The patched file is bundled at: taskcoachlib/patches/hypertreelist.py
+# This works for all installation methods (pip, deb, rpm, Windows, macOS).
 #
 # For details, see: docs/CRITICAL_WXPYTHON_PATCH.md
 # =============================================================================
@@ -28,21 +26,16 @@ def _find_patched_hypertreelist():
     """Find the patched hypertreelist.py file.
 
     Returns the path to the patched file, or None if not found.
+    The file is located relative to this module, so it works regardless
+    of installation method (pip, deb, rpm, source, etc.).
     """
-    # Location 1: Debian package install
-    debian_path = "/usr/share/taskcoach/lib/hypertreelist.py"
-    if os.path.exists(debian_path):
-        return debian_path
+    # Path relative to this file: workarounds/ -> taskcoachlib/ -> patches/
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    taskcoachlib_dir = os.path.dirname(this_dir)
+    patch_path = os.path.join(taskcoachlib_dir, "patches", "hypertreelist.py")
 
-    # Location 2: Source install (relative to taskcoachlib)
-    try:
-        import taskcoachlib
-        lib_dir = os.path.dirname(os.path.dirname(taskcoachlib.__file__))
-        source_path = os.path.join(lib_dir, "patches", "wxpython", "hypertreelist.py")
-        if os.path.exists(source_path):
-            return source_path
-    except (ImportError, AttributeError):
-        pass
+    if os.path.exists(patch_path):
+        return patch_path
 
     return None
 

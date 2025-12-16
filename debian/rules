@@ -7,12 +7,11 @@ export PYBUILD_NAME=taskcoach
 
 override_dh_auto_install:
 	dh_auto_install
-	# Install desktop file
+	# Install desktop file for application menu
 	install -D -m 644 build.in/linux_common/taskcoach.desktop \
 		debian/taskcoach/usr/share/applications/taskcoach.desktop
-	# Install appdata/metainfo
+	# Install appdata/metainfo for software centers
 	install -D -m 644 build.in/debian/taskcoach.appdata.xml \
 		debian/taskcoach/usr/share/metainfo/taskcoach.appdata.xml
-	# Install bundled wxPython patch for hypertreelist (needed until wxPython >= 4.2.4)
-	install -D -m 644 patches/wxpython/hypertreelist.py \
-		debian/taskcoach/usr/share/taskcoach/lib/hypertreelist.py
+	# Note: The wxPython hypertreelist patch is now bundled inside taskcoachlib/patches/
+	# and installed automatically by pybuild. No manual installation needed.
