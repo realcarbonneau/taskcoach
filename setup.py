@@ -90,7 +90,6 @@ setupOptions = {
     "version": meta.version,
     "url": meta.url,
     "license": meta.license,
-    "download_url": meta.download,
     "install_requires": install_requires,
     "tests_require": tests_requires,
     "setup_requires": setup_requires,
