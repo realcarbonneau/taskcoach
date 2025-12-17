@@ -203,6 +203,10 @@ class MainToolBar(ToolBar):
     the fixup.
     """
 
+    def __init__(self, window, settings, size=(32, 32)):
+        self._updating_content = False
+        super().__init__(window, settings, size)
+
     def __safeParentSendSizeEvent(self):
         """Send size event to parent, guarding against deleted C++ objects."""
         try:
@@ -211,6 +215,23 @@ class MainToolBar(ToolBar):
                 parent.SendSizeEvent()
         except RuntimeError:
             pass  # C++ object deleted
+
+    def __safeAuiUpdate(self):
+        """Update AUI manager layout without triggering full window resize."""
+        try:
+            parent = self.GetParent()
+            if parent and hasattr(parent, 'manager'):
+                parent.manager.Update()
+        except RuntimeError:
+            pass  # C++ object deleted
+
+    def savePerspective(self, perspective):
+        """Save toolbar perspective with optimized update to prevent flicker."""
+        self._updating_content = True
+        try:
+            super().savePerspective(perspective)
+        finally:
+            self._updating_content = False
 
     def Realize(self):
         """Realize the toolbar and notify parent to update layout.
@@ -222,7 +243,10 @@ class MainToolBar(ToolBar):
         self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
         super().Realize()
         self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
-        # Notify parent to recalculate layout - this triggers onResize which
-        # sets the correct MinSize (with height=42) on both the window and
-        # the AUI pane info
-        wx.CallAfter(self.__safeParentSendSizeEvent)
+        # During content updates (customization), use targeted AUI update
+        # to avoid full window resize which causes flicker.
+        # During initial creation, send size event for proper layout setup.
+        if self._updating_content:
+            wx.CallAfter(self.__safeAuiUpdate)
+        else:
+            wx.CallAfter(self.__safeParentSendSizeEvent)
