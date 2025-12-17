@@ -1,87 +1,103 @@
 # TaskCoach on Debian Bookworm - Setup Guide
 
-This guide explains how to test TaskCoach on Debian 12 (Bookworm).
+This guide explains how to install and run TaskCoach on Debian 12 (Bookworm).
 
 ---
 
-## ⚠️ IMPORTANT: wxPython Patch Required
+## Quick Start: Install the .deb Package (Recommended)
 
-Debian Bookworm ships wxPython 4.2.0, which has critical bugs affecting category row background coloring. This setup automatically applies a patch at step [6/7].
+The easiest way to install TaskCoach on Debian Bookworm is using the pre-built `.deb` package:
+
+```bash
+# Download the latest .deb from GitHub releases
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1_all.deb
+
+# Install it (this will also install dependencies)
+sudo apt install ./taskcoach_1.6.1_all.deb
+
+# Run TaskCoach
+taskcoach
+```
+
+That's it! The .deb package handles all dependencies and the wxPython patch automatically.
+
+### What the .deb Package Includes
+
+- All Python dependencies from Debian repositories
+- Bundled wxPython patch for category row coloring (see [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md))
+- Desktop integration (application menu entry, file associations)
+- Man page
+
+### Uninstalling
+
+```bash
+sudo apt remove taskcoach
+```
+
+---
+
+## Building the .deb Package Yourself
+
+If you want to build the package from source:
+
+```bash
+# Install build dependencies
+sudo apt install build-essential debhelper dh-python python3-all python3-setuptools devscripts
+
+# Clone the repository
+git clone https://github.com/realcarbonneau/taskcoach.git
+cd taskcoach
+
+# Build the package
+dpkg-buildpackage -us -uc -b
+
+# Install the built package
+sudo apt install ../taskcoach_*.deb
+```
+
+For more details on the packaging system, see [PACKAGING.md](PACKAGING.md).
+
+---
+
+## Development Setup (Running from Source)
+
+This section is for developers who want to work on TaskCoach code. If you just want to use TaskCoach, install the .deb package above.
+
+### ⚠️ IMPORTANT: wxPython Patch Required
+
+Debian Bookworm ships wxPython 4.2.0, which has critical bugs affecting category row background coloring. When running from source, the patch is applied automatically via the import hook.
 
 **For complete details, see [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md)**
 
----
-
-## System Requirements
+### System Requirements
 
 - **OS**: Debian 12 (Bookworm)
 - **Python**: 3.11 (default in Bookworm)
 - **wxPython**: 4.2.0 (available in Bookworm repos)
 
-## Getting the Code
-
-Choose one of these methods to download TaskCoach:
-
-### Option 1: Shallow Git Clone (Recommended)
-
-Fast download (~70MB), includes git for easy updates:
+### Getting the Code
 
 ```bash
-cd ~/Downloads
-git clone --depth 1 --branch claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo \
-  https://github.com/realcarbonneau/taskcoach.git taskcoach
+# Clone the repository (shallow clone to save space)
+git clone --depth 1 https://github.com/realcarbonneau/taskcoach.git
 cd taskcoach
 ```
 
-**To update later:**
-```bash
-cd ~/Downloads/taskcoach
-git pull
-```
-
-### Option 2: Full Git Clone
-
-Complete repository with full history (~400MB):
+### Updating to Latest Version
 
 ```bash
-cd ~/Downloads
-git clone --branch claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo \
-  https://github.com/realcarbonneau/taskcoach.git taskcoach
-cd taskcoach
+cd ~/Downloads/taskcoach  # or wherever you cloned it
+git fetch --depth=1 origin master
+git checkout FETCH_HEAD
 ```
 
-### Option 3: Download as ZIP
+This fetches only the latest commit without downloading full history.
 
-Smallest download (~50MB), no git required:
-
-```bash
-cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/archive/refs/heads/claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo.zip -O taskcoach.zip
-unzip taskcoach.zip
-mv taskcoach-claude-taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo taskcoach
-rm taskcoach.zip
-cd taskcoach
-```
-
-**Or with curl:**
-```bash
-cd ~/Downloads
-curl -L https://github.com/realcarbonneau/taskcoach/archive/refs/heads/claude/taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo.zip -o taskcoach.zip
-unzip taskcoach.zip
-mv taskcoach-claude-taskcoach-deprecation-investigation-01T3FHVZcUvAHpCgoZHThGVo taskcoach
-rm taskcoach.zip
-cd taskcoach
-```
-
-**Note**: With ZIP download, you need to re-download the entire file to get updates (no `git pull`).
-
-## Important Note About PEP 668
+### Important Note About PEP 668
 
 Debian Bookworm implements PEP 668, which prevents `pip install --user` from modifying the system Python environment. This is a **good security feature**. We'll use system packages where possible and a virtual environment for the rest.
 
-## Quick Setup (Recommended)
-
-### Option 1: Automated Setup Script
+### Option 1: Automated Setup Script (Recommended for Development)
 
 ```bash
 # Run the automated setup script
@@ -91,6 +107,9 @@ Debian Bookworm implements PEP 668, which prevents `pip install --user` from mod
 # - Install system packages
 # - Create a virtual environment
 # - Install remaining dependencies
+
+# Run TaskCoach
+./taskcoach-run.sh
 ```
 
 ### Option 2: Manual Setup
@@ -122,10 +141,7 @@ sudo apt-get install -y \
 For packages not available in Debian repos (desktop3, lockfile, gntp, distro, pypubsub, watchdog):
 
 ```bash
-# Set your TaskCoach directory (change this to your actual path)
-TASKCOACH_HOME=/path/to/taskcoach
-
-cd "$TASKCOACH_HOME"
+cd /path/to/taskcoach
 
 # Create virtual environment with access to system packages
 python3 -m venv --system-site-packages .venv
@@ -140,7 +156,7 @@ pip install desktop3 lockfile gntp distro pypubsub 'watchdog>=3.0.0'
 deactivate
 ```
 
-**Note**: The `--system-site-packages` flag allows the virtual environment to access system-installed packages (like wxPython, lxml, numpy) while keeping pip-installed packages isolated. This is the recommended approach for TaskCoach.
+**Note**: The `--system-site-packages` flag allows the virtual environment to access system-installed packages (like wxPython, lxml, numpy) while keeping pip-installed packages isolated.
 
 #### Step 3: Run TaskCoach
 
@@ -153,23 +169,21 @@ source .venv/bin/activate
 python3 taskcoach.py
 ```
 
-## Testing the Installation
+### Testing the Installation
 
-### Quick Test
+#### Quick Test
 ```bash
 python3 -c "import taskcoachlib.meta.data as meta; print('TaskCoach version:', meta.version)"
 ```
 
-Expected output: `TaskCoach version: 1.5.1`
-
-### Comprehensive Test
+#### Comprehensive Test
 ```bash
 ./test_taskcoach.sh
 ```
 
-This runs 12 tests to verify all dependencies and prerequisites.
+This runs tests to verify all dependencies and prerequisites.
 
-## Usage Examples
+### Usage Examples
 
 ```bash
 # Show help
@@ -188,6 +202,8 @@ This runs 12 tests to verify all dependencies and prerequisites.
 ./taskcoach-run.sh --language=fr
 ```
 
+---
+
 ## Advanced: Headless/Automated Testing
 
 **Note**: This section is only for running TaskCoach without a display (SSH sessions, automated testing, CI/CD). Normal desktop users can skip this.
@@ -204,14 +220,16 @@ sudo apt-get install -y xvfb
 xvfb-run -a ./taskcoach-run.sh
 ```
 
-## Known Issues on Bookworm
+---
 
-### Issue 1: PEP 668 Error
+## Troubleshooting
+
+### PEP 668 Error
 **Symptom**: `error: externally-managed-environment`
 
-**Solution**: Use a virtual environment (as shown above) or system packages.
+**Solution**: Use a virtual environment (as shown in Development Setup) or install the .deb package.
 
-### Issue 2: wxPython Import Error
+### wxPython Import Error
 **Symptom**: `ModuleNotFoundError: No module named 'wx'`
 
 **Solution**: Install system package:
@@ -219,32 +237,32 @@ xvfb-run -a ./taskcoach-run.sh
 sudo apt-get install python3-wxgtk4.0
 ```
 
-If running headless/over SSH without a display:
-```bash
-TASKCOACH_HOME=/path/to/taskcoach  # Change to your path
-cd "$TASKCOACH_HOME/icons.in"
-xvfb-run -a python3 make.py
-cd "$TASKCOACH_HOME"
-```
-
-### Issue 4: Missing Templates
+### Missing Templates (Development Only)
 **Symptom**: `ModuleNotFoundError: No module named 'taskcoachlib.persistence.xml.templates'`
 
 **Solution**: Generate the templates file:
 ```bash
-TASKCOACH_HOME=~/Downloads/taskcoach-master  # Change to your path
-cd "$TASKCOACH_HOME/templates.in"
+cd /path/to/taskcoach/templates.in
 python3 make.py
-cd "$TASKCOACH_HOME"
 ```
 
-If running headless/over SSH without a display:
+### Check Python Version
 ```bash
-TASKCOACH_HOME=~/Downloads/taskcoach-master  # Change to your path
-cd "$TASKCOACH_HOME/templates.in"
-xvfb-run -a python3 make.py
-cd "$TASKCOACH_HOME"
+python3 --version  # Should be 3.11.x
 ```
+
+### Check System Packages
+```bash
+dpkg -l | grep python3-wx
+dpkg -l | grep python3-lxml
+```
+
+### Verbose Logging
+```bash
+./taskcoach-run.sh --verbose
+```
+
+---
 
 ## Package Sources in Bookworm
 
@@ -259,67 +277,16 @@ cd "$TASKCOACH_HOME"
 - ⚠️ python3-pyparsing (3.0.9) - **Note: requires 3.1.3+, install via pip**
 - ✅ python3-pyxdg (0.28)
 
-### From PyPI (pip in venv):
+### From PyPI (pip in venv, for development):
 - 📦 desktop3
 - 📦 lockfile
 - 📦 gntp
 - 📦 distro
 - 📦 pypubsub
 - 📦 pyparsing>=3.1.3 (Bookworm's 3.0.9 is too old)
-- 📦 watchdog>=3.0.0 (Bookworm's 2.2.1 is too old, for file system monitoring)
+- 📦 watchdog>=3.0.0 (Bookworm's 2.2.1 is too old)
 
-## Why Virtual Environment?
-
-Debian Bookworm uses PEP 668 to prevent accidental breaking of system Python. Benefits:
-
-- ✅ **Safe**: Won't break system tools
-- ✅ **Clean**: Isolated from system packages
-- ✅ **Reproducible**: Easy to recreate
-- ✅ **Standard**: Recommended Python practice
-
-The small overhead of activating the venv is worth the safety.
-
-## Troubleshooting
-
-### Check Python Version
-```bash
-python3 --version  # Should be 3.11.x
-```
-
-### Check Virtual Environment
-```bash
-TASKCOACH_HOME=~/Downloads/taskcoach-master  # Change to your path
-cd "$TASKCOACH_HOME"
-source .venv/bin/activate
-pip list | grep -E "(desktop3|lockfile|gntp|distro|pypubsub)"
-deactivate
-```
-
-### Check System Packages
-```bash
-dpkg -l | grep python3-wx
-dpkg -l | grep python3-lxml
-```
-
-### Verbose Logging
-```bash
-./taskcoach-run.sh --verbose
-```
-
-## Uninstall
-
-To remove TaskCoach:
-
-```bash
-# Set your TaskCoach directory
-TASKCOACH_HOME=/path/to/taskcoach
-
-# Remove TaskCoach directory (includes the venv)
-rm -rf "$TASKCOACH_HOME"
-
-# Remove system packages (optional)
-sudo apt-get remove python3-wxgtk4.0
-```
+---
 
 ## Support
 
@@ -327,12 +294,16 @@ sudo apt-get remove python3-wxgtk4.0
 - GitHub Issues: https://github.com/realcarbonneau/taskcoach/issues
 - Documentation: See README.md in the repository
 
+## Related Documentation
+
+- [PACKAGING.md](PACKAGING.md) - Debian packaging details and build process
+- [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md) - wxPython patch information
+
 ## Compatibility Notes
 
-✅ **Working**: Application starts, GUI loads, basic functionality tested
+✅ **Working**: Application starts, GUI loads, all functionality tested
 ✅ **Python 3.11**: Fully compatible
-✅ **wxPython 4.2.0**: Fully compatible
-✅ **PEP 668**: Properly handled with venv approach
-⚠️  **Test Suite**: One minor issue with unittest._TextTestResult (doesn't affect app)
+✅ **wxPython 4.2.0**: Compatible (with bundled patch)
+✅ **PEP 668**: Properly handled
 
-Last tested: 2025-11-15 (Updated for PEP 668)
+Last tested: 2025-12-17
