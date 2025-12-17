@@ -231,6 +231,9 @@ class MainWindow(
         self.Freeze()
 
         try:
+            self.__restore_perspective()
+            # Create toolbar AFTER restoring perspective so it's not affected
+            # by any saved toolbar pane settings
             self.showToolBar(self.settings.getvalue("view", "toolbar"))
 
             # We use CallAfter because otherwise the statusbar will appear at the
@@ -238,7 +241,6 @@ class MainWindow(
             wx.CallAfter(
                 self.showStatusBar, self.settings.getboolean("view", "statusbar")
             )
-            self.__restore_perspective()
         finally:
             self.Thaw()
 
@@ -288,10 +290,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             # incorrect when the user changes translation:
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
-            # Reset toolbar MinSize - width is derived from window, not saved.
-            # Old INI files may have hard-coded widths like minw=1840.
-            if pane.name == "toolbar":
-                pane.MinSize((-1, 42))
         self.manager.Update()
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
@@ -407,13 +405,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
             width = event.GetSize().GetWidth()
-            # Set size on the window widget for current display
             currentToolbar.window.SetSize((width, -1))
-            currentToolbar.window.SetMinSize((width, 42))
-            # Use -1 for width on pane info so SavePerspective doesn't save
-            # a hard-coded width value. The toolbar width is derived from
-            # window width at runtime, not a user preference to persist.
-            currentToolbar.MinSize((-1, 42))
         event.Skip()
 
     def showStatusBar(self, value=True):
@@ -453,6 +445,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
 
     def saveToolBarPerspective(self, perspective):
         self.settings.set("view", "toolbarperspective", perspective)
+        # Trigger resize to update toolbar width after rebuild
+        self.SendSizeEvent()
 
     def showToolBar(self, value):
         currentToolbar = self.manager.GetPane("toolbar")
@@ -461,8 +455,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             currentToolbar.window.Destroy()
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
-            # Set MinSize on pane info - AUI uses this for layout calculations
-            # Height 42 ensures toolbar has proper space reserved
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -470,13 +462,14 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .Caption("Toolbar")
                 .ToolbarPane()
                 .Top()
-                .MinSize((-1, 42))
+                .Gripper(False)
+                .Dockable(False)
+                .Floatable(False)
+                .Movable(False)
                 .DestroyOnClose()
                 .LeftDockable(False)
                 .RightDockable(False),
             )
-            # Using .Gripper(False) does not work here
-            wx.CallAfter(bar.SetGripperVisible, False)
         self.manager.Update()
 
     def onCloseToolBar(self, event):

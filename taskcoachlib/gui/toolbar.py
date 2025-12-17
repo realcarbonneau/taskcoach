@@ -189,40 +189,20 @@ class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
 
 
 class MainToolBar(ToolBar):
-    """Main window toolbar with proper AUI integration.
+    """Main window toolbar - fixed position, non-dockable.
 
-    The toolbar's space is reserved by setting MinSize on the AUI pane info
-    (in mainwindow.showToolBar and onResize). This ensures AUI always
-    allocates proper space for the toolbar during layout calculations.
-
-    Note: We intentionally do NOT use EVT_SIZE here. Previously there was
-    a handler that sent SendSizeEvent to fix AUI layout miscalculations,
-    but this caused performance issues during sash dragging (each drag
-    triggered extra layout recalculations). Now that MinSize is properly
-    set on the pane info, AUI calculates layout correctly without needing
-    the fixup.
+    Uses a simplified AUI pane configuration (non-dockable, non-floatable,
+    non-resizable) so it behaves like subwindow toolbars but within the
+    AUI-managed main window.
     """
 
-    def __safeParentSendSizeEvent(self):
-        """Send size event to parent, guarding against deleted C++ objects."""
-        try:
-            parent = self.GetParent()
-            if parent:
-                parent.SendSizeEvent()
-        except RuntimeError:
-            pass  # C++ object deleted
-
     def Realize(self):
-        """Realize the toolbar and notify parent to update layout.
+        """Realize the toolbar.
 
         Temporarily enables AUI_TB_AUTORESIZE during Realize() so AUI can
         calculate proper toolbar dimensions, then disables it again to
-        prevent AUI from resizing the toolbar during sash operations.
+        prevent unwanted resizing during other AUI operations.
         """
         self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
         super().Realize()
         self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
-        # Notify parent to recalculate layout - this triggers onResize which
-        # sets the correct MinSize (with height=42) on both the window and
-        # the AUI pane info
-        wx.CallAfter(self.__safeParentSendSizeEvent)
