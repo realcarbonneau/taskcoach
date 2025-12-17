@@ -1830,6 +1830,47 @@ This was a complex debugging journey that illustrates the importance of understa
 - [ ] Resize outer window - layout should be correct
 - [ ] No performance issues (dropped mouse events) during sash drag
 
+### Update: Simplified Toolbar Height with GetBestSize()
+
+**Date:** December 2025
+
+The original fix used hardcoded `height=42` for the toolbar pane. This was later simplified to use `GetBestSize()` which automatically calculates the correct height based on icon size.
+
+**Key insight:** The main toolbar is docked at the top and spans full window width. Sash operations on panes below do not affect toolbar size. This means:
+1. `AUI_TB_NO_AUTORESIZE` toggling is unnecessary for the main toolbar
+2. The toolbar can use standard AUI auto-sizing via `GetBestSize()`
+3. `MainToolBar` doesn't need any special overrides
+
+**Simplified code:**
+
+```python
+# mainwindow.py - use GetBestSize() instead of hardcoded height
+def showToolBar(self, value):
+    if value:
+        bar = toolbar.MainToolBar(self, self.settings, size=value)
+        best_size = bar.GetBestSize()
+        self.manager.AddPane(
+            bar,
+            aui.AuiPaneInfo()
+            .Name("toolbar")
+            .ToolbarPane()
+            .Top()
+            .MinSize((-1, best_size.GetHeight()))  # Automatic height!
+            .DestroyOnClose(),
+        )
+
+# toolbar.py - MainToolBar is now just an empty subclass
+class MainToolBar(ToolBar):
+    """Main window toolbar for use in AUI-managed main window."""
+    pass
+```
+
+**Benefits:**
+- Automatic height calculation for any icon size (16x16, 22x22, 32x32)
+- No hardcoded magic numbers
+- Simpler code - MainToolBar has no overrides
+- No Freeze/Thaw needed for customization flicker
+
 ---
 
 ## GTK BitmapComboBox Icon Clipping
@@ -1917,6 +1958,7 @@ if operating_system.isGTK():
 - ✅ Search box text input invisible in AUI toolbars (December 2025) - Added SetMinSize to SearchCtrl
 - ✅ AUI divider drag has no visual feedback (December 2025) - Added AUI_MGR_LIVE_RESIZE, throttling, and deferred column resize
 - ✅ GTK BitmapComboBox icon clipping (December 2025) - Oversized control width as workaround
+- ✅ Main toolbar flicker on customization (December 2025) - Simplified to use GetBestSize() for automatic height
 
 ---
 
@@ -2004,4 +2046,4 @@ When adding new technical notes:
 
 ---
 
-**Last Updated:** December 8, 2025
+**Last Updated:** December 17, 2025

@@ -189,9 +189,10 @@ class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
 
 
 class MainToolBar(ToolBar):
-    """Main window toolbar with proper AUI integration.
+    """Main window toolbar for use in AUI-managed main window.
 
     The toolbar is docked at the top and spans full window width.
-    Sash operations on panes below do not affect toolbar size.
+    Uses standard AUI toolbar behavior with GetBestSize() for automatic
+    height calculation based on icon size.
     """
-    pass  # Testing: removed Freeze/Thaw to see if still needed
+    pass
