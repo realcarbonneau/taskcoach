@@ -191,67 +191,17 @@ class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
 class MainToolBar(ToolBar):
     """Main window toolbar with proper AUI integration.
 
-    The toolbar's space is reserved by setting MinSize on the AUI pane info
-    (in mainwindow.showToolBar and onResize). This ensures AUI always
-    allocates proper space for the toolbar during layout calculations.
-
-    Note: We intentionally do NOT use EVT_SIZE here. Previously there was
-    a handler that sent SendSizeEvent to fix AUI layout miscalculations,
-    but this caused performance issues during sash dragging (each drag
-    triggered extra layout recalculations). Now that MinSize is properly
-    set on the pane info, AUI calculates layout correctly without needing
-    the fixup.
+    The toolbar is docked at the top and spans full window width.
+    Sash operations on panes below do not affect toolbar size.
     """
 
-    def __init__(self, window, settings, size=(32, 32)):
-        self._updating_content = False
-        super().__init__(window, settings, size)
-
-    def __safeParentSendSizeEvent(self):
-        """Send size event to parent, guarding against deleted C++ objects."""
-        try:
-            parent = self.GetParent()
-            if parent:
-                parent.SendSizeEvent()
-        except RuntimeError:
-            pass  # C++ object deleted
-
-    def __safeAuiUpdate(self):
-        """Update AUI manager layout without triggering full window resize."""
-        try:
-            parent = self.GetParent()
-            if parent and hasattr(parent, 'manager'):
-                parent.manager.Update()
-        except RuntimeError:
-            pass  # C++ object deleted
-
     def savePerspective(self, perspective):
-        """Save toolbar perspective with optimized update to prevent flicker."""
-        self._updating_content = True
+        """Save toolbar perspective with Freeze/Thaw to prevent flicker."""
         parent = self.GetParent()
         if parent:
             parent.Freeze()
         try:
             super().savePerspective(perspective)
         finally:
-            self._updating_content = False
             if parent:
                 parent.Thaw()
-
-    def Realize(self):
-        """Realize the toolbar and notify parent to update layout.
-
-        Temporarily enables AUI_TB_AUTORESIZE during Realize() so AUI can
-        calculate proper toolbar dimensions, then disables it again to
-        prevent AUI from resizing the toolbar during sash operations.
-        """
-        self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
-        super().Realize()
-        self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
-        # During content updates (customization), use targeted AUI update
-        # to avoid full window resize which causes flicker.
-        # During initial creation, send size event for proper layout setup.
-        if self._updating_content:
-            wx.CallAfter(self.__safeAuiUpdate)
-        else:
-            wx.CallAfter(self.__safeParentSendSizeEvent)
