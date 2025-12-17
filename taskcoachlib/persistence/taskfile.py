@@ -575,8 +575,11 @@ class TaskFile(patterns.Observer):
                         syncMLConfig,
                         allChanges,
                         guid,
-                    ) = self._read(fd)
+                    ), duplicate_ids = self._read(fd)
                     fd.close()
+                    # Log any duplicate IDs found in the file
+                    if duplicate_ids:
+                        self._log_duplicate_ids(duplicate_ids)
 
                     self.__changes = allChanges
 
