@@ -194,14 +194,4 @@ class MainToolBar(ToolBar):
     The toolbar is docked at the top and spans full window width.
     Sash operations on panes below do not affect toolbar size.
     """
-
-    def savePerspective(self, perspective):
-        """Save toolbar perspective with Freeze/Thaw to prevent flicker."""
-        parent = self.GetParent()
-        if parent:
-            parent.Freeze()
-        try:
-            super().savePerspective(perspective)
-        finally:
-            if parent:
-                parent.Thaw()
+    pass  # Testing: removed Freeze/Thaw to see if still needed
