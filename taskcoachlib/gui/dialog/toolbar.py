@@ -244,15 +244,15 @@ class _ToolBarEditorInterior(wx.Panel):
             self.__remainingSelection
         )
         if uiCommand is None:
-            item = self.__visibleCommands.Append(
+            item = self.__visibleCommands.AppendItem(
                 self.__visibleCommands.GetRootItem(), _("Separator")
             )
         elif isinstance(uiCommand, int):
-            item = self.__visibleCommands.Append(
+            item = self.__visibleCommands.AppendItem(
                 self.__visibleCommands.GetRootItem(), _("Spacer")
             )
         else:
-            item = self.__visibleCommands.Append(
+            item = self.__visibleCommands.AppendItem(
                 self.__visibleCommands.GetRootItem(), uiCommand.getHelpText()
             )
             self.__visibleCommands.SetItemImage(
