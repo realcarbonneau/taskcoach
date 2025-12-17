@@ -45,8 +45,15 @@ from taskcoachlib.config.settings import Settings
 import wx.lib.agw.aui as aui
 import wx, ctypes
 
-# Height for the main toolbar AUI pane (accommodates 22x22 icons plus padding)
-TOOLBAR_HEIGHT = 42
+# Padding added to icon size to get toolbar pane height (borders, margins, etc.)
+TOOLBAR_PADDING = 20
+
+
+def toolbar_height_for_size(icon_size):
+    """Calculate toolbar pane height based on icon size tuple."""
+    if icon_size is None:
+        return 0
+    return icon_size[1] + TOOLBAR_PADDING
 
 
 def turn_on_double_buffering_on_windows(window):
@@ -293,8 +300,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 pane.Caption(pane.window.title())
             # Reset toolbar MinSize - width is derived from window, not saved.
             # Old INI files may have hard-coded widths like minw=1840.
-            if pane.name == "toolbar":
-                pane.MinSize((-1, TOOLBAR_HEIGHT))
+            if pane.name == "toolbar" and hasattr(pane.window, 'GetToolBitmapSize'):
+                height = toolbar_height_for_size(pane.window.GetToolBitmapSize())
+                pane.MinSize((-1, height))
         self.manager.Update()
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
@@ -410,13 +418,15 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
             width = event.GetSize().GetWidth()
+            # Get height based on current toolbar icon size
+            height = toolbar_height_for_size(currentToolbar.window.GetToolBitmapSize())
             # Set size on the window widget for current display
             currentToolbar.window.SetSize((width, -1))
-            currentToolbar.window.SetMinSize((width, TOOLBAR_HEIGHT))
+            currentToolbar.window.SetMinSize((width, height))
             # Use -1 for width on pane info so SavePerspective doesn't save
             # a hard-coded width value. The toolbar width is derived from
             # window width at runtime, not a user preference to persist.
-            currentToolbar.MinSize((-1, TOOLBAR_HEIGHT))
+            currentToolbar.MinSize((-1, height))
         event.Skip()
 
     def showStatusBar(self, value=True):
@@ -465,7 +475,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
             # Set MinSize on pane info - AUI uses this for layout calculations
-            # TOOLBAR_HEIGHT ensures toolbar has proper space reserved
+            # Height is calculated based on icon size
+            height = toolbar_height_for_size(value)
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -473,7 +484,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .Caption("Toolbar")
                 .ToolbarPane()
                 .Top()
-                .MinSize((-1, TOOLBAR_HEIGHT))
+                .MinSize((-1, height))
                 .DestroyOnClose(),
             )
         self.manager.Update()
