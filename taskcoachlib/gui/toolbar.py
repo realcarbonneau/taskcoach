@@ -228,10 +228,15 @@ class MainToolBar(ToolBar):
     def savePerspective(self, perspective):
         """Save toolbar perspective with optimized update to prevent flicker."""
         self._updating_content = True
+        parent = self.GetParent()
+        if parent:
+            parent.Freeze()
         try:
             super().savePerspective(perspective)
         finally:
             self._updating_content = False
+            if parent:
+                parent.Thaw()
 
     def Realize(self):
         """Realize the toolbar and notify parent to update layout.

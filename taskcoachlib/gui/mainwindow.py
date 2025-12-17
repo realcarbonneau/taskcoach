@@ -474,12 +474,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .ToolbarPane()
                 .Top()
                 .MinSize((-1, TOOLBAR_HEIGHT))
-                .DestroyOnClose()
-                .LeftDockable(False)
-                .RightDockable(False),
+                .DestroyOnClose(),
             )
-            # Using .Gripper(False) does not work here
-            wx.CallAfter(bar.SetGripperVisible, False)
         self.manager.Update()
 
     def onCloseToolBar(self, event):
