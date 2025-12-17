@@ -189,40 +189,10 @@ class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
 
 
 class MainToolBar(ToolBar):
-    """Main window toolbar with proper AUI integration.
+    """Main window toolbar for use in AUI-managed main window.
 
-    The toolbar's space is reserved by setting MinSize on the AUI pane info
-    (in mainwindow.showToolBar and onResize). This ensures AUI always
-    allocates proper space for the toolbar during layout calculations.
-
-    Note: We intentionally do NOT use EVT_SIZE here. Previously there was
-    a handler that sent SendSizeEvent to fix AUI layout miscalculations,
-    but this caused performance issues during sash dragging (each drag
-    triggered extra layout recalculations). Now that MinSize is properly
-    set on the pane info, AUI calculates layout correctly without needing
-    the fixup.
+    The toolbar is docked at the top and spans full window width.
+    Uses standard AUI toolbar behavior with GetBestSize() for automatic
+    height calculation based on icon size.
     """
-
-    def __safeParentSendSizeEvent(self):
-        """Send size event to parent, guarding against deleted C++ objects."""
-        try:
-            parent = self.GetParent()
-            if parent:
-                parent.SendSizeEvent()
-        except RuntimeError:
-            pass  # C++ object deleted
-
-    def Realize(self):
-        """Realize the toolbar and notify parent to update layout.
-
-        Temporarily enables AUI_TB_AUTORESIZE during Realize() so AUI can
-        calculate proper toolbar dimensions, then disables it again to
-        prevent AUI from resizing the toolbar during sash operations.
-        """
-        self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
-        super().Realize()
-        self._agwStyle |= aui.AUI_TB_NO_AUTORESIZE
-        # Notify parent to recalculate layout - this triggers onResize which
-        # sets the correct MinSize (with height=42) on both the window and
-        # the AUI pane info
-        wx.CallAfter(self.__safeParentSendSizeEvent)
+    pass

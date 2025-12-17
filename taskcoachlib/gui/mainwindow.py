@@ -290,8 +290,10 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 pane.Caption(pane.window.title())
             # Reset toolbar MinSize - width is derived from window, not saved.
             # Old INI files may have hard-coded widths like minw=1840.
+            # Use GetBestSize() for height - toolbar calculates this in Realize()
             if pane.name == "toolbar":
-                pane.MinSize((-1, 42))
+                best_size = pane.window.GetBestSize()
+                pane.MinSize((-1, best_size.GetHeight()))
         self.manager.Update()
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
@@ -407,13 +409,16 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
             width = event.GetSize().GetWidth()
+            # Get height from toolbar's GetBestSize() - calculated during Realize()
+            best_size = currentToolbar.window.GetBestSize()
+            height = best_size.GetHeight()
             # Set size on the window widget for current display
             currentToolbar.window.SetSize((width, -1))
-            currentToolbar.window.SetMinSize((width, 42))
+            currentToolbar.window.SetMinSize((width, height))
             # Use -1 for width on pane info so SavePerspective doesn't save
             # a hard-coded width value. The toolbar width is derived from
             # window width at runtime, not a user preference to persist.
-            currentToolbar.MinSize((-1, 42))
+            currentToolbar.MinSize((-1, height))
         event.Skip()
 
     def showStatusBar(self, value=True):
@@ -461,8 +466,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             currentToolbar.window.Destroy()
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
-            # Set MinSize on pane info - AUI uses this for layout calculations
-            # Height 42 ensures toolbar has proper space reserved
+            # Use GetBestSize() for height - toolbar calculates this during Realize()
+            best_size = bar.GetBestSize()
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -470,13 +475,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .Caption("Toolbar")
                 .ToolbarPane()
                 .Top()
-                .MinSize((-1, 42))
-                .DestroyOnClose()
-                .LeftDockable(False)
-                .RightDockable(False),
+                .MinSize((-1, best_size.GetHeight()))
+                .DestroyOnClose(),
             )
-            # Using .Gripper(False) does not work here
-            wx.CallAfter(bar.SetGripperVisible, False)
         self.manager.Update()
 
     def onCloseToolBar(self, event):
