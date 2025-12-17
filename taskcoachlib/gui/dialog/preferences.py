@@ -261,6 +261,15 @@ class SettingsPageBase(widgets.BookPage):
         currentIcon = self.gettext(iconSection, iconSetting)
         currentSelectionIndex = imageNames.index(currentIcon)
         iconEntry.SetSelection(currentSelectionIndex)  # pylint: disable=E1101
+        # Oversize the control to reduce icon clipping on GTK
+        longestLabel = max(
+            (artprovider.chooseableItemImages[name] for name in imageNames),
+            key=len
+        )
+        textWidth, _ = iconEntry.GetTextExtent(longestLabel)
+        # icon (16) + text + extra padding (16) + dropdown button (30)
+        minWidth = 16 + textWidth + 16 + 30
+        iconEntry.SetMinSize(wx.Size(minWidth, -1))
 
         self.addEntry(
             text,

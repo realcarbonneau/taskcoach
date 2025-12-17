@@ -355,6 +355,15 @@ class IconEntry(wx.adv.BitmapComboBox):
             item = self.Append(label, bitmap)
             self.SetClientData(item, imageName)
         self.SetSelection(imageNames.index(currentIcon))
+        # Oversize the control to reduce icon clipping on GTK
+        longestLabel = max(
+            (artprovider.chooseableItemImages[name] for name in imageNames),
+            key=len
+        )
+        textWidth, _ = self.GetTextExtent(longestLabel)
+        # icon (16) + text + extra padding (16) + dropdown button (30)
+        minWidth = 16 + textWidth + 16 + 30
+        self.SetMinSize(wx.Size(minWidth, -1))
         self.Bind(wx.EVT_COMBOBOX, self.onIconPicked)
 
     def onIconPicked(self, event):
