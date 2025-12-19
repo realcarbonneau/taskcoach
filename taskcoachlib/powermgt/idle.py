@@ -37,11 +37,23 @@ if operating_system.isGTK():
         ]
 
     class LinuxIdleQuery(object):
-        """Query idle time on Linux using X11 MIT-SCREEN-SAVER extension."""
+        """Query idle time on Linux using X11 MIT-SCREEN-SAVER extension.
+
+        Uses lazy initialization to avoid loading X11 libraries until
+        actually needed. This prevents warnings when the idle detection
+        feature is disabled.
+        """
 
         def __init__(self):
+            self._initialized = False
             self._xss_available = False
-            self._fallback_last_check = time.time()
+            self.dpy = None
+
+        def _initialize(self):
+            """Lazy initialization of X11 screen saver extension."""
+            if self._initialized:
+                return
+            self._initialized = True
 
             try:
                 _x11 = CDLL("libX11.so.6")
@@ -98,10 +110,11 @@ if operating_system.isGTK():
                 pass
 
         def __del__(self):
-            if hasattr(self, 'dpy') and self.dpy and hasattr(self, 'XCloseDisplay'):
+            if self.dpy and hasattr(self, 'XCloseDisplay'):
                 self.XCloseDisplay(self.dpy)
 
         def getIdleSeconds(self):
+            self._initialize()
             if self._xss_available:
                 self.XScreenSaverQueryInfo(
                     self.dpy, self.XRootWindow(self.dpy, 0), self.info
