@@ -37,40 +37,80 @@ if operating_system.isGTK():
         ]
 
     class LinuxIdleQuery(object):
+        """Query idle time on Linux using X11 MIT-SCREEN-SAVER extension."""
+
         def __init__(self):
-            _x11 = CDLL("libX11.so.6")
+            self._xss_available = False
+            self._fallback_last_check = time.time()
 
-            self.XOpenDisplay = CFUNCTYPE(c_ulong, c_char_p)(
-                ("XOpenDisplay", _x11)
-            )
-            self.XCloseDisplay = CFUNCTYPE(c_int, c_ulong)(
-                ("XCloseDisplay", _x11)
-            )
-            self.XRootWindow = CFUNCTYPE(c_ulong, c_ulong, c_int)(
-                ("XRootWindow", _x11)
-            )
+            try:
+                _x11 = CDLL("libX11.so.6")
 
-            self.dpy = self.XOpenDisplay(None)
+                self.XOpenDisplay = CFUNCTYPE(c_ulong, c_char_p)(
+                    ("XOpenDisplay", _x11)
+                )
+                self.XCloseDisplay = CFUNCTYPE(c_int, c_ulong)(
+                    ("XCloseDisplay", _x11)
+                )
+                self.XRootWindow = CFUNCTYPE(c_ulong, c_ulong, c_int)(
+                    ("XRootWindow", _x11)
+                )
+                # XQueryExtension to check if MIT-SCREEN-SAVER is available
+                self.XQueryExtension = CFUNCTYPE(
+                    c_int, c_ulong, c_char_p,
+                    POINTER(c_int), POINTER(c_int), POINTER(c_int)
+                )(("XQueryExtension", _x11))
 
-            _xss = CDLL("libXss.so.1")
+                self.dpy = self.XOpenDisplay(None)
+                if not self.dpy:
+                    return
 
-            self.XScreenSaverAllocInfo = CFUNCTYPE(POINTER(XScreenSaverInfo))(
-                ("XScreenSaverAllocInfo", _xss)
-            )
-            self.XScreenSaverQueryInfo = CFUNCTYPE(
-                c_int, c_ulong, c_ulong, POINTER(XScreenSaverInfo)
-            )(("XScreenSaverQueryInfo", _xss))
+                # Check if MIT-SCREEN-SAVER extension is available
+                major_opcode = c_int()
+                first_event = c_int()
+                first_error = c_int()
+                has_extension = self.XQueryExtension(
+                    self.dpy,
+                    b"MIT-SCREEN-SAVER",
+                    byref(major_opcode),
+                    byref(first_event),
+                    byref(first_error)
+                )
 
-            self.info = self.XScreenSaverAllocInfo()
+                if not has_extension:
+                    # Extension not available, use fallback
+                    return
+
+                _xss = CDLL("libXss.so.1")
+
+                self.XScreenSaverAllocInfo = CFUNCTYPE(POINTER(XScreenSaverInfo))(
+                    ("XScreenSaverAllocInfo", _xss)
+                )
+                self.XScreenSaverQueryInfo = CFUNCTYPE(
+                    c_int, c_ulong, c_ulong, POINTER(XScreenSaverInfo)
+                )(("XScreenSaverQueryInfo", _xss))
+
+                self.info = self.XScreenSaverAllocInfo()
+                self._xss_available = True
+
+            except OSError:
+                # Library not found, use fallback
+                pass
 
         def __del__(self):
-            self.XCloseDisplay(self.dpy)
+            if hasattr(self, 'dpy') and self.dpy and hasattr(self, 'XCloseDisplay'):
+                self.XCloseDisplay(self.dpy)
 
         def getIdleSeconds(self):
-            self.XScreenSaverQueryInfo(
-                self.dpy, self.XRootWindow(self.dpy, 0), self.info
-            )
-            return  self.info.contents.idle / 1000
+            if self._xss_available:
+                self.XScreenSaverQueryInfo(
+                    self.dpy, self.XRootWindow(self.dpy, 0), self.info
+                )
+                return self.info.contents.idle / 1000
+            else:
+                # Fallback: return 0 (always active) when extension unavailable
+                # This disables idle detection but prevents errors
+                return 0
 
     IdleQuery = LinuxIdleQuery
 
