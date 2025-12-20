@@ -619,12 +619,13 @@ class IOController(object):
 
         Returns True if user clicked Yes, False otherwise.
         """
-        import logging
-        logger = logging.getLogger(__name__)
+        import sys
+
+        def log(msg):
+            print(f"[LOCK_DIALOG] {msg}", file=sys.stderr, flush=True)
 
         parent = wx.GetApp().GetTopWindow()
-        logger.info("Lock dialog: parent=%s, parent.IsShown()=%s",
-                    parent, parent.IsShown() if parent else None)
+        log(f"parent={parent}, parent.IsShown()={parent.IsShown() if parent else None}")
 
         # Simple MessageDialog approach with logging
         dlg = wx.MessageDialog(
@@ -634,14 +635,14 @@ class IOController(object):
             style=wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION | wx.STAY_ON_TOP,
         )
 
-        logger.info("Lock dialog created: %s", dlg)
-        logger.info("Lock dialog position before center: %s", dlg.GetPosition())
+        log(f"Dialog created: {dlg}")
+        log(f"Dialog position before center: {dlg.GetPosition()}")
 
         # Try to center on parent
         if parent and parent.IsShown():
             parentRect = parent.GetRect()
             dlgSize = dlg.GetSize()
-            logger.info("Parent rect: %s, dialog size: %s", parentRect, dlgSize)
+            log(f"Parent rect: {parentRect}, dialog size: {dlgSize}")
 
             x = parentRect.x + (parentRect.width - dlgSize.width) // 2
             y = parentRect.y + (parentRect.height - dlgSize.height) // 2
@@ -651,35 +652,45 @@ class IOController(object):
             x = max(0, min(x, displaySize.width - dlgSize.width))
             y = max(0, min(y, displaySize.height - dlgSize.height))
 
+            log(f"Calculated position: x={x}, y={y}")
             dlg.SetPosition(wx.Point(x, y))
-            logger.info("Lock dialog position after center: %s", dlg.GetPosition())
+            log(f"Dialog position after center: {dlg.GetPosition()}")
 
         # Log events to understand what's happening
         def onClose(evt):
-            logger.info("Lock dialog EVT_CLOSE received, evt=%s", evt)
+            log(f"EVT_CLOSE received, evt={evt}")
             evt.Skip()
 
         def onActivate(evt):
-            logger.info("Lock dialog EVT_ACTIVATE received, active=%s", evt.GetActive())
+            log(f"EVT_ACTIVATE received, active={evt.GetActive()}")
             evt.Skip()
 
         def onShow(evt):
-            logger.info("Lock dialog EVT_SHOW received, shown=%s", evt.IsShown())
+            log(f"EVT_SHOW received, shown={evt.IsShown()}")
             evt.Skip()
 
         def onIconize(evt):
-            logger.info("Lock dialog EVT_ICONIZE received, iconized=%s", evt.IsIconized())
+            log(f"EVT_ICONIZE received, iconized={evt.IsIconized()}")
+            evt.Skip()
+
+        def onKillFocus(evt):
+            log(f"EVT_KILL_FOCUS received, evt={evt}")
+            evt.Skip()
+
+        def onSetFocus(evt):
+            log(f"EVT_SET_FOCUS received, evt={evt}")
             evt.Skip()
 
         dlg.Bind(wx.EVT_CLOSE, onClose)
         dlg.Bind(wx.EVT_ACTIVATE, onActivate)
         dlg.Bind(wx.EVT_SHOW, onShow)
         dlg.Bind(wx.EVT_ICONIZE, onIconize)
+        dlg.Bind(wx.EVT_KILL_FOCUS, onKillFocus)
+        dlg.Bind(wx.EVT_SET_FOCUS, onSetFocus)
 
-        logger.info("Lock dialog: calling ShowModal()")
+        log("Calling ShowModal()")
         result = dlg.ShowModal()
-        logger.info("Lock dialog: ShowModal() returned %s (YES=%s, NO=%s)",
-                    result, wx.ID_YES, wx.ID_NO)
+        log(f"ShowModal() returned {result} (YES={wx.ID_YES}, NO={wx.ID_NO})")
 
         dlg.Destroy()
         return result == wx.ID_YES
