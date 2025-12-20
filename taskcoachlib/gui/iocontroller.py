@@ -636,25 +636,37 @@ class IOController(object):
         )
 
         log(f"Dialog created: {dlg}")
-        log(f"Dialog position before center: {dlg.GetPosition()}")
 
-        # Try to center on parent
-        if parent and parent.IsShown():
-            parentRect = parent.GetRect()
-            dlgSize = dlg.GetSize()
-            log(f"Parent rect: {parentRect}, dialog size: {dlgSize}")
+        # Center dialog on parent AFTER it's shown (size is 0,0 before show)
+        def centerOnParent():
+            try:
+                if not parent or not parent.IsShown():
+                    log("centerOnParent: parent not available, centering on screen")
+                    dlg.CentreOnScreen()
+                    return
 
-            x = parentRect.x + (parentRect.width - dlgSize.width) // 2
-            y = parentRect.y + (parentRect.height - dlgSize.height) // 2
+                parentRect = parent.GetRect()
+                dlgSize = dlg.GetSize()
+                log(f"centerOnParent: Parent rect: {parentRect}, dialog size: {dlgSize}")
 
-            # Ensure not off-screen
-            displaySize = wx.GetDisplaySize()
-            x = max(0, min(x, displaySize.width - dlgSize.width))
-            y = max(0, min(y, displaySize.height - dlgSize.height))
+                if dlgSize.width == 0 or dlgSize.height == 0:
+                    log("centerOnParent: dialog size still 0, using CentreOnParent")
+                    dlg.CentreOnParent()
+                    return
 
-            log(f"Calculated position: x={x}, y={y}")
-            dlg.SetPosition(wx.Point(x, y))
-            log(f"Dialog position after center: {dlg.GetPosition()}")
+                x = parentRect.x + (parentRect.width - dlgSize.width) // 2
+                y = parentRect.y + (parentRect.height - dlgSize.height) // 2
+
+                # Ensure not off-screen
+                displaySize = wx.GetDisplaySize()
+                x = max(0, min(x, displaySize.width - dlgSize.width))
+                y = max(0, min(y, displaySize.height - dlgSize.height))
+
+                log(f"centerOnParent: Calculated position: x={x}, y={y}")
+                dlg.SetPosition(wx.Point(x, y))
+                log(f"centerOnParent: Dialog position after: {dlg.GetPosition()}")
+            except Exception as e:
+                log(f"centerOnParent: Exception: {e}")
 
         # Log events to understand what's happening
         def onClose(evt):
@@ -667,6 +679,9 @@ class IOController(object):
 
         def onShow(evt):
             log(f"EVT_SHOW received, shown={evt.IsShown()}")
+            if evt.IsShown():
+                # Use CallAfter to ensure dialog is fully realized
+                wx.CallAfter(centerOnParent)
             evt.Skip()
 
         def onIconize(evt):
@@ -692,7 +707,12 @@ class IOController(object):
         result = dlg.ShowModal()
         log(f"ShowModal() returned {result} (YES={wx.ID_YES}, NO={wx.ID_NO})")
 
-        dlg.Destroy()
+        # Safe destroy - the dialog may already be deleted if main window was killed
+        try:
+            dlg.Destroy()
+        except RuntimeError as e:
+            log(f"dlg.Destroy() failed (already deleted?): {e}")
+
         return result == wx.ID_YES
 
     def __askBreakLock(self, filename):
