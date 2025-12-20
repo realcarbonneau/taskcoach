@@ -593,6 +593,27 @@ class IOController(object):
             return False
         return True
 
+    def __centerDialogOnParent(self, dlg, parent):
+        """Manually center dialog on parent window."""
+        if parent is None or not parent.IsShown():
+            dlg.CentreOnScreen()
+            return
+
+        # Get parent position and size
+        parentRect = parent.GetRect()
+        dlgSize = dlg.GetSize()
+
+        # Calculate centered position
+        x = parentRect.x + (parentRect.width - dlgSize.width) // 2
+        y = parentRect.y + (parentRect.height - dlgSize.height) // 2
+
+        # Ensure dialog is not off-screen
+        displaySize = wx.GetDisplaySize()
+        x = max(0, min(x, displaySize.width - dlgSize.width))
+        y = max(0, min(y, displaySize.height - dlgSize.height))
+
+        dlg.SetPosition(wx.Point(x, y))
+
     def __askBreakLock(self, filename):
         parent = wx.GetApp().GetTopWindow()
         dlg = wx.MessageDialog(
@@ -611,7 +632,7 @@ Break the lock?"""
             _("%s: file locked") % meta.name,
             style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
         )
-        dlg.CenterOnParent()
+        self.__centerDialogOnParent(dlg, parent)
         result = dlg.ShowModal()
         dlg.Destroy()
         return result == wx.ID_YES
@@ -629,7 +650,7 @@ Break the lock?"""
             _("%s: file locked") % meta.name,
             style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
         )
-        dlg.CenterOnParent()
+        self.__centerDialogOnParent(dlg, parent)
         result = dlg.ShowModal()
         dlg.Destroy()
         return result == wx.ID_YES
