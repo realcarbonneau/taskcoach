@@ -39,18 +39,20 @@ import subprocess
 # Logging Setup
 # ============================================================================
 #
-# Task Coach uses Python's logging module for all diagnostic output.
-# This provides proper separation between debug info and real errors.
+# Task Coach uses Python's logging module for Python diagnostic output,
+# plus stderr capture for native library errors (GTK, pixman, etc.).
 #
 # Architecture:
 #   - FileHandler: Logs everything (DEBUG+) to taskcoachlog.txt
 #   - ErrorTracker: Custom handler that tracks if any ERROR+ occurred
+#   - StderrCapture: Intercepts stderr for native C library output
 #   - The error popup only shows if ErrorTracker.has_errors is True
 #
 # Usage:
 #   logger.debug("Version info...")   -> Goes to file only
 #   logger.info("Startup complete")   -> Goes to file only
 #   logger.error("Something broke!")  -> Goes to file AND sets has_errors=True
+#   Native stderr (GTK-CRITICAL etc)  -> Goes to file AND sets has_errors=True
 #
 # This replaces the old RedirectedOutput hack that captured stdout/stderr.
 # ============================================================================
@@ -62,6 +64,8 @@ logger.setLevel(logging.DEBUG)
 # Will be initialized by init_logging() when we know the log file path
 _file_handler = None
 _error_tracker = None
+_stderr_capture = None
+_log_file = None  # Direct file handle for stderr capture
 
 
 class ErrorTracker(logging.Handler):
@@ -84,9 +88,110 @@ class ErrorTracker(logging.Handler):
         with self._lock:
             return self._has_errors
 
+    def set_error(self):
+        """Mark that an error has occurred (called by StderrCapture)."""
+        with self._lock:
+            self._has_errors = True
+
     def emit(self, record):
         with self._lock:
             self._has_errors = True
+
+
+class StderrCapture:
+    """Captures stderr output from native libraries (GTK, pixman, etc.).
+
+    Native C libraries write directly to stderr, bypassing Python's logging.
+    This class intercepts stderr to:
+    1. Log all stderr output to the log file
+    2. Detect error patterns and set ErrorTracker.has_errors
+    3. Also write to original stderr (for terminal visibility)
+
+    Error patterns detected:
+    - GTK-CRITICAL, GTK-WARNING, Gtk-CRITICAL, etc.
+    - *** BUG ***
+    - CRITICAL, ERROR (case-insensitive)
+    - assertion ... failed
+    - Segmentation fault, SIGSEGV, etc.
+    """
+
+    # Patterns that indicate a real error (not just debug info)
+    ERROR_PATTERNS = [
+        r'CRITICAL',
+        r'ERROR',
+        r'\*\*\* BUG \*\*\*',
+        r'assertion.*failed',
+        r'Segmentation fault',
+        r'SIGSEGV',
+        r'SIGABRT',
+        r'core dumped',
+    ]
+
+    def __init__(self, original_stderr, log_file, error_tracker):
+        self._original_stderr = original_stderr
+        self._log_file = log_file
+        self._error_tracker = error_tracker
+        self._lock = threading.Lock()
+        # Compile patterns for efficiency
+        self._error_regex = re.compile(
+            '|'.join(self.ERROR_PATTERNS),
+            re.IGNORECASE
+        )
+
+    def write(self, text):
+        """Write to log file and original stderr, checking for errors."""
+        if not text:
+            return
+
+        with self._lock:
+            # Write to log file with timestamp
+            try:
+                import datetime
+                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self._log_file.write(f"{timestamp} [STDERR] {text}")
+                if not text.endswith('\n'):
+                    self._log_file.write('\n')
+                self._log_file.flush()
+            except Exception:
+                pass  # Don't crash on logging failure
+
+            # Write to original stderr (for terminal visibility)
+            try:
+                if self._original_stderr:
+                    self._original_stderr.write(text)
+                    self._original_stderr.flush()
+            except Exception:
+                pass
+
+            # Check for error patterns
+            if self._error_regex.search(text):
+                self._error_tracker.set_error()
+
+    def flush(self):
+        """Flush both log file and original stderr."""
+        with self._lock:
+            try:
+                self._log_file.flush()
+            except Exception:
+                pass
+            try:
+                if self._original_stderr:
+                    self._original_stderr.flush()
+            except Exception:
+                pass
+
+    def fileno(self):
+        """Return file descriptor for compatibility."""
+        if self._original_stderr:
+            return self._original_stderr.fileno()
+        raise OSError("No file descriptor available")
+
+    def isatty(self):
+        """Check if original stderr is a TTY."""
+        try:
+            return self._original_stderr and self._original_stderr.isatty()
+        except Exception:
+            return False
 
 
 def init_logging():
@@ -96,11 +201,12 @@ def init_logging():
     - FileHandler: Always logs DEBUG+ to taskcoachlog.txt
     - StreamHandler: When running from TTY, also logs to stdout
     - ErrorTracker: Tracks if any ERROR+ occurred (for popup decision)
+    - StderrCapture: Captures native library stderr (GTK, pixman errors)
     - Exception hook: Logs uncaught exceptions
 
     Called early in Application.init().
     """
-    global _file_handler, _error_tracker
+    global _file_handler, _error_tracker, _stderr_capture, _log_file
 
     log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
 
@@ -132,6 +238,13 @@ def init_logging():
     _error_tracker = ErrorTracker()
     logger.addHandler(_error_tracker)
 
+    # Capture stderr for native library output (GTK, pixman, etc.)
+    # These bypass Python's logging module, writing directly to stderr.
+    # We need a separate file handle because logging.FileHandler owns its handle.
+    _log_file = open(log_path, 'a', encoding='utf-8')
+    _stderr_capture = StderrCapture(sys.stderr, _log_file, _error_tracker)
+    sys.stderr = _stderr_capture
+
     # Log session start marker
     logger.debug("=" * 60)
     logger.debug("Task Coach session started")
@@ -158,15 +271,23 @@ def shutdown_logging():
 
     Called from Application.quitApplication().
     """
-    global _file_handler, _error_tracker
+    global _file_handler, _error_tracker, _stderr_capture, _log_file
+
+    # Restore original stderr before closing log file
+    if _stderr_capture:
+        sys.stderr = _stderr_capture._original_stderr
+        _stderr_capture = None
 
     if _error_tracker and _error_tracker.has_errors:
         log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
 
-        # Close file handler before showing popup (releases file lock)
+        # Close file handlers before showing popup (releases file lock)
         if _file_handler:
             _file_handler.close()
             logger.removeHandler(_file_handler)
+        if _log_file:
+            _log_file.close()
+            _log_file = None
 
         if operating_system.isWindows():
             wx.MessageBox(
@@ -183,10 +304,13 @@ def shutdown_logging():
                 wx.OK,
             )
     else:
-        # No errors, just close the file handler
+        # No errors, just close the file handlers
         if _file_handler:
             _file_handler.close()
             logger.removeHandler(_file_handler)
+        if _log_file:
+            _log_file.close()
+            _log_file = None
 
 
 def _log_gui_environment():
