@@ -271,6 +271,17 @@ class RedirectedOutput(object):
         self.__path = os.path.join(
             Settings.pathToDocumentsDir(), "taskcoachlog.txt"
         )
+        self.__error_mode = True  # When True, writes are treated as errors
+        self.__has_errors = False
+
+    def set_error_mode(self, enabled):
+        """Set whether writes should be treated as errors for the popup.
+
+        Args:
+            enabled: If True (default), writes will trigger the error popup.
+                     If False, writes are logged but won't trigger the popup.
+        """
+        self.__error_mode = enabled
 
     def write(self, bf):
         for rx in self._rx_ignore:
@@ -282,6 +293,9 @@ class RedirectedOutput(object):
             self.__handle.write("============= %s\n" % time.ctime())
         self.__handle.write(bf)
 
+        if self.__error_mode:
+            self.__has_errors = True
+
     def flush(self):
         pass
 
@@ -291,7 +305,7 @@ class RedirectedOutput(object):
             self.__handle = None
 
     def summary(self):
-        if self.__handle is not None:
+        if self.__has_errors:
             self.close()
             if operating_system.isWindows():
                 wx.MessageBox(
@@ -307,6 +321,8 @@ class RedirectedOutput(object):
                     _("Error"),
                     wx.OK,
                 )
+        elif self.__handle is not None:
+            self.close()
 
 
 # pylint: disable=W0404
@@ -509,11 +525,14 @@ class Application(object, metaclass=patterns.Singleton):
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
         Application.start()."""
-        # Log version info FIRST - critical for debugging crashes during init
+        # Log version/environment info for debugging. Disable error mode so
+        # this debug logging doesn't trigger the error popup on exit.
+        if isinstance(sys.stdout, RedirectedOutput):
+            sys.stdout.set_error_mode(False)
         self._log_version_info()
-
-        # Log GUI environment for debugging window positioning
         _log_gui_environment()
+        if isinstance(sys.stdout, RedirectedOutput):
+            sys.stdout.set_error_mode(True)
 
         self.__init_config(loadSettings)
         self.__init_language()
