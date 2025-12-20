@@ -519,6 +519,17 @@ class Application(object, metaclass=patterns.Singleton):
         self.__init_language()
         self.__init_domain_objects()
         self.__init_application()
+
+        # Check file lock BEFORE creating main window to avoid dialog/focus issues
+        # This is done early because showing dialogs after main window creation
+        # causes GTK focus fighting and dialog disappearing issues
+        self.__early_lock_result = None  # None=no file, 'ok'=proceed, 'break'=break lock, 'unlock'=open unlocked, 'cancel'=don't open
+        if loadTaskFile:
+            self.__check_file_lock_early()
+            if self.__early_lock_result == 'cancel':
+                # User cancelled - exit before creating main window
+                sys.exit(0)
+
         from taskcoachlib import gui, persistence
 
         gui.init()
@@ -540,11 +551,64 @@ class Application(object, metaclass=patterns.Singleton):
         if not self.settings.getboolean("file", "inifileloaded"):
             self.__warn_user_that_ini_file_was_not_loaded()
         if loadTaskFile:
-            self.iocontroller.openAfterStart(self._args)
+            self.iocontroller.openAfterStart(self._args, self.__early_lock_result)
         self.__register_signal_handlers()
         self.__create_mutex()
         self.__create_task_bar_icon()
         wx.CallAfter(self.__show_tips)
+
+    def __check_file_lock_early(self):
+        """Check file lock before main window creation.
+
+        This avoids GTK dialog/focus issues by showing any lock dialogs
+        before any windows exist.
+        """
+        from taskcoachlib import persistence, meta
+
+        # Get filename from args or last file
+        if self._args:
+            filename = self._args[0].decode(sys.getfilesystemencoding())
+        else:
+            filename = self.settings.get("file", "lastfile")
+
+        if not filename or not os.path.exists(filename):
+            self.__early_lock_result = None
+            return
+
+        # Try to check if file is locked
+        lock_file_path = filename + ".lock"
+        try:
+            import fasteners
+            lock = fasteners.InterProcessLock(lock_file_path)
+            acquired = lock.acquire(blocking=False)
+            if acquired:
+                # Not locked - release and proceed normally
+                lock.release()
+                self.__early_lock_result = 'ok'
+                return
+            else:
+                # File is locked - show dialog BEFORE main window
+                result = wx.MessageBox(
+                    _(
+                        """Cannot open %s because it is locked.
+
+This means either that another instance of TaskCoach
+is running and has this file opened, or that a previous
+instance of Task Coach crashed. If no other instance is
+running, you can safely break the lock.
+
+Break the lock?"""
+                    ) % filename,
+                    _("%s: file locked") % meta.name,
+                    style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
+                )
+                if result == wx.YES:
+                    self.__early_lock_result = 'break'
+                else:
+                    self.__early_lock_result = 'cancel'
+        except Exception:
+            # Lock check failed (e.g., network drive) - proceed normally
+            self.__early_lock_result = 'ok'
 
     def __init_config(self, load_settings):
         from taskcoachlib import config
@@ -758,6 +822,8 @@ class Application(object, metaclass=patterns.Singleton):
                 self.mainwindow.save_settings()
             # Write settings to disk
             self.settings.save()
+            # Release ini file lock after saving
+            self.settings.release_ini_lock()
         except Exception:
             pass  # Best effort - don't prevent exit
 

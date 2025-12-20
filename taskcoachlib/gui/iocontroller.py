@@ -116,17 +116,33 @@ class IOController(object):
             [note for note in self.__taskFile.notes() if note.isDeleted()]
         )
 
-    def openAfterStart(self, commandLineArgs):
+    def openAfterStart(self, commandLineArgs, earlyLockResult=None):
         """Open either the file specified on the command line, or the file
-        the user was working on previously, or none at all."""
+        the user was working on previously, or none at all.
+
+        Args:
+            commandLineArgs: Command line arguments
+            earlyLockResult: Result from early lock check before main window:
+                None = no file to open
+                'ok' = file not locked, proceed normally
+                'break' = file locked, user chose to break lock
+                'cancel' = file locked, user cancelled (shouldn't reach here)
+        """
         if commandLineArgs:
             filename = commandLineArgs[0].decode(sys.getfilesystemencoding())
         else:
             filename = self.__settings.get("file", "lastfile")
         if filename:
-            # Use CallAfter so that the main window is opened first and any
-            # error messages are shown on top of it
-            wx.CallAfter(self.open, filename)
+            # If early lock check was done, use its result
+            if earlyLockResult == 'break':
+                # User already confirmed breaking the lock
+                wx.CallAfter(self.open, filename, breakLock=True)
+            elif earlyLockResult == 'cancel':
+                # User cancelled - don't open file
+                pass
+            else:
+                # Normal case - open file (will check lock again if needed)
+                wx.CallAfter(self.open, filename)
 
     def open(
         self,
