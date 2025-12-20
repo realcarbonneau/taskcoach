@@ -630,7 +630,7 @@ Break the lock?"""
             )
             % filename,
             _("%s: file locked") % meta.name,
-            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
+            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT | wx.STAY_ON_TOP,
         )
         self.__centerDialogOnParent(dlg, parent)
         result = dlg.ShowModal()
@@ -648,7 +648,7 @@ Break the lock?"""
             )
             % (filename, filename),
             _("%s: file locked") % meta.name,
-            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
+            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT | wx.STAY_ON_TOP,
         )
         self.__centerDialogOnParent(dlg, parent)
         result = dlg.ShowModal()
