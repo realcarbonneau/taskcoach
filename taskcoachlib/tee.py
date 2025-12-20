@@ -213,3 +213,8 @@ def has_errors():
     """Check if any errors occurred (any stderr output)."""
     with _has_errors_lock:
         return _has_errors
+
+
+def get_log_path():
+    """Return the log file path (for error popup message)."""
+    return _get_log_path()

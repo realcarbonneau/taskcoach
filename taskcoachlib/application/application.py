@@ -824,22 +824,12 @@ Break the lock?"""
         # Shutdown tee and show error popup if any errors occurred
         has_errors = tee.shutdown_tee()
         if has_errors:
-            from taskcoachlib.config import Settings
-            log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
-            if operating_system.isWindows():
-                wx.MessageBox(
-                    _(
-                        'Errors have occured. Please see "taskcoachlog.txt" in your "My Documents" folder.'
-                    ),
-                    _("Error"),
-                    wx.OK,
-                )
-            else:
-                wx.MessageBox(
-                    _('Errors have occured. Please see "%s"') % log_path,
-                    _("Error"),
-                    wx.OK,
-                )
+            log_path = tee.get_log_path()
+            wx.MessageBox(
+                _('Errors have occured. Please see "%s"') % log_path,
+                _("Error"),
+                wx.OK,
+            )
 
         # NOTE: stopTwisted() call removed - no longer using Twisted reactor.
         # wxPython's MainLoop exits naturally when all windows are closed.
