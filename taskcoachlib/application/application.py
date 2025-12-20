@@ -24,6 +24,7 @@ from taskcoachlib.i18n import _
 from pubsub import pub
 from taskcoachlib.config import Settings
 import locale
+import logging
 import os
 import sys
 import time
@@ -34,14 +35,152 @@ import threading
 import subprocess
 
 
+# ============================================================================
+# Logging Setup
+# ============================================================================
+#
+# Task Coach uses Python's logging module for all diagnostic output.
+# This provides proper separation between debug info and real errors.
+#
+# Architecture:
+#   - FileHandler: Logs everything (DEBUG+) to taskcoachlog.txt
+#   - ErrorTracker: Custom handler that tracks if any ERROR+ occurred
+#   - The error popup only shows if ErrorTracker.has_errors is True
+#
+# Usage:
+#   logger.debug("Version info...")   -> Goes to file only
+#   logger.info("Startup complete")   -> Goes to file only
+#   logger.error("Something broke!")  -> Goes to file AND sets has_errors=True
+#
+# This replaces the old RedirectedOutput hack that captured stdout/stderr.
+# ============================================================================
+
+# Create the main logger for Task Coach
+logger = logging.getLogger('taskcoach')
+logger.setLevel(logging.DEBUG)
+
+# Will be initialized by init_logging() when we know the log file path
+_file_handler = None
+_error_tracker = None
+
+
+class ErrorTracker(logging.Handler):
+    """Custom handler that tracks if any ERROR-level (or higher) messages occurred.
+
+    This handler doesn't output anything - it just sets a flag when an error
+    is logged. The flag is checked on application exit to decide whether to
+    show the error popup.
+
+    Thread-safe: uses a lock for the has_errors flag.
+    """
+
+    def __init__(self):
+        super().__init__(level=logging.ERROR)
+        self._has_errors = False
+        self._lock = threading.Lock()
+
+    @property
+    def has_errors(self):
+        with self._lock:
+            return self._has_errors
+
+    def emit(self, record):
+        with self._lock:
+            self._has_errors = True
+
+
+def init_logging():
+    """Initialize the logging system.
+
+    Sets up:
+    - FileHandler: Logs DEBUG+ to taskcoachlog.txt
+    - ErrorTracker: Tracks if any ERROR+ occurred
+    - Exception hook: Logs uncaught exceptions
+
+    Called early in Application.init().
+    """
+    global _file_handler, _error_tracker
+
+    log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
+
+    # File handler - logs everything to file
+    _file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+    _file_handler.setLevel(logging.DEBUG)
+    _file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    ))
+    logger.addHandler(_file_handler)
+
+    # Error tracker - tracks if any ERROR+ occurred (for popup decision)
+    _error_tracker = ErrorTracker()
+    logger.addHandler(_error_tracker)
+
+    # Log session start marker
+    logger.debug("=" * 60)
+    logger.debug("Task Coach session started")
+    logger.debug("=" * 60)
+
+    # Install exception hook to log uncaught exceptions
+    _original_excepthook = sys.excepthook
+
+    def logging_excepthook(exc_type, exc_value, exc_traceback):
+        """Log uncaught exceptions before they crash the app."""
+        if issubclass(exc_type, KeyboardInterrupt):
+            # Don't log keyboard interrupts as errors
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+        # Also call the original hook (for faulthandler etc.)
+        _original_excepthook(exc_type, exc_value, exc_traceback)
+
+    sys.excepthook = logging_excepthook
+
+
+def shutdown_logging():
+    """Check if errors occurred and show popup if needed, then close handlers.
+
+    Called from Application.quitApplication().
+    """
+    global _file_handler, _error_tracker
+
+    if _error_tracker and _error_tracker.has_errors:
+        log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
+
+        # Close file handler before showing popup (releases file lock)
+        if _file_handler:
+            _file_handler.close()
+            logger.removeHandler(_file_handler)
+
+        if operating_system.isWindows():
+            wx.MessageBox(
+                _(
+                    'Errors have occured. Please see "taskcoachlog.txt" in your "My Documents" folder.'
+                ),
+                _("Error"),
+                wx.OK,
+            )
+        else:
+            wx.MessageBox(
+                _('Errors have occured. Please see "%s"') % log_path,
+                _("Error"),
+                wx.OK,
+            )
+    else:
+        # No errors, just close the file handler
+        if _file_handler:
+            _file_handler.close()
+            logger.removeHandler(_file_handler)
+
+
 def _log_gui_environment():
     """Log GUI environment details for debugging window positioning issues."""
-    print("\n" + "="*60)
-    print("GUI ENVIRONMENT INFO")
-    print("="*60)
+    logger.debug("=" * 60)
+    logger.debug("GUI ENVIRONMENT INFO")
+    logger.debug("=" * 60)
 
     # wx platform details (more detailed than basic wx.version())
-    print(f"wx.PlatformInfo: {wx.PlatformInfo}")
+    logger.debug(f"wx.PlatformInfo: {wx.PlatformInfo}")
 
     # Platform-specific info
     if sys.platform == 'win32':
@@ -54,7 +193,7 @@ def _log_gui_environment():
     # Display/monitor info (cross-platform)
     try:
         num_displays = wx.Display.GetCount()
-        print(f"Number of displays: {num_displays}")
+        logger.debug(f"Number of displays: {num_displays}")
         for i in range(num_displays):
             display = wx.Display(i)
             geom = display.GetGeometry()
@@ -62,16 +201,16 @@ def _log_gui_environment():
             # Get DPI/scaling if available
             try:
                 ppi = display.GetPPI()
-                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
-                      f"client_area={client.x},{client.y} {client.width}x{client.height}  "
-                      f"PPI={ppi.x}x{ppi.y}")
+                logger.debug(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                             f"client_area={client.x},{client.y} {client.width}x{client.height}  "
+                             f"PPI={ppi.x}x{ppi.y}")
             except Exception:
-                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
-                      f"client_area={client.x},{client.y} {client.width}x{client.height}")
+                logger.debug(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                             f"client_area={client.x},{client.y} {client.width}x{client.height}")
     except Exception as e:
-        print(f"Display info unavailable: {e}")
+        logger.debug(f"Display info unavailable: {e}")
 
-    print("="*60 + "\n")
+    logger.debug("=" * 60)
 
 
 def _log_windows_environment():
@@ -79,26 +218,26 @@ def _log_windows_environment():
     import platform
 
     # Windows version
-    print(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
-    print(f"Windows Edition: {platform.win32_edition()}")
+    logger.debug(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
+    logger.debug(f"Windows Edition: {platform.win32_edition()}")
 
     # DPI awareness
     try:
         import ctypes
         awareness = ctypes.windll.shcore.GetProcessDpiAwareness(0)
         awareness_names = {0: 'Unaware', 1: 'System', 2: 'PerMonitor'}
-        print(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
+        logger.debug(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
     except Exception as e:
-        print(f"DPI Awareness: unavailable ({e})")
+        logger.debug(f"DPI Awareness: unavailable ({e})")
 
     # DWM (Desktop Window Manager) composition
     try:
         import ctypes
         dwm_enabled = ctypes.c_bool()
         ctypes.windll.dwmapi.DwmIsCompositionEnabled(ctypes.byref(dwm_enabled))
-        print(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
+        logger.debug(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
     except Exception as e:
-        print(f"DWM Composition: unavailable ({e})")
+        logger.debug(f"DWM Composition: unavailable ({e})")
 
     # System DPI
     try:
@@ -107,9 +246,9 @@ def _log_windows_environment():
         dpi_x = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
         dpi_y = ctypes.windll.gdi32.GetDeviceCaps(hdc, 90)  # LOGPIXELSY
         ctypes.windll.user32.ReleaseDC(0, hdc)
-        print(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
+        logger.debug(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
     except Exception as e:
-        print(f"System DPI: unavailable ({e})")
+        logger.debug(f"System DPI: unavailable ({e})")
 
 
 def _log_macos_environment():
