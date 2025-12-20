@@ -618,113 +618,15 @@ class IOController(object):
         """Show a modal lock dialog.
 
         Returns True if user clicked Yes, False otherwise.
-
-        Uses a custom wx.Dialog WITHOUT a parent to avoid GTK focus fight.
-        On GTK, if the dialog has a parent, the parent's position restoration
-        code (checking IsActive()) fights with the dialog for focus, causing
-        an endless EVT_ACTIVATE loop that eventually crashes.
         """
-        import sys
-
-        def log(msg):
-            print(f"[LOCK_DIALOG] {msg}", file=sys.stderr, flush=True)
-
-        mainWindow = wx.GetApp().GetTopWindow()
-        log(f"mainWindow={mainWindow}, IsShown={mainWindow.IsShown() if mainWindow else None}")
-
-        # Create dialog WITHOUT parent to avoid GTK focus fight
-        # The parent-child relationship causes main window's position restoration
-        # to fight with dialog for focus (endless EVT_ACTIVATE loop)
-        dlg = wx.Dialog(
-            None,  # No parent - avoids focus fight on GTK
-            title=title,
-            style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP,
+        # Use simplest possible approach - wx.MessageBox
+        # This is the most basic modal dialog and should work reliably
+        result = wx.MessageBox(
+            message,
+            title,
+            style=wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
         )
-
-        # Create the dialog content
-        panel = wx.Panel(dlg)
-        mainSizer = wx.BoxSizer(wx.VERTICAL)
-
-        # Icon and message in horizontal sizer
-        hSizer = wx.BoxSizer(wx.HORIZONTAL)
-        icon = wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_MESSAGE_BOX)
-        iconCtrl = wx.StaticBitmap(panel, bitmap=icon)
-        hSizer.Add(iconCtrl, 0, wx.ALL | wx.ALIGN_TOP, 10)
-
-        msgCtrl = wx.StaticText(panel, label=message)
-        msgCtrl.Wrap(400)
-        hSizer.Add(msgCtrl, 1, wx.ALL | wx.EXPAND, 10)
-        mainSizer.Add(hSizer, 1, wx.EXPAND)
-
-        # Buttons - No is default
-        btnSizer = wx.StdDialogButtonSizer()
-        yesBtn = wx.Button(panel, wx.ID_YES, _("Yes"))
-        noBtn = wx.Button(panel, wx.ID_NO, _("No"))
-        noBtn.SetDefault()
-        btnSizer.AddButton(yesBtn)
-        btnSizer.AddButton(noBtn)
-        btnSizer.Realize()
-        mainSizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-
-        panel.SetSizer(mainSizer)
-
-        # Size the dialog
-        dlgSizer = wx.BoxSizer(wx.VERTICAL)
-        dlgSizer.Add(panel, 1, wx.EXPAND)
-        dlg.SetSizer(dlgSizer)
-        dlg.Fit()
-
-        # Manually center on main window (since no parent)
-        if mainWindow and mainWindow.IsShown():
-            mainRect = mainWindow.GetRect()
-            dlgSize = dlg.GetSize()
-            x = mainRect.x + (mainRect.width - dlgSize.width) // 2
-            y = mainRect.y + (mainRect.height - dlgSize.height) // 2
-            # Ensure not off-screen
-            displaySize = wx.GetDisplaySize()
-            x = max(0, min(x, displaySize.width - dlgSize.width))
-            y = max(0, min(y, displaySize.height - dlgSize.height))
-            dlg.SetPosition(wx.Point(x, y))
-            log(f"Centered on mainWindow: pos={dlg.GetPosition()}, size={dlgSize}")
-        else:
-            dlg.CentreOnScreen()
-            log(f"Centered on screen: pos={dlg.GetPosition()}, size={dlg.GetSize()}")
-
-        # Bind buttons to close dialog
-        yesBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_YES))
-        noBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_NO))
-
-        # Set focus to No button
-        noBtn.SetFocus()
-
-        # Log events to understand what's happening
-        def onClose(evt):
-            log(f"EVT_CLOSE received")
-            evt.Skip()
-
-        def onActivate(evt):
-            log(f"EVT_ACTIVATE received, active={evt.GetActive()}")
-            evt.Skip()
-
-        def onShow(evt):
-            log(f"EVT_SHOW received, shown={evt.IsShown()}")
-            evt.Skip()
-
-        dlg.Bind(wx.EVT_CLOSE, onClose)
-        dlg.Bind(wx.EVT_ACTIVATE, onActivate)
-        dlg.Bind(wx.EVT_SHOW, onShow)
-
-        log("Calling ShowModal()")
-        result = dlg.ShowModal()
-        log(f"ShowModal() returned {result} (YES={wx.ID_YES}, NO={wx.ID_NO})")
-
-        # Safe destroy - the dialog may already be deleted if main window was killed
-        try:
-            dlg.Destroy()
-        except RuntimeError as e:
-            log(f"dlg.Destroy() failed (already deleted?): {e}")
-
-        return result == wx.ID_YES
+        return result == wx.YES
 
     def __askBreakLock(self, filename):
         message = _(

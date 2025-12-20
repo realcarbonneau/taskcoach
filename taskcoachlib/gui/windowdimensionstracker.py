@@ -398,9 +398,19 @@ class WindowGeometryTracker:
             self.size_confirmed = False
             self._window.SetSize(target_w, target_h)
 
+    def force_ready(self):
+        """Force window to be ready immediately.
+
+        Call this before showing a modal dialog to prevent position restoration
+        from fighting with the dialog for focus.
+        """
+        if not self.ready:
+            _log_debug("force_ready: Forcing window to ready state")
+            self._mark_ready()
+
     def _mark_ready(self):
         """Mark window as ready - position/size achieved. Then maximize if needed."""
-        elapsed = time.time() - self._pos_log_start_time
+        elapsed = time.time() - self._pos_log_start_time if self._pos_log_start_time else 0
 
         self.ready = True
 
