@@ -29,7 +29,6 @@ import gc
 import sys
 import codecs
 import traceback
-import lockfile
 
 try:
     from taskcoachlib.syncml import sync
@@ -157,7 +156,7 @@ class IOController(object):
                     )
                 except Exception:
                     raise
-            except lockfile.LockTimeout:
+            except persistence.LockTimeout:
                 if breakLock:
                     if self.__askOpenUnlocked(filename):
                         self.open(filename, showerror, lock=False)
@@ -165,7 +164,7 @@ class IOController(object):
                     self.open(filename, showerror, breakLock=True)
                 else:
                     return
-            except lockfile.LockFailed:
+            except persistence.LockFailed:
                 if self.__askOpenUnlocked(filename):
                     self.open(filename, showerror, lock=False)
                 else:
@@ -206,7 +205,7 @@ class IOController(object):
         if filename:
             try:
                 self.__taskFile.merge(filename)
-            except lockfile.LockTimeout:
+            except persistence.LockTimeout:
                 showerror(
                     _("Cannot open %(filename)s\nbecause it is locked.")
                     % dict(filename=filename),
@@ -305,13 +304,13 @@ class IOController(object):
             self.__showSaveMessage(taskFile)
             self.__addRecentFile(filename)
             return True
-        except lockfile.LockTimeout:
+        except persistence.LockTimeout:
             errorMessage = _(
                 "Cannot save %s\nIt is locked by another instance " "of %s.\n"
             ) % (filename, meta.name)
             showerror(errorMessage, **self.__errorMessageOptions)
             return False
-        except (OSError, IOError, lockfile.LockFailed) as reason:
+        except (OSError, IOError, persistence.LockFailed) as reason:
             errorMessage = _("Cannot save %s\n%s") % (
                 filename,
                 ExceptionAsUnicode(reason),
