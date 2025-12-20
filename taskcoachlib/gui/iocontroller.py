@@ -619,22 +619,24 @@ class IOController(object):
 
         Returns True if user clicked Yes, False otherwise.
 
-        Uses a custom wx.Dialog instead of wx.MessageDialog because:
-        1. wx.MessageDialog is a native dialog that doesn't fire EVT_SHOW
-        2. GTK ignores SetPosition() before ShowModal()
-        3. Following the pattern from widgets/dialog.py: Fit() then CentreOnParent()
+        Uses a custom wx.Dialog WITHOUT a parent to avoid GTK focus fight.
+        On GTK, if the dialog has a parent, the parent's position restoration
+        code (checking IsActive()) fights with the dialog for focus, causing
+        an endless EVT_ACTIVATE loop that eventually crashes.
         """
         import sys
 
         def log(msg):
             print(f"[LOCK_DIALOG] {msg}", file=sys.stderr, flush=True)
 
-        parent = wx.GetApp().GetTopWindow()
-        log(f"parent={parent}, parent.IsShown()={parent.IsShown() if parent else None}")
+        mainWindow = wx.GetApp().GetTopWindow()
+        log(f"mainWindow={mainWindow}, IsShown={mainWindow.IsShown() if mainWindow else None}")
 
-        # Create custom dialog following widgets/dialog.py pattern
+        # Create dialog WITHOUT parent to avoid GTK focus fight
+        # The parent-child relationship causes main window's position restoration
+        # to fight with dialog for focus (endless EVT_ACTIVATE loop)
         dlg = wx.Dialog(
-            parent,
+            None,  # No parent - avoids focus fight on GTK
             title=title,
             style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP,
         )
@@ -670,11 +672,23 @@ class IOController(object):
         dlgSizer = wx.BoxSizer(wx.VERTICAL)
         dlgSizer.Add(panel, 1, wx.EXPAND)
         dlg.SetSizer(dlgSizer)
-
-        # Following widgets/dialog.py pattern: Fit() then CentreOnParent()
         dlg.Fit()
-        dlg.CentreOnParent()
-        log(f"After Fit/CentreOnParent: pos={dlg.GetPosition()}, size={dlg.GetSize()}")
+
+        # Manually center on main window (since no parent)
+        if mainWindow and mainWindow.IsShown():
+            mainRect = mainWindow.GetRect()
+            dlgSize = dlg.GetSize()
+            x = mainRect.x + (mainRect.width - dlgSize.width) // 2
+            y = mainRect.y + (mainRect.height - dlgSize.height) // 2
+            # Ensure not off-screen
+            displaySize = wx.GetDisplaySize()
+            x = max(0, min(x, displaySize.width - dlgSize.width))
+            y = max(0, min(y, displaySize.height - dlgSize.height))
+            dlg.SetPosition(wx.Point(x, y))
+            log(f"Centered on mainWindow: pos={dlg.GetPosition()}, size={dlgSize}")
+        else:
+            dlg.CentreOnScreen()
+            log(f"Centered on screen: pos={dlg.GetPosition()}, size={dlg.GetSize()}")
 
         # Bind buttons to close dialog
         yesBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_YES))
