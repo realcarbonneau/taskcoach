@@ -45,18 +45,13 @@ detect_distro() {
 
 # Detect the correct Python version to use
 detect_python() {
-    # On Trixie, wxPython is built for Python 3.12
-    # On Bookworm, wxPython is built for Python 3.11
-    if [ "$DISTRO_CODENAME" = "trixie" ] || [ "$DISTRO_CODENAME" = "sid" ]; then
-        # Trixie/Sid: prefer python3.12 for wxPython compatibility
-        if command -v python3.12 &> /dev/null; then
-            PYTHON_CMD="python3.12"
-        else
-            PYTHON_CMD="python3"
-        fi
-    else
-        PYTHON_CMD="python3"
-    fi
+    # Distribution default Python versions:
+    # - Debian 12 Bookworm: Python 3.11
+    # - Debian 13 Trixie: Python 3.13
+    # - Ubuntu 22.04 Jammy: Python 3.10
+    # - Ubuntu 24.04 Noble: Python 3.12
+    # All use the default python3, wxPython is built for the default version
+    PYTHON_CMD="python3"
 
     PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
     PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)

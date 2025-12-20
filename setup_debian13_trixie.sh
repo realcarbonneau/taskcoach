@@ -2,8 +2,8 @@
 # TaskCoach Setup Script for Debian 13 (Trixie)
 # This script automates the setup and testing of TaskCoach on Debian 13
 #
-# IMPORTANT: Trixie ships multiple Python versions. wxPython is built for Python 3.12
-# This script explicitly uses python3.12 for compatibility.
+# Debian 13 Trixie uses Python 3.13 as default
+# wxPython 4.2.3 is available in repos
 #
 # For other distributions, see:
 #   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
@@ -11,7 +11,7 @@
 #   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
 #   - setup.sh (unified auto-detection script)
 #
-# Version: 1.2.0
+# Version: 1.2.1
 # Last Updated: 2025-12-20
 
 set -e  # Exit on error
@@ -53,18 +53,11 @@ elif [ ! -f /etc/debian_version ]; then
     fi
 fi
 
-# Check Python version - Trixie needs Python 3.12 for wxPython
+# Check Python version - Trixie uses Python 3.13
 echo -e "${BLUE}[1/7] Checking Python version...${NC}"
 
-# On Trixie, prefer python3.12 for wxPython compatibility
-if command -v python3.12 &> /dev/null; then
-    PYTHON_CMD="python3.12"
-    echo "Using python3.12 (required for wxPython on Trixie)"
-else
-    PYTHON_CMD="python3"
-    echo -e "${YELLOW}Warning: python3.12 not found, using python3${NC}"
-    echo -e "${YELLOW}If wxPython fails to import, install python3.12${NC}"
-fi
+# On Trixie, use the default python3 (which is 3.13)
+PYTHON_CMD="python3"
 
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
@@ -89,8 +82,8 @@ echo "Requires sudo privileges."
 if command -v sudo &> /dev/null; then
     sudo apt-get update -qq
     sudo apt-get install -y \
-        python3.12 \
-        python3.12-venv \
+        python3 \
+        python3-venv \
         python3-wxgtk4.0 \
         python3-six \
         python3-lxml \
