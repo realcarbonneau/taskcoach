@@ -31,22 +31,18 @@ _has_errors_lock = threading.Lock()
 
 
 def _get_log_path():
-    """Get the log file path with minimal dependencies."""
+    """Get the log file path matching Settings.pathToDocumentsDir()."""
     if sys.platform == 'win32':
-        # Windows: use USERPROFILE or HOMEPATH
+        # Windows: use Documents folder
         home = os.environ.get('USERPROFILE', os.environ.get('HOMEPATH', '.'))
-        base = os.path.join(home, 'Documents', 'TaskCoach')
+        base = os.path.join(home, 'Documents')
     elif sys.platform == 'darwin':
-        # macOS: use ~/Library/Application Support
-        home = os.path.expanduser('~')
-        base = os.path.join(home, 'Library', 'Application Support', 'TaskCoach')
+        # macOS: use home directory
+        base = os.path.expanduser('~')
     else:
-        # Linux/Unix: use XDG_DATA_HOME or ~/.local/share
-        xdg_data = os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share'))
-        base = os.path.join(xdg_data, 'TaskCoach')
+        # Linux/Unix: use home directory (matches Settings.pathToDocumentsDir)
+        base = os.path.expanduser('~')
 
-    # Ensure directory exists
-    os.makedirs(base, exist_ok=True)
     return os.path.join(base, 'taskcoachlog.txt')
 
 
