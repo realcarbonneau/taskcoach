@@ -1963,11 +1963,11 @@ if operating_system.isGTK():
 - ✅ App icon grouping across platforms (December 2025) - Added WM_CLASS, StartupWMClass, CFBundleIdentifier, AppUserModelID
 - ✅ GNOME Wayland app icon shows generic gear (December 2025) - Added g_set_prgname via ctypes before GTK init
 - ✅ Python 3.12+ SyntaxWarning for invalid escape sequence (December 2025) - Fixed with raw string in desktop module docstring
-- ✅ Error popup showing without errors (December 2025) - Replaced RedirectedOutput hack with Python logging module
+- ✅ Error popup showing without errors (December 2025) - Replaced RedirectedOutput hack with simple log_message/log_error functions
 
 ---
 
-## Logging Infrastructure: RedirectedOutput → Python logging Module
+## Logging Infrastructure: RedirectedOutput → Simple Custom Logging
 
 **Date Fixed:** December 2025
 **Affected Components:** `taskcoachlib/application/application.py`
@@ -1987,62 +1987,76 @@ Task Coach would show an "Errors have occurred" popup on exit even when there we
 | Toggle `error_mode` flag | Not thread-safe - race conditions could miss errors |
 | Add `is_error` parameter to `write()` | Can't control what `print()` passes to `write()` |
 | Only log when running from TTY | Loses debug info in log file for debugging crashes |
+| Python `logging` module + ErrorTracker | Overly complex, still needed separate stderr capture |
 
-### The Modern Solution: Python's logging Module
+### The Simple Solution: Custom log_message/log_error Functions
 
-Replaced the `RedirectedOutput` hack with Python's standard `logging` module:
+Replaced the `RedirectedOutput` hack with simple, unified logging:
 
 ```python
-import logging
+# Module state
+_log_file = None
+_has_errors = False
+_has_errors_lock = threading.Lock()
 
-# Main logger
-logger = logging.getLogger('taskcoach')
+def log_message(msg):
+    """Log a debug message to file (and stdout if TTY)."""
+    _write_log(msg, "DEBUG")
 
-# File handler - logs everything (DEBUG+) to taskcoachlog.txt
-_file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
-_file_handler.setLevel(logging.DEBUG)
+def log_error(msg):
+    """Log an error and set the popup flag."""
+    _write_log(msg, "ERROR")
+    _set_error()
 
-# Error tracker - tracks if any ERROR+ occurred (thread-safe)
-class ErrorTracker(logging.Handler):
-    def __init__(self):
-        super().__init__(level=logging.ERROR)
-        self._has_errors = False
-        self._lock = threading.Lock()
-
-    def emit(self, record):
-        with self._lock:
-            self._has_errors = True
-
-_error_tracker = ErrorTracker()
+# File descriptor level stderr capture for native C library output
+# Uses os.dup2() to redirect fd 2 through a pipe
+# Background thread reads pipe, logs to file, echoes to terminal
+def _stderr_reader_loop(pipe_read_fd, original_stderr_fd):
+    while not _stop_stderr_reader:
+        line = pipe_reader.readline()
+        # Log to file, echo to original stderr
+        if _ERROR_PATTERNS.search(line):
+            _set_error()
 ```
 
 ### Usage
 
 ```python
-logger.debug("Task Coach version 1.6.1")  # → file only, no popup
-logger.info("GUI environment info...")     # → file only, no popup
-logger.error("Something went wrong!")      # → file AND sets has_errors=True
+log_message("Task Coach version 1.6.1")  # → file only, no popup
+log_message("GUI environment info...")    # → file only, no popup
+log_error("Something went wrong!")        # → file AND sets _has_errors=True
+# Native stderr (GTK-CRITICAL etc)        # → captured, checked for error patterns
 ```
 
 ### Benefits
 
-1. **Proper separation**: DEBUG/INFO vs ERROR levels are built into logging
-2. **Thread-safe**: `ErrorTracker` uses a lock for the `has_errors` flag
-3. **Standard Python**: Uses the well-understood `logging` module
-4. **Uncaught exceptions**: Installed `sys.excepthook` logs exceptions as ERROR
-5. **No more hacks**: No `error_mode` toggle, no write parameter tricks
+1. **Simple**: Two functions, one error flag, one stderr capture
+2. **Thread-safe**: `_has_errors_lock` protects the error flag
+3. **Unified**: Both Python and native library errors go through the same system
+4. **True native library support**: File descriptor level capture (os.dup2) catches all C library stderr output
+5. **No dependencies**: No `logging` module, just simple file I/O and os.pipe()
+
+### Error Patterns Detected in stderr
+
+The stderr capture checks for these patterns (case-insensitive):
+- `CRITICAL`, `ERROR`
+- `*** BUG ***`
+- `assertion.*failed`
+- `Segmentation fault`, `SIGSEGV`, `SIGABRT`
+- `core dumped`
 
 ### Files Modified
 
 | File | Change |
 |------|--------|
-| `taskcoachlib/application/application.py` | Removed `RedirectedOutput`, added logging infrastructure |
+| `taskcoachlib/application/application.py` | Removed `RedirectedOutput`, added simple logging functions |
 
 ### Key Functions
 
-- `init_logging()` - Sets up FileHandler, ErrorTracker, and exception hook
-- `shutdown_logging()` - Checks `has_errors` and shows popup if needed, closes handlers
-- `logger` - Module-level logger for all debug/info/error logging
+- `init_logging()` - Opens log file, installs stderr capture, sets up exception hook
+- `shutdown_logging()` - Checks `_has_errors` and shows popup if needed, closes file
+- `log_message(msg)` - Log debug message (no popup trigger)
+- `log_error(msg)` - Log error message (triggers popup)
 
 ---
 

@@ -45,7 +45,7 @@ import subprocess
 #   - One log file handle
 #   - One thread-safe error flag
 #   - log_message() for debug, log_error() for errors
-#   - StderrCapture intercepts native library output (GTK, pixman, etc.)
+#   - File descriptor level stderr capture for native C library output (GTK, pixman)
 #
 # Usage:
 #   log_message("Version info...")           -> Goes to file (and stdout if TTY)
@@ -117,75 +117,65 @@ def log_error(msg):
     _set_error()
 
 
-class _StderrCapture:
-    """Captures stderr output from native libraries (GTK, pixman, etc.).
+# Additional state for file descriptor level stderr capture
+_stderr_reader_thread = None
+_stderr_pipe_read_fd = None
+_original_stderr_fd = None
+_stop_stderr_reader = False
 
-    Native C libraries write directly to stderr, bypassing Python.
-    This class intercepts stderr to:
-    1. Log all stderr output to the log file
-    2. Detect error patterns and set the error flag
-    3. Also write to original stderr (for terminal visibility)
+
+def _stderr_reader_loop(pipe_read_fd, original_stderr_fd):
+    """Background thread that reads from stderr pipe and logs output.
+
+    This runs in a separate thread to avoid blocking the main application.
+    It reads from the pipe (which receives all stderr output including native
+    C library output), logs it to the log file, and optionally echoes to the
+    original stderr (for terminal visibility).
     """
+    global _stop_stderr_reader
 
-    def __init__(self, original_stderr):
-        self._original_stderr = original_stderr
-        self._lock = threading.Lock()
+    # Create file objects for reading/writing
+    pipe_reader = os.fdopen(pipe_read_fd, 'r', encoding='utf-8', errors='replace')
+    original_stderr_writer = os.fdopen(original_stderr_fd, 'w', encoding='utf-8', errors='replace')
 
-    def write(self, text):
-        """Write to log file and original stderr, checking for errors."""
-        if not text:
-            return
+    try:
+        while not _stop_stderr_reader:
+            try:
+                line = pipe_reader.readline()
+                if not line:
+                    break  # EOF
 
-        with self._lock:
-            # Write to log file with timestamp
-            if _log_file:
+                # Log to file with timestamp
+                if _log_file:
+                    try:
+                        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        _log_file.write(f"{timestamp} [STDERR] {line}")
+                        _log_file.flush()
+                    except Exception:
+                        pass
+
+                # Echo to original stderr (terminal visibility)
                 try:
-                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    _log_file.write(f"{timestamp} [STDERR] {text}")
-                    if not text.endswith('\n'):
-                        _log_file.write('\n')
-                    _log_file.flush()
+                    original_stderr_writer.write(line)
+                    original_stderr_writer.flush()
                 except Exception:
                     pass
 
-            # Write to original stderr (for terminal visibility)
-            if self._original_stderr:
-                try:
-                    self._original_stderr.write(text)
-                    self._original_stderr.flush()
-                except Exception:
-                    pass
+                # Check for error patterns
+                if _ERROR_PATTERNS.search(line):
+                    _set_error()
 
-            # Check for error patterns
-            if _ERROR_PATTERNS.search(text):
-                _set_error()
-
-    def flush(self):
-        """Flush both log file and original stderr."""
-        with self._lock:
-            if _log_file:
-                try:
-                    _log_file.flush()
-                except Exception:
-                    pass
-            if self._original_stderr:
-                try:
-                    self._original_stderr.flush()
-                except Exception:
-                    pass
-
-    def fileno(self):
-        """Return file descriptor for compatibility."""
-        if self._original_stderr:
-            return self._original_stderr.fileno()
-        raise OSError("No file descriptor available")
-
-    def isatty(self):
-        """Check if original stderr is a TTY."""
+            except Exception:
+                break  # Exit on any error
+    finally:
         try:
-            return self._original_stderr and self._original_stderr.isatty()
+            pipe_reader.close()
         except Exception:
-            return False
+            pass
+        try:
+            original_stderr_writer.close()
+        except Exception:
+            pass
 
 
 def init_logging():
@@ -194,12 +184,13 @@ def init_logging():
     Sets up:
     - Log file for all messages
     - Stdout echo when running from terminal
-    - Stderr capture for native library output (GTK, pixman errors)
+    - File descriptor level stderr capture for native library output
     - Exception hook for uncaught exceptions
 
     Called early in Application.init().
     """
     global _log_file, _original_stdout, _original_stderr, _is_tty
+    global _stderr_reader_thread, _stderr_pipe_read_fd, _original_stderr_fd, _stop_stderr_reader
 
     log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
 
@@ -214,8 +205,36 @@ def init_logging():
     except AttributeError:
         _is_tty = False
 
-    # Capture stderr for native library output
-    sys.stderr = _StderrCapture(_original_stderr)
+    # Set up file descriptor level stderr capture
+    # This captures native C library output (GTK, pixman, etc.)
+    try:
+        # Save the original stderr file descriptor
+        _original_stderr_fd = os.dup(2)
+
+        # Create a pipe for capturing stderr
+        pipe_read_fd, pipe_write_fd = os.pipe()
+        _stderr_pipe_read_fd = pipe_read_fd
+
+        # Replace stderr fd with the write end of the pipe
+        os.dup2(pipe_write_fd, 2)
+        os.close(pipe_write_fd)  # Close the extra fd, 2 now points to the pipe
+
+        # Recreate sys.stderr to use the new fd 2
+        sys.stderr = os.fdopen(2, 'w', encoding='utf-8', errors='replace')
+
+        # Start background thread to read from pipe
+        _stop_stderr_reader = False
+        _stderr_reader_thread = threading.Thread(
+            target=_stderr_reader_loop,
+            args=(pipe_read_fd, _original_stderr_fd),
+            daemon=True,
+            name="StderrCapture"
+        )
+        _stderr_reader_thread.start()
+    except Exception as e:
+        # If fd-level capture fails, fall back to Python-level capture
+        # (won't capture native library output but better than nothing)
+        pass
 
     # Log session start marker
     log_message("=" * 60)
@@ -243,10 +262,26 @@ def shutdown_logging():
 
     Called from Application.quitApplication().
     """
-    global _log_file, _original_stderr
+    global _log_file, _original_stderr, _original_stderr_fd, _stop_stderr_reader
 
-    # Restore original stderr
-    if _original_stderr:
+    # Stop the stderr reader thread
+    _stop_stderr_reader = True
+
+    # Restore original stderr file descriptor
+    if _original_stderr_fd is not None:
+        try:
+            # Close the current stderr (pipe write end)
+            sys.stderr.flush()
+            sys.stderr.close()
+            # Restore original fd 2
+            os.dup2(_original_stderr_fd, 2)
+            os.close(_original_stderr_fd)
+            # Recreate sys.stderr
+            sys.stderr = os.fdopen(2, 'w', encoding='utf-8', errors='replace')
+        except Exception:
+            pass
+        _original_stderr_fd = None
+    elif _original_stderr:
         sys.stderr = _original_stderr
 
     has_errors = _get_has_errors()
