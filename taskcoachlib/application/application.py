@@ -39,28 +39,29 @@ import subprocess
 # Logging Setup
 # ============================================================================
 #
-# Simple, unified logging system for Task Coach.
+# Simple logging system for Task Coach that mirrors ALL output to a log file.
 #
 # Architecture:
-#   - One log file handle
-#   - One thread-safe error flag
-#   - log_message() for debug, log_error() for errors
-#   - File descriptor level stderr capture for native C library output (GTK, pixman)
+#   - Console output works normally (no interference)
+#   - All stderr output is ALSO mirrored to the log file
+#   - Uses OS-level fd redirection with a pipe and tee thread
+#   - This captures both Python stderr AND native C library output (GTK, pixman)
 #
 # Usage:
-#   log_message("Version info...")           -> Goes to file (and stdout if TTY)
-#   log_error("Something broke!")            -> Same + sets error flag for popup
-#   Native stderr (GTK-CRITICAL etc)         -> Captured, checked for errors
+#   log_message("Version info...")    -> Goes to log file (and stderr if TTY)
+#   log_error("Something broke!")     -> Same + sets error flag for popup
+#   print("debug", file=sys.stderr)   -> Goes to console AND log file
+#   GTK-CRITICAL, pixman BUG, etc.    -> Goes to console AND log file
 #
 # ============================================================================
 
 # Module state - initialized by init_logging()
 _log_file = None
-_original_stdout = None
-_original_stderr = None
+_original_stderr_fd = None  # The original fd 2 (for console output)
+_tee_thread = None
+_tee_stop_event = None
 _has_errors = False
 _has_errors_lock = threading.Lock()
-_is_tty = False
 
 # Patterns that indicate a real error in stderr (not just debug info)
 _ERROR_PATTERNS = re.compile(
@@ -83,126 +84,93 @@ def _get_has_errors():
         return _has_errors
 
 
-def _write_log(msg, level):
-    """Internal: write a log line to file and optionally stdout."""
+def log_message(msg):
+    """Log a debug message to the log file (and stderr if running from terminal)."""
     if _log_file is None:
         return
-
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    line = f"{timestamp} [{level}] {msg}\n"
-
+    line = f"{timestamp} [DEBUG] {msg}\n"
     try:
         _log_file.write(line)
         _log_file.flush()
     except Exception:
         pass
-
-    # Also write to stdout if running from terminal
-    if _is_tty and _original_stdout:
-        try:
-            _original_stdout.write(line)
-            _original_stdout.flush()
-        except Exception:
-            pass
-
-
-def log_message(msg):
-    """Log a debug message to the log file (and stdout if running from terminal)."""
-    _write_log(msg, "DEBUG")
+    # Also write to stderr so it appears on console
+    try:
+        sys.stderr.write(line)
+        sys.stderr.flush()
+    except Exception:
+        pass
 
 
 def log_error(msg):
     """Log an error message and set the error flag for the exit popup."""
-    _write_log(msg, "ERROR")
+    if _log_file is None:
+        return
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    line = f"{timestamp} [ERROR] {msg}\n"
+    try:
+        _log_file.write(line)
+        _log_file.flush()
+    except Exception:
+        pass
+    try:
+        sys.stderr.write(line)
+        sys.stderr.flush()
+    except Exception:
+        pass
     _set_error()
 
 
-# Additional state for file descriptor level stderr capture
-_stderr_reader_thread = None
-_stderr_pipe_read_fd = None
-_original_stderr_fd = None
-_stop_stderr_reader = False
+def _tee_reader(pipe_read_fd, original_fd, log_file, stop_event):
+    """Background thread that reads from pipe and writes to both console and log.
 
-
-def _stderr_reader_loop(pipe_read_fd, original_stderr_fd):
-    """Background thread that reads from stderr pipe and logs output.
-
-    This runs in a separate thread to avoid blocking the main application.
-    It reads from the pipe (which receives all stderr output including native
-    C library output), logs it to the log file, and optionally echoes to the
-    original stderr (for terminal visibility).
-
-    Uses os.read() directly with select() for reliable unbuffered capture.
+    This implements the 'tee' functionality at the OS level.
+    Works on Windows, Linux, and macOS.
     """
-    global _stop_stderr_reader
-    import select
-
-    buffer = b''
-
+    # Wrap the fd in a file object for easier reading
+    # Use os.fdopen to get a file object from the fd
     try:
-        while not _stop_stderr_reader:
+        pipe_file = os.fdopen(pipe_read_fd, 'rb', buffering=0)
+    except Exception:
+        return
+
+    while not stop_event.is_set():
+        try:
+            # Read a chunk of data (this blocks until data is available or EOF)
+            # On Windows, we can't use select() on pipes, so we just block
+            # The daemon thread will be killed when the main app exits
+            data = pipe_file.read(4096)
+            if not data:
+                break
+            # Write to original console
             try:
-                # Use select with timeout to allow checking stop flag
-                readable, _, _ = select.select([pipe_read_fd], [], [], 0.1)
-                if not readable:
-                    continue
-
-                # Read available data (unbuffered)
-                data = os.read(pipe_read_fd, 4096)
-                if not data:
-                    break  # EOF
-
-                buffer += data
-
-                # Process complete lines
-                while b'\n' in buffer:
-                    line_bytes, buffer = buffer.split(b'\n', 1)
-                    line = line_bytes.decode('utf-8', errors='replace') + '\n'
-
-                    # Log to file with timestamp
-                    if _log_file:
-                        try:
-                            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            _log_file.write(f"{timestamp} [STDERR] {line}")
-                            _log_file.flush()
-                        except Exception:
-                            pass
-
-                    # Echo to original stderr (terminal visibility)
-                    try:
-                        os.write(original_stderr_fd, line.encode('utf-8', errors='replace'))
-                    except Exception:
-                        pass
-
-                    # Check for error patterns
-                    if _ERROR_PATTERNS.search(line):
-                        _set_error()
-
-            except Exception:
-                break  # Exit on any error
-
-        # Process any remaining data in buffer
-        if buffer:
-            line = buffer.decode('utf-8', errors='replace')
-            if _log_file:
-                try:
-                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    _log_file.write(f"{timestamp} [STDERR] {line}\n")
-                    _log_file.flush()
-                except Exception:
-                    pass
+                os.write(original_fd, data)
+            except OSError:
+                pass
+            # Write to log file with timestamp
             try:
-                os.write(original_stderr_fd, line.encode('utf-8', errors='replace'))
+                text = data.decode('utf-8', errors='replace')
+                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                for line in text.splitlines(keepends=True):
+                    log_file.write(f"{timestamp} [STDERR] {line}")
+                    if not line.endswith('\n'):
+                        log_file.write('\n')
+                log_file.flush()
+                # Check for error patterns
+                if _ERROR_PATTERNS.search(text):
+                    _set_error()
             except Exception:
                 pass
-            if _ERROR_PATTERNS.search(line):
-                _set_error()
-
-    finally:
-        try:
-            os.close(pipe_read_fd)
+        except OSError:
+            break
         except Exception:
             pass
+
+    try:
+        pipe_file.close()
+    except Exception:
+        pass
 
 
 def init_logging():
@@ -210,57 +178,47 @@ def init_logging():
 
     Sets up:
     - Log file for all messages
-    - Stdout echo when running from terminal
-    - File descriptor level stderr capture for native library output
+    - OS-level stderr tee (all stderr goes to BOTH console AND log file)
     - Exception hook for uncaught exceptions
 
     Called early in Application.init().
     """
-    global _log_file, _original_stdout, _original_stderr, _is_tty
-    global _stderr_reader_thread, _stderr_pipe_read_fd, _original_stderr_fd, _stop_stderr_reader
+    global _log_file, _original_stderr_fd, _tee_thread, _tee_stop_event
 
     log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
 
     # Open log file
     _log_file = open(log_path, 'a', encoding='utf-8')
 
-    # Check if running from terminal
-    _original_stdout = sys.stdout
-    _original_stderr = sys.stderr
-    try:
-        _is_tty = sys.stdout.isatty()
-    except AttributeError:
-        _is_tty = False
-
-    # Set up file descriptor level stderr capture
-    # This captures native C library output (GTK, pixman, etc.)
+    # Set up OS-level stderr tee
+    # 1. Save original stderr fd
+    # 2. Create a pipe
+    # 3. Redirect fd 2 (stderr) to pipe write end
+    # 4. Start a thread that reads from pipe and writes to both original fd and log
     try:
         # Save the original stderr file descriptor
         _original_stderr_fd = os.dup(2)
 
-        # Create a pipe for capturing stderr
-        pipe_read_fd, pipe_write_fd = os.pipe()
-        _stderr_pipe_read_fd = pipe_read_fd
+        # Create a pipe
+        pipe_read, pipe_write = os.pipe()
 
-        # Replace stderr fd with the write end of the pipe
-        os.dup2(pipe_write_fd, 2)
-        os.close(pipe_write_fd)  # Close the extra fd, 2 now points to the pipe
+        # Redirect stderr (fd 2) to the pipe write end
+        os.dup2(pipe_write, 2)
+        os.close(pipe_write)  # Close our copy, fd 2 now owns it
 
-        # Recreate sys.stderr to use the new fd 2
-        sys.stderr = os.fdopen(2, 'w', encoding='utf-8', errors='replace')
+        # Also update sys.stderr to use the pipe
+        sys.stderr = os.fdopen(2, 'w', buffering=1)  # Line buffered
 
-        # Start background thread to read from pipe
-        _stop_stderr_reader = False
-        _stderr_reader_thread = threading.Thread(
-            target=_stderr_reader_loop,
-            args=(pipe_read_fd, _original_stderr_fd),
-            daemon=True,
-            name="StderrCapture"
+        # Start the tee reader thread
+        _tee_stop_event = threading.Event()
+        _tee_thread = threading.Thread(
+            target=_tee_reader,
+            args=(pipe_read, _original_stderr_fd, _log_file, _tee_stop_event),
+            daemon=True
         )
-        _stderr_reader_thread.start()
-    except Exception as e:
-        # If fd-level capture fails, fall back to Python-level capture
-        # (won't capture native library output but better than nothing)
+        _tee_thread.start()
+    except Exception:
+        # If tee setup fails, just continue without it
         pass
 
     # Log session start marker
@@ -289,33 +247,30 @@ def shutdown_logging():
 
     Called from Application.quitApplication().
     """
-    global _log_file, _original_stderr, _original_stderr_fd, _stop_stderr_reader, _stderr_reader_thread
+    global _log_file, _original_stderr_fd, _tee_thread, _tee_stop_event
 
-    # Signal the stderr reader thread to stop
-    _stop_stderr_reader = True
+    # Stop the tee thread
+    if _tee_stop_event is not None:
+        _tee_stop_event.set()
+    if _tee_thread is not None:
+        # Flush stderr to ensure all data is written
+        try:
+            sys.stderr.flush()
+        except Exception:
+            pass
+        # Wait for thread to finish (with timeout)
+        _tee_thread.join(timeout=1.0)
+        _tee_thread = None
 
-    # Restore original stderr file descriptor
+    # Restore original stderr
     if _original_stderr_fd is not None:
         try:
-            # Close the current stderr (pipe write end) - this signals EOF to reader
-            sys.stderr.flush()
-            sys.stderr.close()
-
-            # Wait for thread to finish processing (with timeout)
-            if _stderr_reader_thread and _stderr_reader_thread.is_alive():
-                _stderr_reader_thread.join(timeout=1.0)
-
-            # Restore original fd 2
             os.dup2(_original_stderr_fd, 2)
             os.close(_original_stderr_fd)
-            # Recreate sys.stderr
-            sys.stderr = os.fdopen(2, 'w', encoding='utf-8', errors='replace')
+            sys.stderr = os.fdopen(2, 'w', buffering=1)
         except Exception:
             pass
         _original_stderr_fd = None
-        _stderr_reader_thread = None
-    elif _original_stderr:
-        sys.stderr = _original_stderr
 
     has_errors = _get_has_errors()
 
