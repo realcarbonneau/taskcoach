@@ -615,76 +615,72 @@ class IOController(object):
         dlg.SetPosition(wx.Point(x, y))
 
     def __showLockDialog(self, message, title):
-        """Show a modal lock dialog that properly stays on top on GTK.
+        """Show a modal lock dialog.
 
         Returns True if user clicked Yes, False otherwise.
-
-        On GTK, modal dialogs with a parent can have issues where clicking
-        the parent dismisses the dialog improperly. We work around this by:
-        1. Creating the dialog without a parent (None)
-        2. Using wx.WindowDisabler to explicitly disable all other windows
-        3. Manually centering on the main window
         """
-        mainWindow = wx.GetApp().GetTopWindow()
+        import logging
+        logger = logging.getLogger(__name__)
 
-        # Create dialog WITHOUT a parent to avoid GTK parent-child focus issues
-        dlg = wx.Dialog(
-            None,  # No parent - avoids GTK focus problems
-            title=title,
-            style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP | wx.DIALOG_NO_PARENT,
+        parent = wx.GetApp().GetTopWindow()
+        logger.info("Lock dialog: parent=%s, parent.IsShown()=%s",
+                    parent, parent.IsShown() if parent else None)
+
+        # Simple MessageDialog approach with logging
+        dlg = wx.MessageDialog(
+            parent,
+            message,
+            title,
+            style=wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION | wx.STAY_ON_TOP,
         )
 
-        # Create the dialog content
-        panel = wx.Panel(dlg)
-        sizer = wx.BoxSizer(wx.VERTICAL)
+        logger.info("Lock dialog created: %s", dlg)
+        logger.info("Lock dialog position before center: %s", dlg.GetPosition())
 
-        # Icon and message in horizontal sizer
-        hSizer = wx.BoxSizer(wx.HORIZONTAL)
-        icon = wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_MESSAGE_BOX)
-        iconCtrl = wx.StaticBitmap(panel, bitmap=icon)
-        hSizer.Add(iconCtrl, 0, wx.ALL | wx.ALIGN_TOP, 10)
+        # Try to center on parent
+        if parent and parent.IsShown():
+            parentRect = parent.GetRect()
+            dlgSize = dlg.GetSize()
+            logger.info("Parent rect: %s, dialog size: %s", parentRect, dlgSize)
 
-        msgCtrl = wx.StaticText(panel, label=message)
-        msgCtrl.Wrap(400)
-        hSizer.Add(msgCtrl, 1, wx.ALL | wx.EXPAND, 10)
-        sizer.Add(hSizer, 1, wx.EXPAND)
+            x = parentRect.x + (parentRect.width - dlgSize.width) // 2
+            y = parentRect.y + (parentRect.height - dlgSize.height) // 2
 
-        # Buttons - No is default
-        btnSizer = wx.StdDialogButtonSizer()
-        yesBtn = wx.Button(panel, wx.ID_YES, _("Yes"))
-        noBtn = wx.Button(panel, wx.ID_NO, _("No"))
-        noBtn.SetDefault()
-        btnSizer.AddButton(yesBtn)
-        btnSizer.AddButton(noBtn)
-        btnSizer.Realize()
-        sizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+            # Ensure not off-screen
+            displaySize = wx.GetDisplaySize()
+            x = max(0, min(x, displaySize.width - dlgSize.width))
+            y = max(0, min(y, displaySize.height - dlgSize.height))
 
-        panel.SetSizer(sizer)
+            dlg.SetPosition(wx.Point(x, y))
+            logger.info("Lock dialog position after center: %s", dlg.GetPosition())
 
-        # Size the dialog
-        dlgSizer = wx.BoxSizer(wx.VERTICAL)
-        dlgSizer.Add(panel, 1, wx.EXPAND)
-        dlg.SetSizer(dlgSizer)
-        dlg.Fit()
+        # Log events to understand what's happening
+        def onClose(evt):
+            logger.info("Lock dialog EVT_CLOSE received, evt=%s", evt)
+            evt.Skip()
 
-        # Center on main window
-        self.__centerDialogOnParent(dlg, mainWindow)
+        def onActivate(evt):
+            logger.info("Lock dialog EVT_ACTIVATE received, active=%s", evt.GetActive())
+            evt.Skip()
 
-        # Bind buttons
-        yesBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_YES))
-        noBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_NO))
+        def onShow(evt):
+            logger.info("Lock dialog EVT_SHOW received, shown=%s", evt.IsShown())
+            evt.Skip()
 
-        # Use WindowDisabler to explicitly disable all other windows
-        # This prevents interaction with the main window while dialog is shown
-        disabler = wx.WindowDisabler(dlg)
+        def onIconize(evt):
+            logger.info("Lock dialog EVT_ICONIZE received, iconized=%s", evt.IsIconized())
+            evt.Skip()
 
-        # Show dialog and set focus to No button
-        dlg.Show()
-        noBtn.SetFocus()
+        dlg.Bind(wx.EVT_CLOSE, onClose)
+        dlg.Bind(wx.EVT_ACTIVATE, onActivate)
+        dlg.Bind(wx.EVT_SHOW, onShow)
+        dlg.Bind(wx.EVT_ICONIZE, onIconize)
+
+        logger.info("Lock dialog: calling ShowModal()")
         result = dlg.ShowModal()
+        logger.info("Lock dialog: ShowModal() returned %s (YES=%s, NO=%s)",
+                    result, wx.ID_YES, wx.ID_NO)
 
-        # Clean up - disabler goes out of scope and re-enables windows
-        del disabler
         dlg.Destroy()
         return result == wx.ID_YES
 
