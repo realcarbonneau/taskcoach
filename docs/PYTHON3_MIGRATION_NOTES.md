@@ -1963,6 +1963,86 @@ if operating_system.isGTK():
 - ✅ App icon grouping across platforms (December 2025) - Added WM_CLASS, StartupWMClass, CFBundleIdentifier, AppUserModelID
 - ✅ GNOME Wayland app icon shows generic gear (December 2025) - Added g_set_prgname via ctypes before GTK init
 - ✅ Python 3.12+ SyntaxWarning for invalid escape sequence (December 2025) - Fixed with raw string in desktop module docstring
+- ✅ Error popup showing without errors (December 2025) - Replaced RedirectedOutput hack with Python logging module
+
+---
+
+## Logging Infrastructure: RedirectedOutput → Python logging Module
+
+**Date Fixed:** December 2025
+**Affected Components:** `taskcoachlib/application/application.py`
+**Root Cause:** The old `RedirectedOutput` class was a hack that captured stdout/stderr and showed an error popup if anything was written, but couldn't distinguish between debug info and actual errors.
+
+### Problem Overview
+
+Task Coach would show an "Errors have occurred" popup on exit even when there were no errors, because:
+1. The `RedirectedOutput` class captured all stdout/stderr output
+2. Startup debug logging (version info, GUI environment) wrote to stdout
+3. The `summary()` method checked if anything was written and showed the popup
+
+### Previous Workarounds (All Flawed)
+
+| Approach | Problem |
+|----------|---------|
+| Toggle `error_mode` flag | Not thread-safe - race conditions could miss errors |
+| Add `is_error` parameter to `write()` | Can't control what `print()` passes to `write()` |
+| Only log when running from TTY | Loses debug info in log file for debugging crashes |
+
+### The Modern Solution: Python's logging Module
+
+Replaced the `RedirectedOutput` hack with Python's standard `logging` module:
+
+```python
+import logging
+
+# Main logger
+logger = logging.getLogger('taskcoach')
+
+# File handler - logs everything (DEBUG+) to taskcoachlog.txt
+_file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+_file_handler.setLevel(logging.DEBUG)
+
+# Error tracker - tracks if any ERROR+ occurred (thread-safe)
+class ErrorTracker(logging.Handler):
+    def __init__(self):
+        super().__init__(level=logging.ERROR)
+        self._has_errors = False
+        self._lock = threading.Lock()
+
+    def emit(self, record):
+        with self._lock:
+            self._has_errors = True
+
+_error_tracker = ErrorTracker()
+```
+
+### Usage
+
+```python
+logger.debug("Task Coach version 1.6.1")  # → file only, no popup
+logger.info("GUI environment info...")     # → file only, no popup
+logger.error("Something went wrong!")      # → file AND sets has_errors=True
+```
+
+### Benefits
+
+1. **Proper separation**: DEBUG/INFO vs ERROR levels are built into logging
+2. **Thread-safe**: `ErrorTracker` uses a lock for the `has_errors` flag
+3. **Standard Python**: Uses the well-understood `logging` module
+4. **Uncaught exceptions**: Installed `sys.excepthook` logs exceptions as ERROR
+5. **No more hacks**: No `error_mode` toggle, no write parameter tricks
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `taskcoachlib/application/application.py` | Removed `RedirectedOutput`, added logging infrastructure |
+
+### Key Functions
+
+- `init_logging()` - Sets up FileHandler, ErrorTracker, and exception hook
+- `shutdown_logging()` - Checks `has_errors` and shows popup if needed, closes handlers
+- `logger` - Module-level logger for all debug/info/error logging
 
 ---
 

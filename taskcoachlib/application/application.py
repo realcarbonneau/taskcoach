@@ -257,17 +257,17 @@ def _log_macos_environment():
 
     # macOS version
     mac_ver = platform.mac_ver()
-    print(f"macOS Version: {mac_ver[0]}")
-    print(f"Architecture: {mac_ver[2]}")
+    logger.debug(f"macOS Version: {mac_ver[0]}")
+    logger.debug(f"Architecture: {mac_ver[2]}")
 
     # Check if running under Rosetta (Apple Silicon)
     try:
         result = subprocess.run(['sysctl', '-n', 'sysctl.proc_translated'],
                                capture_output=True, text=True, timeout=2)
         if result.returncode == 0 and result.stdout.strip() == '1':
-            print("Rosetta 2: Yes (x86_64 on ARM)")
+            logger.debug("Rosetta 2: Yes (x86_64 on ARM)")
         else:
-            print("Rosetta 2: No (native)")
+            logger.debug("Rosetta 2: No (native)")
     except Exception:
         pass
 
@@ -284,7 +284,7 @@ def _log_macos_environment():
             for i, disp in enumerate(displays):
                 res = disp.get('_spdisplays_resolution', 'unknown')
                 retina = disp.get('spdisplays_retina', 'unknown')
-                print(f"  macOS Display {i}: {res} Retina={retina}")
+                logger.debug(f"  macOS Display {i}: {res} Retina={retina}")
     except Exception:
         pass
 
@@ -294,7 +294,7 @@ def _log_macos_environment():
                                capture_output=True, text=True, timeout=2)
         # Just check if it runs - detailed parsing would be verbose
         if result.returncode == 0:
-            print("WindowServer: accessible")
+            logger.debug("WindowServer: accessible")
     except Exception:
         pass
 
@@ -303,28 +303,28 @@ def _log_linux_environment():
     """Log Linux/GTK-specific GUI environment info."""
     # Session type
     session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
-    print(f"XDG_SESSION_TYPE: {session_type}")
-    print(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
-    print(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
+    logger.debug(f"XDG_SESSION_TYPE: {session_type}")
+    logger.debug(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
+    logger.debug(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
 
     # Desktop environment
     desktop = os.environ.get('XDG_CURRENT_DESKTOP',
               os.environ.get('DESKTOP_SESSION', 'unknown'))
-    print(f"Desktop Environment: {desktop}")
+    logger.debug(f"Desktop Environment: {desktop}")
 
     # GTK version (if available)
     try:
         import gi
         gi.require_version('Gtk', '3.0')
         from gi.repository import Gtk
-        print(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+        logger.debug(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
     except Exception as e:
-        print(f"GTK Version: unavailable ({e})")
+        logger.debug(f"GTK Version: unavailable ({e})")
 
     # GDK backend
     try:
         gdk_backend = os.environ.get('GDK_BACKEND', 'auto')
-        print(f"GDK_BACKEND: {gdk_backend}")
+        logger.debug(f"GDK_BACKEND: {gdk_backend}")
     except Exception:
         pass
 
@@ -396,72 +396,8 @@ def _log_linux_environment():
     except Exception:
         pass
 
-    print(f"Window Manager: {wm_name}")
-    print(f"WM Version: {wm_version}")
-
-
-class RedirectedOutput(object):
-    _rx_ignore = [
-        re.compile("RuntimeWarning: PyOS_InputHook"),
-    ]
-
-    def __init__(self):
-        self.__handle = None
-        self.__path = os.path.join(
-            Settings.pathToDocumentsDir(), "taskcoachlog.txt"
-        )
-        self.__error_mode = True  # When True, writes are treated as errors
-        self.__has_errors = False
-
-    def set_error_mode(self, enabled):
-        """Set whether writes should be treated as errors for the popup.
-
-        Args:
-            enabled: If True (default), writes will trigger the error popup.
-                     If False, writes are logged but won't trigger the popup.
-        """
-        self.__error_mode = enabled
-
-    def write(self, bf):
-        for rx in self._rx_ignore:
-            if rx.search(bf):
-                return
-
-        if self.__handle is None:
-            self.__handle = open(self.__path, "a+")
-            self.__handle.write("============= %s\n" % time.ctime())
-        self.__handle.write(bf)
-
-        if self.__error_mode:
-            self.__has_errors = True
-
-    def flush(self):
-        pass
-
-    def close(self):
-        if self.__handle is not None:
-            self.__handle.close()
-            self.__handle = None
-
-    def summary(self):
-        if self.__has_errors:
-            self.close()
-            if operating_system.isWindows():
-                wx.MessageBox(
-                    _(
-                        'Errors have occured. Please see "taskcoachlog.txt" in your "My Documents" folder.'
-                    ),
-                    _("Error"),
-                    wx.OK,
-                )
-            else:
-                wx.MessageBox(
-                    _('Errors have occured. Please see "%s"') % self.__path,
-                    _("Error"),
-                    wx.OK,
-                )
-        elif self.__handle is not None:
-            self.close()
+    logger.debug(f"Window Manager: {wm_name}")
+    logger.debug(f"WM Version: {wm_version}")
 
 
 # pylint: disable=W0404
@@ -480,19 +416,8 @@ class wxApp(wx.App):
     def OnInit(self):
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
-
-        try:
-            isatty = sys.stdout.isatty()
-        except AttributeError:
-            isatty = False
-
-        if (
-            operating_system.isWindows()
-            and hasattr(sys, "frozen")
-            and not isatty
-        ) or not isatty:
-            sys.stdout = sys.stderr = RedirectedOutput()
-
+        # NOTE: stdout/stderr redirection removed.
+        # Now using Python's logging module instead - see init_logging().
         return True
 
     def onQueryEndSession(self, event=None):
@@ -583,12 +508,12 @@ class Application(object, metaclass=patterns.Singleton):
 
         # Log version info at startup for debugging
         if meta.git_commit_hash:
-            print(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
+            logger.debug(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
         else:
-            print(f"Task Coach {meta.version_full}")
-        print(f"Python {sys.version}")
-        print(f"wxPython {wx.version()}")
-        print(f"Platform: {platform.platform()}")
+            logger.debug(f"Task Coach {meta.version_full}")
+        logger.debug(f"Python {sys.version}")
+        logger.debug(f"wxPython {wx.version()}")
+        logger.debug(f"Platform: {platform.platform()}")
 
         # Log GTK/glibc info on Linux
         if platform.system() == 'Linux':
@@ -597,14 +522,14 @@ class Application(object, metaclass=patterns.Singleton):
                 libc = ctypes.CDLL('libc.so.6')
                 gnu_get_libc_version = libc.gnu_get_libc_version
                 gnu_get_libc_version.restype = ctypes.c_char_p
-                print(f"glibc {gnu_get_libc_version().decode()}")
+                logger.debug(f"glibc {gnu_get_libc_version().decode()}")
             except (OSError, AttributeError):
                 pass  # glibc version detection may fail
 
         # Log zeroconf version (used for iPhone sync)
         try:
             import zeroconf
-            print(f"zeroconf {zeroconf.__version__}")
+            logger.debug(f"zeroconf {zeroconf.__version__}")
         except ImportError:
             pass  # zeroconf is optional
 
@@ -664,14 +589,12 @@ class Application(object, metaclass=patterns.Singleton):
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
         Application.start()."""
-        # Log version/environment info for debugging. Disable error mode so
-        # this debug logging doesn't trigger the error popup on exit.
-        if isinstance(sys.stdout, RedirectedOutput):
-            sys.stdout.set_error_mode(False)
+        # Initialize the logging system first
+        init_logging()
+
+        # Log version/environment info for debugging
         self._log_version_info()
         _log_gui_environment()
-        if isinstance(sys.stdout, RedirectedOutput):
-            sys.stdout.set_error_mode(True)
 
         self.__init_config(loadSettings)
         self.__init_language()
@@ -1008,8 +931,8 @@ Break the lock?"""
         if operating_system.isGTK() and self.sessionMonitor is not None:
             self.sessionMonitor.stop()
 
-        if isinstance(sys.stdout, RedirectedOutput):
-            sys.stdout.summary()
+        # Check if errors occurred and show popup if needed, then close log file
+        shutdown_logging()
 
         # NOTE: stopTwisted() call removed - no longer using Twisted reactor.
         # wxPython's MainLoop exits naturally when all windows are closed.
