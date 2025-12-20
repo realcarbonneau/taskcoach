@@ -114,7 +114,8 @@ class Settings(CachingConfigParser):
                       "configuration file.\n\n"
                       "You can run multiple instances with different configuration "
                       "files using the --ini option:\n"
-                      "  taskcoach --ini=/path/to/other.ini") % meta.name,
+                      "  taskcoach --ini=/path/to/other.ini\n\n"
+                      "The program will now exit.") % meta.name,
                     _("%s: configuration locked") % meta.name,
                     style=wx.OK | wx.ICON_ERROR,
                 )
