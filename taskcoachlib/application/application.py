@@ -597,6 +597,17 @@ class Application(object, metaclass=patterns.Singleton):
 
         self.__wx_app.SetAppName(meta.name)
         self.__wx_app.SetVendorName(meta.author)
+        # Set WM_CLASS for Linux app grouping (must match StartupWMClass in .desktop)
+        self.__wx_app.SetClassName("taskcoach")
+        # Set AppUserModelID for Windows 7+ taskbar grouping
+        if operating_system.isWindows():
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                    "org.taskcoach.TaskCoach"
+                )
+            except (ImportError, AttributeError, OSError):
+                pass  # Not on Windows or API not available
 
     def __init_spell_checking(self):
         self.on_spell_checking(
