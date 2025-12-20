@@ -36,269 +36,32 @@ import subprocess
 
 
 # ============================================================================
-# Logging Setup
+# Logging Functions
 # ============================================================================
 #
-# Simple logging system for Task Coach that mirrors ALL output to a log file.
+# Simple logging using stdout/stderr. The tee module (initialized in
+# taskcoach.py) captures all output to the log file.
 #
 # Architecture:
-#   - Console output works normally (no interference)
-#   - All stderr output is ALSO mirrored to the log file
-#   - Uses OS-level fd redirection with a pipe and tee thread
-#   - This captures both Python stderr AND native C library output (GTK, pixman)
-#
-# Usage:
-#   log_message("Version info...")    -> Goes to log file (and stderr if TTY)
-#   log_error("Something broke!")     -> Same + sets error flag for popup
-#   print("debug", file=sys.stderr)   -> Goes to console AND log file
-#   GTK-CRITICAL, pixman BUG, etc.    -> Goes to console AND log file
+#   - log_message() prints to stdout (informational messages)
+#   - log_error() prints to stderr (errors)
+#   - The tee captures both stdout and stderr to log file
+#   - Any stderr output triggers error popup on exit
 #
 # ============================================================================
 
-# Module state - initialized by init_logging()
-_log_file = None
-_original_stderr_fd = None  # The original fd 2 (for console output)
-_tee_thread = None
-_tee_stop_event = None
-_has_errors = False
-_has_errors_lock = threading.Lock()
-
-# Patterns that indicate a real error in stderr (not just debug info)
-_ERROR_PATTERNS = re.compile(
-    r'CRITICAL|ERROR|\*\*\* BUG \*\*\*|assertion.*failed|'
-    r'Segmentation fault|SIGSEGV|SIGABRT|core dumped',
-    re.IGNORECASE
-)
-
-
-def _set_error():
-    """Mark that an error has occurred. Thread-safe."""
-    global _has_errors
-    with _has_errors_lock:
-        _has_errors = True
-
-
-def _get_has_errors():
-    """Check if any errors occurred. Thread-safe."""
-    with _has_errors_lock:
-        return _has_errors
+# Import tee module for shutdown and error checking
+from taskcoachlib import tee
 
 
 def log_message(msg):
-    """Log a debug message to the log file (and stderr if running from terminal)."""
-    if _log_file is None:
-        return
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    line = f"{timestamp} [DEBUG] {msg}\n"
-    try:
-        _log_file.write(line)
-        _log_file.flush()
-    except Exception:
-        pass
-    # Also write to stderr so it appears on console
-    try:
-        sys.stderr.write(line)
-        sys.stderr.flush()
-    except Exception:
-        pass
+    """Log a message to stdout (captured by tee to log file)."""
+    print(msg)
 
 
 def log_error(msg):
-    """Log an error message and set the error flag for the exit popup."""
-    if _log_file is None:
-        return
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    line = f"{timestamp} [ERROR] {msg}\n"
-    try:
-        _log_file.write(line)
-        _log_file.flush()
-    except Exception:
-        pass
-    try:
-        sys.stderr.write(line)
-        sys.stderr.flush()
-    except Exception:
-        pass
-    _set_error()
-
-
-def _tee_reader(pipe_read_fd, original_fd, log_file, stop_event):
-    """Background thread that reads from pipe and writes to both console and log.
-
-    This implements the 'tee' functionality at the OS level.
-    Works on Windows, Linux, and macOS.
-    """
-    # Wrap the fd in a file object for easier reading
-    # Use os.fdopen to get a file object from the fd
-    try:
-        pipe_file = os.fdopen(pipe_read_fd, 'rb', buffering=0)
-    except Exception:
-        return
-
-    while not stop_event.is_set():
-        try:
-            # Read a chunk of data (this blocks until data is available or EOF)
-            # On Windows, we can't use select() on pipes, so we just block
-            # The daemon thread will be killed when the main app exits
-            data = pipe_file.read(4096)
-            if not data:
-                break
-            # Write to original console
-            try:
-                os.write(original_fd, data)
-            except OSError:
-                pass
-            # Write to log file with timestamp
-            try:
-                text = data.decode('utf-8', errors='replace')
-                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                for line in text.splitlines(keepends=True):
-                    log_file.write(f"{timestamp} [STDERR] {line}")
-                    if not line.endswith('\n'):
-                        log_file.write('\n')
-                log_file.flush()
-                # Check for error patterns
-                if _ERROR_PATTERNS.search(text):
-                    _set_error()
-            except Exception:
-                pass
-        except OSError:
-            break
-        except Exception:
-            pass
-
-    try:
-        pipe_file.close()
-    except Exception:
-        pass
-
-
-def init_logging():
-    """Initialize the logging system.
-
-    Sets up:
-    - Log file for all messages
-    - OS-level stderr tee (all stderr goes to BOTH console AND log file)
-    - Exception hook for uncaught exceptions
-
-    Called early in Application.init().
-    """
-    global _log_file, _original_stderr_fd, _tee_thread, _tee_stop_event
-
-    log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
-
-    # Open log file
-    _log_file = open(log_path, 'a', encoding='utf-8')
-
-    # Set up OS-level stderr tee
-    # 1. Save original stderr fd
-    # 2. Create a pipe
-    # 3. Redirect fd 2 (stderr) to pipe write end
-    # 4. Start a thread that reads from pipe and writes to both original fd and log
-    try:
-        # Save the original stderr file descriptor
-        _original_stderr_fd = os.dup(2)
-
-        # Create a pipe
-        pipe_read, pipe_write = os.pipe()
-
-        # Redirect stderr (fd 2) to the pipe write end
-        os.dup2(pipe_write, 2)
-        os.close(pipe_write)  # Close our copy, fd 2 now owns it
-
-        # Also update sys.stderr to use the pipe
-        sys.stderr = os.fdopen(2, 'w', buffering=1)  # Line buffered
-
-        # Start the tee reader thread
-        _tee_stop_event = threading.Event()
-        _tee_thread = threading.Thread(
-            target=_tee_reader,
-            args=(pipe_read, _original_stderr_fd, _log_file, _tee_stop_event),
-            daemon=True
-        )
-        _tee_thread.start()
-    except Exception:
-        # If tee setup fails, just continue without it
-        pass
-
-    # Log session start marker
-    log_message("=" * 60)
-    log_message("Task Coach session started")
-    log_message("=" * 60)
-
-    # Install exception hook to log uncaught exceptions
-    _original_excepthook = sys.excepthook
-
-    def logging_excepthook(exc_type, exc_value, exc_traceback):
-        """Log uncaught exceptions before they crash the app."""
-        if issubclass(exc_type, KeyboardInterrupt):
-            sys.__excepthook__(exc_type, exc_value, exc_traceback)
-            return
-        import traceback
-        tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-        log_error("Uncaught exception:\n" + "".join(tb_lines))
-        _original_excepthook(exc_type, exc_value, exc_traceback)
-
-    sys.excepthook = logging_excepthook
-
-
-def shutdown_logging():
-    """Check if errors occurred and show popup if needed, then close log file.
-
-    Called from Application.quitApplication().
-    """
-    global _log_file, _original_stderr_fd, _tee_thread, _tee_stop_event
-
-    # Stop the tee thread
-    if _tee_stop_event is not None:
-        _tee_stop_event.set()
-    if _tee_thread is not None:
-        # Flush stderr to ensure all data is written
-        try:
-            sys.stderr.flush()
-        except Exception:
-            pass
-        # Wait for thread to finish (with timeout)
-        _tee_thread.join(timeout=1.0)
-        _tee_thread = None
-
-    # Restore original stderr
-    if _original_stderr_fd is not None:
-        try:
-            os.dup2(_original_stderr_fd, 2)
-            os.close(_original_stderr_fd)
-            sys.stderr = os.fdopen(2, 'w', buffering=1)
-        except Exception:
-            pass
-        _original_stderr_fd = None
-
-    has_errors = _get_has_errors()
-
-    # Close log file
-    if _log_file:
-        try:
-            _log_file.close()
-        except Exception:
-            pass
-        _log_file = None
-
-    # Show error popup if needed
-    if has_errors:
-        log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
-        if operating_system.isWindows():
-            wx.MessageBox(
-                _(
-                    'Errors have occured. Please see "taskcoachlog.txt" in your "My Documents" folder.'
-                ),
-                _("Error"),
-                wx.OK,
-            )
-        else:
-            wx.MessageBox(
-                _('Errors have occured. Please see "%s"') % log_path,
-                _("Error"),
-                wx.OK,
-            )
+    """Log an error to stderr (captured by tee, triggers exit popup)."""
+    print(msg, file=sys.stderr)
 
 
 def _log_gui_environment():
@@ -545,7 +308,7 @@ class wxApp(wx.App):
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
         # NOTE: stdout/stderr redirection removed.
-        # Now using Python's logging module instead - see init_logging().
+        # Now using tee module initialized in taskcoach.py.
         return True
 
     def onQueryEndSession(self, event=None):
@@ -717,8 +480,7 @@ class Application(object, metaclass=patterns.Singleton):
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
         Application.start()."""
-        # Initialize the logging system first
-        init_logging()
+        # Note: tee is initialized in taskcoach.py before any imports
 
         # Log version/environment info for debugging
         self._log_version_info()
@@ -1059,8 +821,25 @@ Break the lock?"""
         if operating_system.isGTK() and self.sessionMonitor is not None:
             self.sessionMonitor.stop()
 
-        # Check if errors occurred and show popup if needed, then close log file
-        shutdown_logging()
+        # Shutdown tee and show error popup if any errors occurred
+        has_errors = tee.shutdown_tee()
+        if has_errors:
+            from taskcoachlib.config import Settings
+            log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
+            if operating_system.isWindows():
+                wx.MessageBox(
+                    _(
+                        'Errors have occured. Please see "taskcoachlog.txt" in your "My Documents" folder.'
+                    ),
+                    _("Error"),
+                    wx.OK,
+                )
+            else:
+                wx.MessageBox(
+                    _('Errors have occured. Please see "%s"') % log_path,
+                    _("Error"),
+                    wx.OK,
+                )
 
         # NOTE: stopTwisted() call removed - no longer using Twisted reactor.
         # wxPython's MainLoop exits naturally when all windows are closed.

@@ -20,6 +20,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import sys
+
+# Initialize output tee FIRST, before any other imports that might
+# produce output (especially wx/GTK which load native libraries).
+# This captures all stdout/stderr to the log file.
+from taskcoachlib.tee import init_tee
+init_tee()
+
 import faulthandler
 
 # Enable faulthandler to get Python tracebacks on segfaults
