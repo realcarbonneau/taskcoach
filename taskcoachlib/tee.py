@@ -15,7 +15,6 @@ Usage (in taskcoach.py, before other imports):
 """
 
 import os
-import re
 import sys
 import threading
 
@@ -29,13 +28,6 @@ _stderr_thread = None
 _stop_event = None
 _has_errors = False
 _has_errors_lock = threading.Lock()
-
-# Patterns that indicate a real error (not just debug/warning messages)
-_ERROR_PATTERNS = re.compile(
-    r'CRITICAL|ERROR|\*\*\* BUG \*\*\*|assertion.*failed|'
-    r'Segmentation fault|SIGSEGV|SIGABRT|core dumped',
-    re.IGNORECASE
-)
 
 
 def _get_log_path():
@@ -72,15 +64,14 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
                     pass
 
                 # Write to log file (raw, no formatting)
-                text = data.decode('utf-8', errors='replace')
                 try:
-                    log_file.write(text)
+                    log_file.write(data.decode('utf-8', errors='replace'))
                     log_file.flush()
                 except Exception:
                     pass
 
-                # Set error flag only if stderr contains error patterns
-                if is_stderr and _ERROR_PATTERNS.search(text):
+                # Set error flag if any stderr data
+                if is_stderr:
                     with _has_errors_lock:
                         _has_errors = True
 
