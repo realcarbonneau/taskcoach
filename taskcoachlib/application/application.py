@@ -734,7 +734,11 @@ class Application(object, metaclass=patterns.Singleton):
         self.settings.setboolean("file", "inifileloaded", True)  # Reset
 
     def displayMessage(self, message):
-        self.mainwindow.displayMessage(message)
+        try:
+            if self.mainwindow:
+                self.mainwindow.displayMessage(message)
+        except RuntimeError:
+            pass  # Window already destroyed
 
     def on_end_session(self):
         self.mainwindow.setShutdownInProgress()

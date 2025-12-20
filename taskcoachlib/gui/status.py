@@ -64,16 +64,22 @@ class StatusBar(wx.StatusBar):
             status1, status2 = self.viewer.statusMessages()
         except AttributeError:
             return  # Viewer container contains no viewers
-        super().SetStatusText(status1, 0)
-        super().SetStatusText(status2, 1)
+        try:
+            super().SetStatusText(status1, 0)
+            super().SetStatusText(status2, 1)
+        except RuntimeError:
+            pass  # Widget already destroyed
 
     def SetStatusText(
         self, message, pane=0, delay=3000
     ):  # pylint: disable=W0221
-        if self.scheduledStatusDisplay:
-            self.scheduledStatusDisplay.Stop()
-        super().SetStatusText(message, pane)
-        self.scheduledStatusDisplay = wx.CallLater(delay, self._displayStatus)
+        try:
+            if self.scheduledStatusDisplay:
+                self.scheduledStatusDisplay.Stop()
+            super().SetStatusText(message, pane)
+            self.scheduledStatusDisplay = wx.CallLater(delay, self._displayStatus)
+        except RuntimeError:
+            pass  # Widget already destroyed
 
     def Destroy(self):  # pylint: disable=W0221
         for eventType in self.wxEventTypes:

@@ -329,9 +329,12 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         self.SetTitle(title)
 
     def displayMessage(self, message, pane=0):
-        statusBar = self.GetStatusBar()
-        if statusBar:
-            statusBar.SetStatusText(message, pane)
+        try:
+            statusBar = self.GetStatusBar()
+            if statusBar:
+                statusBar.SetStatusText(message, pane)
+        except RuntimeError:
+            pass  # Widget already destroyed
 
     def save_settings(self):
         self.__save_viewer_counts()
