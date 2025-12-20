@@ -23,6 +23,7 @@ from taskcoachlib import patterns, operating_system
 from taskcoachlib.i18n import _
 from pubsub import pub
 from taskcoachlib.config import Settings
+import datetime
 import locale
 import os
 import sys
@@ -34,14 +35,43 @@ import threading
 import subprocess
 
 
+# ============================================================================
+# Logging Functions
+# ============================================================================
+#
+# Simple logging using stdout/stderr. The tee module (initialized in
+# taskcoach.py) captures all output to the log file.
+#
+# Architecture:
+#   - log_message() prints to stdout (informational messages)
+#   - log_error() prints to stderr (errors)
+#   - The tee captures both stdout and stderr to log file
+#   - Any stderr output triggers error popup on exit
+#
+# ============================================================================
+
+# Import tee module for shutdown and error checking
+from taskcoachlib import tee
+
+
+def log_message(msg):
+    """Log a message to stdout (captured by tee to log file)."""
+    print(msg)
+
+
+def log_error(msg):
+    """Log an error to stderr (captured by tee, triggers exit popup)."""
+    print(msg, file=sys.stderr)
+
+
 def _log_gui_environment():
     """Log GUI environment details for debugging window positioning issues."""
-    print("\n" + "="*60)
-    print("GUI ENVIRONMENT INFO")
-    print("="*60)
+    log_message("=" * 60)
+    log_message("GUI ENVIRONMENT INFO")
+    log_message("=" * 60)
 
     # wx platform details (more detailed than basic wx.version())
-    print(f"wx.PlatformInfo: {wx.PlatformInfo}")
+    log_message(f"wx.PlatformInfo: {wx.PlatformInfo}")
 
     # Platform-specific info
     if sys.platform == 'win32':
@@ -54,7 +84,7 @@ def _log_gui_environment():
     # Display/monitor info (cross-platform)
     try:
         num_displays = wx.Display.GetCount()
-        print(f"Number of displays: {num_displays}")
+        log_message(f"Number of displays: {num_displays}")
         for i in range(num_displays):
             display = wx.Display(i)
             geom = display.GetGeometry()
@@ -62,16 +92,16 @@ def _log_gui_environment():
             # Get DPI/scaling if available
             try:
                 ppi = display.GetPPI()
-                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
-                      f"client_area={client.x},{client.y} {client.width}x{client.height}  "
-                      f"PPI={ppi.x}x{ppi.y}")
+                log_message(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                             f"client_area={client.x},{client.y} {client.width}x{client.height}  "
+                             f"PPI={ppi.x}x{ppi.y}")
             except Exception:
-                print(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
-                      f"client_area={client.x},{client.y} {client.width}x{client.height}")
+                log_message(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                             f"client_area={client.x},{client.y} {client.width}x{client.height}")
     except Exception as e:
-        print(f"Display info unavailable: {e}")
+        log_message(f"Display info unavailable: {e}")
 
-    print("="*60 + "\n")
+    log_message("=" * 60)
 
 
 def _log_windows_environment():
@@ -79,26 +109,26 @@ def _log_windows_environment():
     import platform
 
     # Windows version
-    print(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
-    print(f"Windows Edition: {platform.win32_edition()}")
+    log_message(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
+    log_message(f"Windows Edition: {platform.win32_edition()}")
 
     # DPI awareness
     try:
         import ctypes
         awareness = ctypes.windll.shcore.GetProcessDpiAwareness(0)
         awareness_names = {0: 'Unaware', 1: 'System', 2: 'PerMonitor'}
-        print(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
+        log_message(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
     except Exception as e:
-        print(f"DPI Awareness: unavailable ({e})")
+        log_message(f"DPI Awareness: unavailable ({e})")
 
     # DWM (Desktop Window Manager) composition
     try:
         import ctypes
         dwm_enabled = ctypes.c_bool()
         ctypes.windll.dwmapi.DwmIsCompositionEnabled(ctypes.byref(dwm_enabled))
-        print(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
+        log_message(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
     except Exception as e:
-        print(f"DWM Composition: unavailable ({e})")
+        log_message(f"DWM Composition: unavailable ({e})")
 
     # System DPI
     try:
@@ -107,9 +137,9 @@ def _log_windows_environment():
         dpi_x = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
         dpi_y = ctypes.windll.gdi32.GetDeviceCaps(hdc, 90)  # LOGPIXELSY
         ctypes.windll.user32.ReleaseDC(0, hdc)
-        print(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
+        log_message(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
     except Exception as e:
-        print(f"System DPI: unavailable ({e})")
+        log_message(f"System DPI: unavailable ({e})")
 
 
 def _log_macos_environment():
@@ -118,17 +148,17 @@ def _log_macos_environment():
 
     # macOS version
     mac_ver = platform.mac_ver()
-    print(f"macOS Version: {mac_ver[0]}")
-    print(f"Architecture: {mac_ver[2]}")
+    log_message(f"macOS Version: {mac_ver[0]}")
+    log_message(f"Architecture: {mac_ver[2]}")
 
     # Check if running under Rosetta (Apple Silicon)
     try:
         result = subprocess.run(['sysctl', '-n', 'sysctl.proc_translated'],
                                capture_output=True, text=True, timeout=2)
         if result.returncode == 0 and result.stdout.strip() == '1':
-            print("Rosetta 2: Yes (x86_64 on ARM)")
+            log_message("Rosetta 2: Yes (x86_64 on ARM)")
         else:
-            print("Rosetta 2: No (native)")
+            log_message("Rosetta 2: No (native)")
     except Exception:
         pass
 
@@ -145,7 +175,7 @@ def _log_macos_environment():
             for i, disp in enumerate(displays):
                 res = disp.get('_spdisplays_resolution', 'unknown')
                 retina = disp.get('spdisplays_retina', 'unknown')
-                print(f"  macOS Display {i}: {res} Retina={retina}")
+                log_message(f"  macOS Display {i}: {res} Retina={retina}")
     except Exception:
         pass
 
@@ -155,7 +185,7 @@ def _log_macos_environment():
                                capture_output=True, text=True, timeout=2)
         # Just check if it runs - detailed parsing would be verbose
         if result.returncode == 0:
-            print("WindowServer: accessible")
+            log_message("WindowServer: accessible")
     except Exception:
         pass
 
@@ -164,28 +194,28 @@ def _log_linux_environment():
     """Log Linux/GTK-specific GUI environment info."""
     # Session type
     session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
-    print(f"XDG_SESSION_TYPE: {session_type}")
-    print(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
-    print(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
+    log_message(f"XDG_SESSION_TYPE: {session_type}")
+    log_message(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
+    log_message(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
 
     # Desktop environment
     desktop = os.environ.get('XDG_CURRENT_DESKTOP',
               os.environ.get('DESKTOP_SESSION', 'unknown'))
-    print(f"Desktop Environment: {desktop}")
+    log_message(f"Desktop Environment: {desktop}")
 
     # GTK version (if available)
     try:
         import gi
         gi.require_version('Gtk', '3.0')
         from gi.repository import Gtk
-        print(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+        log_message(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
     except Exception as e:
-        print(f"GTK Version: unavailable ({e})")
+        log_message(f"GTK Version: unavailable ({e})")
 
     # GDK backend
     try:
         gdk_backend = os.environ.get('GDK_BACKEND', 'auto')
-        print(f"GDK_BACKEND: {gdk_backend}")
+        log_message(f"GDK_BACKEND: {gdk_backend}")
     except Exception:
         pass
 
@@ -257,56 +287,8 @@ def _log_linux_environment():
     except Exception:
         pass
 
-    print(f"Window Manager: {wm_name}")
-    print(f"WM Version: {wm_version}")
-
-
-class RedirectedOutput(object):
-    _rx_ignore = [
-        re.compile("RuntimeWarning: PyOS_InputHook"),
-    ]
-
-    def __init__(self):
-        self.__handle = None
-        self.__path = os.path.join(
-            Settings.pathToDocumentsDir(), "taskcoachlog.txt"
-        )
-
-    def write(self, bf):
-        for rx in self._rx_ignore:
-            if rx.search(bf):
-                return
-
-        if self.__handle is None:
-            self.__handle = open(self.__path, "a+")
-            self.__handle.write("============= %s\n" % time.ctime())
-        self.__handle.write(bf)
-
-    def flush(self):
-        pass
-
-    def close(self):
-        if self.__handle is not None:
-            self.__handle.close()
-            self.__handle = None
-
-    def summary(self):
-        if self.__handle is not None:
-            self.close()
-            if operating_system.isWindows():
-                wx.MessageBox(
-                    _(
-                        'Errors have occured. Please see "taskcoachlog.txt" in your "My Documents" folder.'
-                    ),
-                    _("Error"),
-                    wx.OK,
-                )
-            else:
-                wx.MessageBox(
-                    _('Errors have occured. Please see "%s"') % self.__path,
-                    _("Error"),
-                    wx.OK,
-                )
+    log_message(f"Window Manager: {wm_name}")
+    log_message(f"WM Version: {wm_version}")
 
 
 # pylint: disable=W0404
@@ -325,19 +307,8 @@ class wxApp(wx.App):
     def OnInit(self):
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
-
-        try:
-            isatty = sys.stdout.isatty()
-        except AttributeError:
-            isatty = False
-
-        if (
-            operating_system.isWindows()
-            and hasattr(sys, "frozen")
-            and not isatty
-        ) or not isatty:
-            sys.stdout = sys.stderr = RedirectedOutput()
-
+        # NOTE: stdout/stderr redirection removed.
+        # Now using tee module initialized in taskcoach.py.
         return True
 
     def onQueryEndSession(self, event=None):
@@ -428,12 +399,12 @@ class Application(object, metaclass=patterns.Singleton):
 
         # Log version info at startup for debugging
         if meta.git_commit_hash:
-            print(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
+            log_message(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
         else:
-            print(f"Task Coach {meta.version_full}")
-        print(f"Python {sys.version}")
-        print(f"wxPython {wx.version()}")
-        print(f"Platform: {platform.platform()}")
+            log_message(f"Task Coach {meta.version_full}")
+        log_message(f"Python {sys.version}")
+        log_message(f"wxPython {wx.version()}")
+        log_message(f"Platform: {platform.platform()}")
 
         # Log GTK/glibc info on Linux
         if platform.system() == 'Linux':
@@ -442,14 +413,14 @@ class Application(object, metaclass=patterns.Singleton):
                 libc = ctypes.CDLL('libc.so.6')
                 gnu_get_libc_version = libc.gnu_get_libc_version
                 gnu_get_libc_version.restype = ctypes.c_char_p
-                print(f"glibc {gnu_get_libc_version().decode()}")
+                log_message(f"glibc {gnu_get_libc_version().decode()}")
             except (OSError, AttributeError):
                 pass  # glibc version detection may fail
 
         # Log zeroconf version (used for iPhone sync)
         try:
             import zeroconf
-            print(f"zeroconf {zeroconf.__version__}")
+            log_message(f"zeroconf {zeroconf.__version__}")
         except ImportError:
             pass  # zeroconf is optional
 
@@ -509,10 +480,10 @@ class Application(object, metaclass=patterns.Singleton):
     def init(self, loadSettings=True, loadTaskFile=True):
         """Initialize the application. Needs to be called before
         Application.start()."""
-        # Log version info FIRST - critical for debugging crashes during init
-        self._log_version_info()
+        # Note: tee is initialized in taskcoach.py before any imports
 
-        # Log GUI environment for debugging window positioning
+        # Log version/environment info for debugging
+        self._log_version_info()
         _log_gui_environment()
 
         self.__init_config(loadSettings)
@@ -850,8 +821,15 @@ Break the lock?"""
         if operating_system.isGTK() and self.sessionMonitor is not None:
             self.sessionMonitor.stop()
 
-        if isinstance(sys.stdout, RedirectedOutput):
-            sys.stdout.summary()
+        # Shutdown tee and show error popup if any errors occurred
+        has_errors = tee.shutdown_tee()
+        if has_errors:
+            log_path = tee.get_log_path()
+            wx.MessageBox(
+                _('Errors have occured. Please see "%s"') % log_path,
+                _("Error"),
+                wx.OK,
+            )
 
         # NOTE: stopTwisted() call removed - no longer using Twisted reactor.
         # wxPython's MainLoop exits naturally when all windows are closed.

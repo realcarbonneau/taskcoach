@@ -1963,6 +1963,100 @@ if operating_system.isGTK():
 - ✅ App icon grouping across platforms (December 2025) - Added WM_CLASS, StartupWMClass, CFBundleIdentifier, AppUserModelID
 - ✅ GNOME Wayland app icon shows generic gear (December 2025) - Added g_set_prgname via ctypes before GTK init
 - ✅ Python 3.12+ SyntaxWarning for invalid escape sequence (December 2025) - Fixed with raw string in desktop module docstring
+- ✅ Error popup showing without errors (December 2025) - Replaced RedirectedOutput hack with simple log_message/log_error functions
+
+---
+
+## Logging Infrastructure: RedirectedOutput → Simple Custom Logging
+
+**Date Fixed:** December 2025
+**Affected Components:** `taskcoachlib/application/application.py`
+**Root Cause:** The old `RedirectedOutput` class was a hack that captured stdout/stderr and showed an error popup if anything was written, but couldn't distinguish between debug info and actual errors.
+
+### Problem Overview
+
+Task Coach would show an "Errors have occurred" popup on exit even when there were no errors, because:
+1. The `RedirectedOutput` class captured all stdout/stderr output
+2. Startup debug logging (version info, GUI environment) wrote to stdout
+3. The `summary()` method checked if anything was written and showed the popup
+
+### Previous Workarounds (All Flawed)
+
+| Approach | Problem |
+|----------|---------|
+| Toggle `error_mode` flag | Not thread-safe - race conditions could miss errors |
+| Add `is_error` parameter to `write()` | Can't control what `print()` passes to `write()` |
+| Only log when running from TTY | Loses debug info in log file for debugging crashes |
+| Python `logging` module + ErrorTracker | Overly complex, still needed separate stderr capture |
+
+### The Simple Solution: Custom log_message/log_error Functions
+
+Replaced the `RedirectedOutput` hack with simple, unified logging:
+
+```python
+# Module state
+_log_file = None
+_has_errors = False
+_has_errors_lock = threading.Lock()
+
+def log_message(msg):
+    """Log a debug message to file (and stdout if TTY)."""
+    _write_log(msg, "DEBUG")
+
+def log_error(msg):
+    """Log an error and set the popup flag."""
+    _write_log(msg, "ERROR")
+    _set_error()
+
+# File descriptor level stderr capture for native C library output
+# Uses os.dup2() to redirect fd 2 through a pipe
+# Background thread reads pipe, logs to file, echoes to terminal
+def _stderr_reader_loop(pipe_read_fd, original_stderr_fd):
+    while not _stop_stderr_reader:
+        line = pipe_reader.readline()
+        # Log to file, echo to original stderr
+        if _ERROR_PATTERNS.search(line):
+            _set_error()
+```
+
+### Usage
+
+```python
+log_message("Task Coach version 1.6.1")  # → file only, no popup
+log_message("GUI environment info...")    # → file only, no popup
+log_error("Something went wrong!")        # → file AND sets _has_errors=True
+# Native stderr (GTK-CRITICAL etc)        # → captured, checked for error patterns
+```
+
+### Benefits
+
+1. **Simple**: Two functions, one error flag, one stderr capture
+2. **Thread-safe**: `_has_errors_lock` protects the error flag
+3. **Unified**: Both Python and native library errors go through the same system
+4. **True native library support**: File descriptor level capture (os.dup2) catches all C library stderr output
+5. **No dependencies**: No `logging` module, just simple file I/O and os.pipe()
+
+### Error Patterns Detected in stderr
+
+The stderr capture checks for these patterns (case-insensitive):
+- `CRITICAL`, `ERROR`
+- `*** BUG ***`
+- `assertion.*failed`
+- `Segmentation fault`, `SIGSEGV`, `SIGABRT`
+- `core dumped`
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `taskcoachlib/application/application.py` | Removed `RedirectedOutput`, added simple logging functions |
+
+### Key Functions
+
+- `init_logging()` - Opens log file, installs stderr capture, sets up exception hook
+- `shutdown_logging()` - Checks `_has_errors` and shows popup if needed, closes file
+- `log_message(msg)` - Log debug message (no popup trigger)
+- `log_error(msg)` - Log error message (triggers popup)
 
 ---
 
