@@ -760,8 +760,7 @@ class LockedTaskFile(TaskFile):
         self.__lock.break_lock()
 
     def close(self):
-        if self.filename() and os.path.exists(self.filename()):
-            self.acquire_lock(self.filename())
+        """Close the file and release the lock."""
         try:
             super().close()
         finally:
@@ -770,28 +769,29 @@ class LockedTaskFile(TaskFile):
     def load(
         self, filename=None, lock=True, breakLock=False
     ):  # pylint: disable=W0221
-        """Lock the file before we load, if not already locked."""
+        """Lock the file and keep it locked until close() is called."""
         filename = filename or self.filename()
+        if lock and filename:
+            if breakLock:
+                self.break_lock(filename)
+            self.acquire_lock(filename)
         try:
-            if lock and filename:
-                if breakLock:
-                    self.break_lock(filename)
-                self.acquire_lock(filename)
             return super().load(filename)
-        finally:
+        except Exception:
+            # Release lock if load fails
             self.release_lock()
+            raise
 
     def save(self, **kwargs):
-        """Lock the file before we save, if not already locked."""
-        self.acquire_lock(self.filename())
-        try:
-            return super().save(**kwargs)
-        finally:
-            self.release_lock()
+        """Save the file. Lock should already be held from load()."""
+        # We should already hold the lock from load()
+        if not self.is_locked_by_me() and self.filename():
+            self.acquire_lock(self.filename())
+        return super().save(**kwargs)
 
     def mergeDiskChanges(self):
-        self.acquire_lock(self.filename())
-        try:
-            super().mergeDiskChanges()
-        finally:
-            self.release_lock()
+        """Merge disk changes. Lock should already be held from load()."""
+        # We should already hold the lock from load()
+        if not self.is_locked_by_me() and self.filename():
+            self.acquire_lock(self.filename())
+        super().mergeDiskChanges()
