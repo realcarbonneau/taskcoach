@@ -618,6 +618,11 @@ class IOController(object):
         """Show a modal lock dialog.
 
         Returns True if user clicked Yes, False otherwise.
+
+        Uses a custom wx.Dialog instead of wx.MessageDialog because:
+        1. wx.MessageDialog is a native dialog that doesn't fire EVT_SHOW
+        2. GTK ignores SetPosition() before ShowModal()
+        3. Following the pattern from widgets/dialog.py: Fit() then CentreOnParent()
         """
         import sys
 
@@ -627,50 +632,60 @@ class IOController(object):
         parent = wx.GetApp().GetTopWindow()
         log(f"parent={parent}, parent.IsShown()={parent.IsShown() if parent else None}")
 
-        # Simple MessageDialog approach with logging
-        dlg = wx.MessageDialog(
+        # Create custom dialog following widgets/dialog.py pattern
+        dlg = wx.Dialog(
             parent,
-            message,
-            title,
-            style=wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION | wx.STAY_ON_TOP,
+            title=title,
+            style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP,
         )
 
-        log(f"Dialog created: {dlg}")
+        # Create the dialog content
+        panel = wx.Panel(dlg)
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Center dialog on parent AFTER it's shown (size is 0,0 before show)
-        def centerOnParent():
-            try:
-                if not parent or not parent.IsShown():
-                    log("centerOnParent: parent not available, centering on screen")
-                    dlg.CentreOnScreen()
-                    return
+        # Icon and message in horizontal sizer
+        hSizer = wx.BoxSizer(wx.HORIZONTAL)
+        icon = wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_MESSAGE_BOX)
+        iconCtrl = wx.StaticBitmap(panel, bitmap=icon)
+        hSizer.Add(iconCtrl, 0, wx.ALL | wx.ALIGN_TOP, 10)
 
-                parentRect = parent.GetRect()
-                dlgSize = dlg.GetSize()
-                log(f"centerOnParent: Parent rect: {parentRect}, dialog size: {dlgSize}")
+        msgCtrl = wx.StaticText(panel, label=message)
+        msgCtrl.Wrap(400)
+        hSizer.Add(msgCtrl, 1, wx.ALL | wx.EXPAND, 10)
+        mainSizer.Add(hSizer, 1, wx.EXPAND)
 
-                if dlgSize.width == 0 or dlgSize.height == 0:
-                    log("centerOnParent: dialog size still 0, using CentreOnParent")
-                    dlg.CentreOnParent()
-                    return
+        # Buttons - No is default
+        btnSizer = wx.StdDialogButtonSizer()
+        yesBtn = wx.Button(panel, wx.ID_YES, _("Yes"))
+        noBtn = wx.Button(panel, wx.ID_NO, _("No"))
+        noBtn.SetDefault()
+        btnSizer.AddButton(yesBtn)
+        btnSizer.AddButton(noBtn)
+        btnSizer.Realize()
+        mainSizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
-                x = parentRect.x + (parentRect.width - dlgSize.width) // 2
-                y = parentRect.y + (parentRect.height - dlgSize.height) // 2
+        panel.SetSizer(mainSizer)
 
-                # Ensure not off-screen
-                displaySize = wx.GetDisplaySize()
-                x = max(0, min(x, displaySize.width - dlgSize.width))
-                y = max(0, min(y, displaySize.height - dlgSize.height))
+        # Size the dialog
+        dlgSizer = wx.BoxSizer(wx.VERTICAL)
+        dlgSizer.Add(panel, 1, wx.EXPAND)
+        dlg.SetSizer(dlgSizer)
 
-                log(f"centerOnParent: Calculated position: x={x}, y={y}")
-                dlg.SetPosition(wx.Point(x, y))
-                log(f"centerOnParent: Dialog position after: {dlg.GetPosition()}")
-            except Exception as e:
-                log(f"centerOnParent: Exception: {e}")
+        # Following widgets/dialog.py pattern: Fit() then CentreOnParent()
+        dlg.Fit()
+        dlg.CentreOnParent()
+        log(f"After Fit/CentreOnParent: pos={dlg.GetPosition()}, size={dlg.GetSize()}")
+
+        # Bind buttons to close dialog
+        yesBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_YES))
+        noBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_NO))
+
+        # Set focus to No button
+        noBtn.SetFocus()
 
         # Log events to understand what's happening
         def onClose(evt):
-            log(f"EVT_CLOSE received, evt={evt}")
+            log(f"EVT_CLOSE received")
             evt.Skip()
 
         def onActivate(evt):
@@ -679,29 +694,11 @@ class IOController(object):
 
         def onShow(evt):
             log(f"EVT_SHOW received, shown={evt.IsShown()}")
-            if evt.IsShown():
-                # Use CallAfter to ensure dialog is fully realized
-                wx.CallAfter(centerOnParent)
-            evt.Skip()
-
-        def onIconize(evt):
-            log(f"EVT_ICONIZE received, iconized={evt.IsIconized()}")
-            evt.Skip()
-
-        def onKillFocus(evt):
-            log(f"EVT_KILL_FOCUS received, evt={evt}")
-            evt.Skip()
-
-        def onSetFocus(evt):
-            log(f"EVT_SET_FOCUS received, evt={evt}")
             evt.Skip()
 
         dlg.Bind(wx.EVT_CLOSE, onClose)
         dlg.Bind(wx.EVT_ACTIVATE, onActivate)
         dlg.Bind(wx.EVT_SHOW, onShow)
-        dlg.Bind(wx.EVT_ICONIZE, onIconize)
-        dlg.Bind(wx.EVT_KILL_FOCUS, onKillFocus)
-        dlg.Bind(wx.EVT_SET_FOCUS, onSetFocus)
 
         log("Calling ShowModal()")
         result = dlg.ShowModal()
