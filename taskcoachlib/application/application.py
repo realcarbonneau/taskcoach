@@ -523,12 +523,12 @@ class Application(object, metaclass=patterns.Singleton):
         # Check file lock BEFORE creating main window to avoid dialog/focus issues
         # This is done early because showing dialogs after main window creation
         # causes GTK focus fighting and dialog disappearing issues
-        self.__early_lock_result = None  # None=no file, 'ok'=proceed, 'break'=break lock, 'unlock'=open unlocked, 'cancel'=don't open
+        # Note: INI file lock is already checked in __init_config() above
+        self.__early_lock_result = None  # None=no file, 'ok'=proceed, 'break'=break lock, 'skip'=don't open file
         if loadTaskFile:
             self.__check_file_lock_early()
-            if self.__early_lock_result == 'cancel':
-                # User cancelled - exit before creating main window
-                sys.exit(0)
+            # If user said "No" to break lock, we continue but don't open the file
+            # (program starts with no file open, like a fresh start)
 
         from taskcoachlib import gui, persistence
 
@@ -605,7 +605,8 @@ Break the lock?"""
                 if result == wx.YES:
                     self.__early_lock_result = 'break'
                 else:
-                    self.__early_lock_result = 'cancel'
+                    # User said No - don't open file, start with empty/new
+                    self.__early_lock_result = 'skip'
         except Exception:
             # Lock check failed (e.g., network drive) - proceed normally
             self.__early_lock_result = 'ok'

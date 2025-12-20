@@ -126,7 +126,7 @@ class IOController(object):
                 None = no file to open
                 'ok' = file not locked, proceed normally
                 'break' = file locked, user chose to break lock
-                'cancel' = file locked, user cancelled (shouldn't reach here)
+                'skip' = file locked, user chose not to break (start fresh)
         """
         if commandLineArgs:
             filename = commandLineArgs[0].decode(sys.getfilesystemencoding())
@@ -137,8 +137,8 @@ class IOController(object):
             if earlyLockResult == 'break':
                 # User already confirmed breaking the lock
                 wx.CallAfter(self.open, filename, breakLock=True)
-            elif earlyLockResult == 'cancel':
-                # User cancelled - don't open file
+            elif earlyLockResult == 'skip':
+                # User chose not to break lock - start with no file (fresh)
                 pass
             else:
                 # Normal case - open file (will check lock again if needed)
