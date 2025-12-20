@@ -131,49 +131,76 @@ def _stderr_reader_loop(pipe_read_fd, original_stderr_fd):
     It reads from the pipe (which receives all stderr output including native
     C library output), logs it to the log file, and optionally echoes to the
     original stderr (for terminal visibility).
+
+    Uses os.read() directly with select() for reliable unbuffered capture.
     """
     global _stop_stderr_reader
+    import select
 
-    # Create file objects for reading/writing
-    pipe_reader = os.fdopen(pipe_read_fd, 'r', encoding='utf-8', errors='replace')
-    original_stderr_writer = os.fdopen(original_stderr_fd, 'w', encoding='utf-8', errors='replace')
+    buffer = b''
 
     try:
         while not _stop_stderr_reader:
             try:
-                line = pipe_reader.readline()
-                if not line:
+                # Use select with timeout to allow checking stop flag
+                readable, _, _ = select.select([pipe_read_fd], [], [], 0.1)
+                if not readable:
+                    continue
+
+                # Read available data (unbuffered)
+                data = os.read(pipe_read_fd, 4096)
+                if not data:
                     break  # EOF
 
-                # Log to file with timestamp
-                if _log_file:
+                buffer += data
+
+                # Process complete lines
+                while b'\n' in buffer:
+                    line_bytes, buffer = buffer.split(b'\n', 1)
+                    line = line_bytes.decode('utf-8', errors='replace') + '\n'
+
+                    # Log to file with timestamp
+                    if _log_file:
+                        try:
+                            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            _log_file.write(f"{timestamp} [STDERR] {line}")
+                            _log_file.flush()
+                        except Exception:
+                            pass
+
+                    # Echo to original stderr (terminal visibility)
                     try:
-                        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        _log_file.write(f"{timestamp} [STDERR] {line}")
-                        _log_file.flush()
+                        os.write(original_stderr_fd, line.encode('utf-8', errors='replace'))
                     except Exception:
                         pass
 
-                # Echo to original stderr (terminal visibility)
-                try:
-                    original_stderr_writer.write(line)
-                    original_stderr_writer.flush()
-                except Exception:
-                    pass
-
-                # Check for error patterns
-                if _ERROR_PATTERNS.search(line):
-                    _set_error()
+                    # Check for error patterns
+                    if _ERROR_PATTERNS.search(line):
+                        _set_error()
 
             except Exception:
                 break  # Exit on any error
+
+        # Process any remaining data in buffer
+        if buffer:
+            line = buffer.decode('utf-8', errors='replace')
+            if _log_file:
+                try:
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    _log_file.write(f"{timestamp} [STDERR] {line}\n")
+                    _log_file.flush()
+                except Exception:
+                    pass
+            try:
+                os.write(original_stderr_fd, line.encode('utf-8', errors='replace'))
+            except Exception:
+                pass
+            if _ERROR_PATTERNS.search(line):
+                _set_error()
+
     finally:
         try:
-            pipe_reader.close()
-        except Exception:
-            pass
-        try:
-            original_stderr_writer.close()
+            os.close(pipe_read_fd)
         except Exception:
             pass
 
@@ -262,17 +289,22 @@ def shutdown_logging():
 
     Called from Application.quitApplication().
     """
-    global _log_file, _original_stderr, _original_stderr_fd, _stop_stderr_reader
+    global _log_file, _original_stderr, _original_stderr_fd, _stop_stderr_reader, _stderr_reader_thread
 
-    # Stop the stderr reader thread
+    # Signal the stderr reader thread to stop
     _stop_stderr_reader = True
 
     # Restore original stderr file descriptor
     if _original_stderr_fd is not None:
         try:
-            # Close the current stderr (pipe write end)
+            # Close the current stderr (pipe write end) - this signals EOF to reader
             sys.stderr.flush()
             sys.stderr.close()
+
+            # Wait for thread to finish processing (with timeout)
+            if _stderr_reader_thread and _stderr_reader_thread.is_alive():
+                _stderr_reader_thread.join(timeout=1.0)
+
             # Restore original fd 2
             os.dup2(_original_stderr_fd, 2)
             os.close(_original_stderr_fd)
@@ -281,6 +313,7 @@ def shutdown_logging():
         except Exception:
             pass
         _original_stderr_fd = None
+        _stderr_reader_thread = None
     elif _original_stderr:
         sys.stderr = _original_stderr
 
