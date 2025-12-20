@@ -619,8 +619,13 @@ class IOController(object):
 
         Returns True if user clicked Yes, False otherwise.
         """
+        # Force main window position tracking to be ready before showing dialog.
+        # This prevents position restoration from interfering with dialog focus.
+        mainWindow = wx.GetApp().GetTopWindow()
+        if mainWindow and hasattr(mainWindow, 'force_position_ready'):
+            mainWindow.force_position_ready()
+
         # Use simplest possible approach - wx.MessageBox
-        # This is the most basic modal dialog and should work reliably
         result = wx.MessageBox(
             message,
             title,

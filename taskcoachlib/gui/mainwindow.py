@@ -364,6 +364,14 @@ If this happens again, please make a copy of your TaskCoach.ini file """
     def __save_position(self):
         self.__dimensions_tracker.save_position()
 
+    def force_position_ready(self):
+        """Force position tracking to be ready.
+
+        Call this before showing modal dialogs during startup to prevent
+        position restoration from interfering with dialog focus.
+        """
+        self.__dimensions_tracker.force_ready()
+
     def closeEditors(self):
         for child in self.GetChildren():
             if isinstance(child, Editor):
