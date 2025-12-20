@@ -1,11 +1,18 @@
 #!/bin/bash
-# TaskCoach Setup Script for Debian Bookworm
-# This script automates the setup and testing of TaskCoach on Debian 12
-# Updated to handle PEP 668 properly
+# TaskCoach Setup Script for Debian 13 (Trixie)
+# This script automates the setup and testing of TaskCoach on Debian 13
 #
-# Version: 1.1.1.003 (f20c4dc)
-# Branch: claude/add-module-loading-logs-01SvgNHroJJfg6fZCGp2mqd5
-# Last Updated: 2025-11-16
+# IMPORTANT: Trixie ships multiple Python versions. wxPython is built for Python 3.12
+# This script explicitly uses python3.12 for compatibility.
+#
+# For other distributions, see:
+#   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
+#   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
+#   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
+#   - setup.sh (unified auto-detection script)
+#
+# Version: 1.2.0
+# Last Updated: 2025-12-20
 
 set -e  # Exit on error
 
@@ -20,13 +27,24 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}TaskCoach Setup for Debian Bookworm${NC}"
-echo -e "${BLUE}Version 1.1.1.003 (f20c4dc)${NC}"
+echo -e "${BLUE}TaskCoach Setup for Debian 13 (Trixie)${NC}"
+echo -e "${BLUE}Version 1.2.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
 
-# Check if running on Debian
-if [ ! -f /etc/debian_version ]; then
+# Check if running on Debian Trixie
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [ "$ID" != "debian" ] || ( [ "$VERSION_CODENAME" != "trixie" ] && [ "$VERSION_CODENAME" != "sid" ] ); then
+        echo -e "${YELLOW}Warning: This script is designed for Debian 13 (Trixie/Sid)${NC}"
+        echo -e "${YELLOW}Detected: $PRETTY_NAME${NC}"
+        read -p "Continue anyway? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+elif [ ! -f /etc/debian_version ]; then
     echo -e "${YELLOW}Warning: This doesn't appear to be Debian${NC}"
     read -p "Continue anyway? (y/n) " -n 1 -r
     echo
@@ -35,13 +53,24 @@ if [ ! -f /etc/debian_version ]; then
     fi
 fi
 
-# Check Python version
+# Check Python version - Trixie needs Python 3.12 for wxPython
 echo -e "${BLUE}[1/7] Checking Python version...${NC}"
-PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+
+# On Trixie, prefer python3.12 for wxPython compatibility
+if command -v python3.12 &> /dev/null; then
+    PYTHON_CMD="python3.12"
+    echo "Using python3.12 (required for wxPython on Trixie)"
+else
+    PYTHON_CMD="python3"
+    echo -e "${YELLOW}Warning: python3.12 not found, using python3${NC}"
+    echo -e "${YELLOW}If wxPython fails to import, install python3.12${NC}"
+fi
+
+PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-echo "Found Python $PYTHON_VERSION"
+echo "Found $PYTHON_CMD version $PYTHON_VERSION"
 
 if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 11 ]; then
     echo -e "${GREEN}✓ Python version is compatible${NC}"
@@ -54,14 +83,14 @@ echo
 # Install system dependencies
 echo -e "${BLUE}[2/7] Installing system dependencies...${NC}"
 echo "This will install system packages from Debian repos."
-echo "Packages: python3-wxgtk4.0, python3-lxml, python3-numpy,"
-echo "          python3-six, python3-dateutil, python3-chardet, python3-keyring,"
-echo "          python3-pyparsing, python3-pyxdg, python3-venv"
+echo "Trixie has more packages available than Bookworm."
 echo "Requires sudo privileges."
 
 if command -v sudo &> /dev/null; then
     sudo apt-get update -qq
     sudo apt-get install -y \
+        python3.12 \
+        python3.12-venv \
         python3-wxgtk4.0 \
         python3-six \
         python3-lxml \
@@ -71,7 +100,9 @@ if command -v sudo &> /dev/null; then
         python3-keyring \
         python3-pyparsing \
         python3-pyxdg \
-        python3-venv
+        python3-fasteners \
+        python3-watchdog \
+        python3-pubsub
     echo -e "${GREEN}✓ System packages installed${NC}"
 else
     echo -e "${YELLOW}⚠ sudo not available, please install packages manually${NC}"
@@ -79,7 +110,7 @@ else
 fi
 echo
 
-# Create virtual environment for packages not in Debian repos
+# Create virtual environment
 echo -e "${BLUE}[3/7] Creating virtual environment...${NC}"
 VENV_PATH="$SCRIPT_DIR/.venv"
 
@@ -89,27 +120,26 @@ if [ -d "$VENV_PATH" ]; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf "$VENV_PATH"
-        python3 -m venv --system-site-packages "$VENV_PATH"
+        $PYTHON_CMD -m venv --system-site-packages "$VENV_PATH"
         echo -e "${GREEN}✓ Virtual environment recreated${NC}"
     else
         echo -e "${GREEN}✓ Using existing virtual environment${NC}"
     fi
 else
-    python3 -m venv --system-site-packages "$VENV_PATH"
+    $PYTHON_CMD -m venv --system-site-packages "$VENV_PATH"
     echo -e "${GREEN}✓ Virtual environment created in project directory${NC}"
 fi
 echo
 
 # Install Python dependencies not available in Debian repos
 echo -e "${BLUE}[4/7] Installing Python dependencies in venv...${NC}"
-echo "Installing: desktop3, fasteners, gntp, distro, pypubsub, zeroconf, pyparsing>=3.1.3, squaremap, watchdog>=3.0.0"
+# Trixie has fasteners, watchdog, pubsub in repos, so fewer pip packages needed
+echo "Installing: desktop3, gntp, distro, pyparsing>=3.1.3, squaremap, zeroconf"
 
 source "$VENV_PATH/bin/activate"
-# Note: pyparsing>=3.1.3 required for deltaTime.py (Debian Bookworm only has 3.0.9)
+# Note: pyparsing>=3.1.3 required for deltaTime.py
 # Note: squaremap provides hierarchic data visualization for effort viewer
-# Note: watchdog>=3.0.0 for file system monitoring (replaced Twisted INotify)
-# Note: fasteners replaces deprecated lockfile for cross-platform file locking
-pip install --quiet desktop3 fasteners gntp distro pypubsub zeroconf 'pyparsing>=3.1.3' squaremap 'watchdog>=3.0.0'
+pip install --quiet desktop3 gntp distro 'pyparsing>=3.1.3' squaremap zeroconf
 deactivate
 
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
@@ -132,69 +162,57 @@ echo -e "${BLUE}Testing installation...${NC}"
 echo "===================="
 echo
 
+source "$VENV_PATH/bin/activate"
+
 # Test 1: Import taskcoachlib
 echo -n "Testing taskcoachlib import... "
-if VERSION=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import taskcoachlib.meta.data as meta; print(meta.version)" 2>/dev/null); then
+if VERSION=$($PYTHON_CMD -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import taskcoachlib.meta.data as meta; print(meta.version)" 2>/dev/null); then
     echo -e "${GREEN}✓ (version $VERSION)${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
+    deactivate
     exit 1
 fi
 
 # Test 2: Import wx
 echo -n "Testing wxPython import... "
-if WX_VERSION=$(python3 -c "import wx; print(wx.__version__)" 2>/dev/null); then
+if WX_VERSION=$($PYTHON_CMD -c "import wx; print(wx.__version__)" 2>/dev/null); then
     echo -e "${GREEN}✓ (version $WX_VERSION)${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
     echo "Please check python3-wxgtk4.0 installation"
+    echo "Make sure you're using python3.12 (wxPython on Trixie requires it)"
+    deactivate
     exit 1
 fi
 
-# Test 3: Test venv packages individually
-echo "Testing virtual environment packages..."
-source "$VENV_PATH/bin/activate"
+# Test 3: Test key packages
+echo "Testing key packages..."
+FAILED=0
 
-VENV_FAILED=0
-
-# desktop3 package provides 'desktop' module
-echo -n "  - desktop3... "
-if python3 -c "import desktop" 2>/dev/null; then
-    echo -e "${GREEN}✓${NC}"
-else
-    echo -e "${RED}✗ Failed${NC}"
-    VENV_FAILED=1
-fi
-
-# Test other packages
-for pkg in "fasteners" "gntp" "distro" "zeroconf"; do
+for pkg in "fasteners" "desktop" "gntp" "distro" "zeroconf" "watchdog"; do
     echo -n "  - $pkg... "
-    if python3 -c "import $pkg" 2>/dev/null; then
+    if $PYTHON_CMD -c "import $pkg" 2>/dev/null; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗ Failed${NC}"
-        VENV_FAILED=1
+        FAILED=1
     fi
 done
 
 # pypubsub package provides 'pubsub' module
 echo -n "  - pypubsub... "
-if python3 -c "from pubsub import pub" 2>/dev/null; then
+if $PYTHON_CMD -c "from pubsub import pub" 2>/dev/null; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
-    VENV_FAILED=1
+    FAILED=1
 fi
 
 deactivate
 
-if [ $VENV_FAILED -eq 1 ]; then
+if [ $FAILED -eq 1 ]; then
     echo -e "${RED}✗ Some packages failed to import${NC}"
-    echo "Try recreating the virtual environment:"
-    echo "  rm -rf $VENV_PATH"
-    echo "  python3 -m venv --system-site-packages $VENV_PATH"
-    echo "  source $VENV_PATH/bin/activate"
-    echo "  pip install desktop3 fasteners gntp distro pypubsub"
     exit 1
 fi
 
@@ -238,10 +256,11 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
-echo "TaskCoach has been set up with:"
-echo "  • System packages from Debian repos (wxPython, numpy, lxml, etc.)"
+echo "TaskCoach has been set up for Debian 13 (Trixie) with:"
+echo "  • Python: $PYTHON_CMD ($PYTHON_VERSION)"
+echo "  • System packages from Debian repos (wxPython, numpy, lxml, fasteners, watchdog, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
-echo "  • Additional packages in venv (desktop3, fasteners, gntp, distro, pypubsub, zeroconf, squaremap, watchdog)"
+echo "  • Additional packages in venv (desktop3, gntp, distro, squaremap, zeroconf)"
 echo "  • wxPython background color patch (for category row coloring)"
 echo
 echo "You can now run TaskCoach with:"
@@ -250,5 +269,5 @@ echo
 echo "To see all options:"
 echo -e "  ${BLUE}./taskcoach-run.sh --help${NC}"
 echo
-echo "For more information, see DEBIAN_BOOKWORM_SETUP.md"
+echo "For more information, see docs/DEBIAN_TRIXIE_PLANNING.md"
 echo
