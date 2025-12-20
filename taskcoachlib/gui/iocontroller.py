@@ -593,49 +593,10 @@ class IOController(object):
             return False
         return True
 
-    def __centerDialogOnParent(self, dlg, parent):
-        """Manually center dialog on parent window."""
-        if parent is None or not parent.IsShown():
-            dlg.CentreOnScreen()
-            return
-
-        # Get parent position and size
-        parentRect = parent.GetRect()
-        dlgSize = dlg.GetSize()
-
-        # Calculate centered position
-        x = parentRect.x + (parentRect.width - dlgSize.width) // 2
-        y = parentRect.y + (parentRect.height - dlgSize.height) // 2
-
-        # Ensure dialog is not off-screen
-        displaySize = wx.GetDisplaySize()
-        x = max(0, min(x, displaySize.width - dlgSize.width))
-        y = max(0, min(y, displaySize.height - dlgSize.height))
-
-        dlg.SetPosition(wx.Point(x, y))
-
-    def __showLockDialog(self, message, title):
-        """Show a modal lock dialog.
-
-        Returns True if user clicked Yes, False otherwise.
-        """
-        # Force main window position tracking to be ready before showing dialog.
-        # This prevents position restoration from interfering with dialog focus.
-        mainWindow = wx.GetApp().GetTopWindow()
-        if mainWindow and hasattr(mainWindow, 'force_position_ready'):
-            mainWindow.force_position_ready()
-
-        # Use simplest possible approach - wx.MessageBox
-        result = wx.MessageBox(
-            message,
-            title,
-            style=wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION,
-        )
-        return result == wx.YES
-
     def __askBreakLock(self, filename):
-        message = _(
-            """Cannot open %s because it is locked.
+        result = wx.MessageBox(
+            _(
+                """Cannot open %s because it is locked.
 
 This means either that another instance of TaskCoach
 is running and has this file opened, or that a previous
@@ -643,16 +604,25 @@ instance of Task Coach crashed. If no other instance is
 running, you can safely break the lock.
 
 Break the lock?"""
-        ) % filename
-        return self.__showLockDialog(message, _("%s: file locked") % meta.name)
+            )
+            % filename,
+            _("%s: file locked") % meta.name,
+            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
+        )
+        return result == wx.YES
 
     def __askOpenUnlocked(self, filename):
-        message = _(
-            "Cannot acquire a lock because locking is not "
-            "supported\non the location of %s.\n"
-            "Open %s unlocked?"
-        ) % (filename, filename)
-        return self.__showLockDialog(message, _("%s: file locked") % meta.name)
+        result = wx.MessageBox(
+            _(
+                "Cannot acquire a lock because locking is not "
+                "supported\non the location of %s.\n"
+                "Open %s unlocked?"
+            )
+            % (filename, filename),
+            _("%s: file locked") % meta.name,
+            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
+        )
+        return result == wx.YES
 
     def __closeUnconditionally(self):
         self.__messageCallback(_("Closed %s") % self.__taskFile.filename())
