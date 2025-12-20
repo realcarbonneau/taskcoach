@@ -397,6 +397,10 @@ class Application(object, metaclass=patterns.Singleton):
         from taskcoachlib import meta
         import platform
 
+        # Log session start with date/time centered in separator
+        date_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
+        log_message(f" {date_str} ".center(60, "="))
+
         # Log version info at startup for debugging
         if meta.git_commit_hash:
             log_message(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
