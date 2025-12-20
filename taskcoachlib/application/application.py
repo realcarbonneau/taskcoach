@@ -93,8 +93,9 @@ def init_logging():
     """Initialize the logging system.
 
     Sets up:
-    - FileHandler: Logs DEBUG+ to taskcoachlog.txt
-    - ErrorTracker: Tracks if any ERROR+ occurred
+    - FileHandler: Always logs DEBUG+ to taskcoachlog.txt
+    - StreamHandler: When running from TTY, also logs to stdout
+    - ErrorTracker: Tracks if any ERROR+ occurred (for popup decision)
     - Exception hook: Logs uncaught exceptions
 
     Called early in Application.init().
@@ -103,14 +104,29 @@ def init_logging():
 
     log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
 
-    # File handler - logs everything to file
-    _file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
-    _file_handler.setLevel(logging.DEBUG)
-    _file_handler.setFormatter(logging.Formatter(
+    # Create formatter for all handlers
+    formatter = logging.Formatter(
         '%(asctime)s [%(levelname)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
-    ))
+    )
+
+    # File handler - always logs everything to file
+    _file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+    _file_handler.setLevel(logging.DEBUG)
+    _file_handler.setFormatter(formatter)
     logger.addHandler(_file_handler)
+
+    # Stream handler - also log to stdout when running from terminal
+    try:
+        isatty = sys.stdout.isatty()
+    except AttributeError:
+        isatty = False
+
+    if isatty:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(logging.DEBUG)
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
 
     # Error tracker - tracks if any ERROR+ occurred (for popup decision)
     _error_tracker = ErrorTracker()
