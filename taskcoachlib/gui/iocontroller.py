@@ -618,14 +618,20 @@ class IOController(object):
         """Show a modal lock dialog that properly stays on top on GTK.
 
         Returns True if user clicked Yes, False otherwise.
-        """
-        parent = wx.GetApp().GetTopWindow()
 
-        # Create a proper dialog instead of MessageDialog for better GTK behavior
+        On GTK, modal dialogs with a parent can have issues where clicking
+        the parent dismisses the dialog improperly. We work around this by:
+        1. Creating the dialog without a parent (None)
+        2. Using wx.WindowDisabler to explicitly disable all other windows
+        3. Manually centering on the main window
+        """
+        mainWindow = wx.GetApp().GetTopWindow()
+
+        # Create dialog WITHOUT a parent to avoid GTK parent-child focus issues
         dlg = wx.Dialog(
-            parent,
+            None,  # No parent - avoids GTK focus problems
             title=title,
-            style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP,
+            style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP | wx.DIALOG_NO_PARENT,
         )
 
         # Create the dialog content
@@ -648,7 +654,6 @@ class IOController(object):
         yesBtn = wx.Button(panel, wx.ID_YES, _("Yes"))
         noBtn = wx.Button(panel, wx.ID_NO, _("No"))
         noBtn.SetDefault()
-        noBtn.SetFocus()
         btnSizer.AddButton(yesBtn)
         btnSizer.AddButton(noBtn)
         btnSizer.Realize()
@@ -662,14 +667,24 @@ class IOController(object):
         dlg.SetSizer(dlgSizer)
         dlg.Fit()
 
-        # Center on parent
-        self.__centerDialogOnParent(dlg, parent)
+        # Center on main window
+        self.__centerDialogOnParent(dlg, mainWindow)
 
         # Bind buttons
         yesBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_YES))
         noBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_NO))
 
+        # Use WindowDisabler to explicitly disable all other windows
+        # This prevents interaction with the main window while dialog is shown
+        disabler = wx.WindowDisabler(dlg)
+
+        # Show dialog and set focus to No button
+        dlg.Show()
+        noBtn.SetFocus()
         result = dlg.ShowModal()
+
+        # Clean up - disabler goes out of scope and re-enables windows
+        del disabler
         dlg.Destroy()
         return result == wx.ID_YES
 
