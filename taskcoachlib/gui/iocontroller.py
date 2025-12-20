@@ -614,12 +614,68 @@ class IOController(object):
 
         dlg.SetPosition(wx.Point(x, y))
 
-    def __askBreakLock(self, filename):
+    def __showLockDialog(self, message, title):
+        """Show a modal lock dialog that properly stays on top on GTK.
+
+        Returns True if user clicked Yes, False otherwise.
+        """
         parent = wx.GetApp().GetTopWindow()
-        dlg = wx.MessageDialog(
+
+        # Create a proper dialog instead of MessageDialog for better GTK behavior
+        dlg = wx.Dialog(
             parent,
-            _(
-                """Cannot open %s because it is locked.
+            title=title,
+            style=wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP,
+        )
+
+        # Create the dialog content
+        panel = wx.Panel(dlg)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Icon and message in horizontal sizer
+        hSizer = wx.BoxSizer(wx.HORIZONTAL)
+        icon = wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_MESSAGE_BOX)
+        iconCtrl = wx.StaticBitmap(panel, bitmap=icon)
+        hSizer.Add(iconCtrl, 0, wx.ALL | wx.ALIGN_TOP, 10)
+
+        msgCtrl = wx.StaticText(panel, label=message)
+        msgCtrl.Wrap(400)
+        hSizer.Add(msgCtrl, 1, wx.ALL | wx.EXPAND, 10)
+        sizer.Add(hSizer, 1, wx.EXPAND)
+
+        # Buttons - No is default
+        btnSizer = wx.StdDialogButtonSizer()
+        yesBtn = wx.Button(panel, wx.ID_YES, _("Yes"))
+        noBtn = wx.Button(panel, wx.ID_NO, _("No"))
+        noBtn.SetDefault()
+        noBtn.SetFocus()
+        btnSizer.AddButton(yesBtn)
+        btnSizer.AddButton(noBtn)
+        btnSizer.Realize()
+        sizer.Add(btnSizer, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+        panel.SetSizer(sizer)
+
+        # Size the dialog
+        dlgSizer = wx.BoxSizer(wx.VERTICAL)
+        dlgSizer.Add(panel, 1, wx.EXPAND)
+        dlg.SetSizer(dlgSizer)
+        dlg.Fit()
+
+        # Center on parent
+        self.__centerDialogOnParent(dlg, parent)
+
+        # Bind buttons
+        yesBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_YES))
+        noBtn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_NO))
+
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        return result == wx.ID_YES
+
+    def __askBreakLock(self, filename):
+        message = _(
+            """Cannot open %s because it is locked.
 
 This means either that another instance of TaskCoach
 is running and has this file opened, or that a previous
@@ -627,33 +683,16 @@ instance of Task Coach crashed. If no other instance is
 running, you can safely break the lock.
 
 Break the lock?"""
-            )
-            % filename,
-            _("%s: file locked") % meta.name,
-            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT | wx.STAY_ON_TOP,
-        )
-        self.__centerDialogOnParent(dlg, parent)
-        result = dlg.ShowModal()
-        dlg.Destroy()
-        return result == wx.ID_YES
+        ) % filename
+        return self.__showLockDialog(message, _("%s: file locked") % meta.name)
 
     def __askOpenUnlocked(self, filename):
-        parent = wx.GetApp().GetTopWindow()
-        dlg = wx.MessageDialog(
-            parent,
-            _(
-                "Cannot acquire a lock because locking is not "
-                "supported\non the location of %s.\n"
-                "Open %s unlocked?"
-            )
-            % (filename, filename),
-            _("%s: file locked") % meta.name,
-            style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT | wx.STAY_ON_TOP,
-        )
-        self.__centerDialogOnParent(dlg, parent)
-        result = dlg.ShowModal()
-        dlg.Destroy()
-        return result == wx.ID_YES
+        message = _(
+            "Cannot acquire a lock because locking is not "
+            "supported\non the location of %s.\n"
+            "Open %s unlocked?"
+        ) % (filename, filename)
+        return self.__showLockDialog(message, _("%s: file locked") % meta.name)
 
     def __closeUnconditionally(self):
         self.__messageCallback(_("Closed %s") % self.__taskFile.filename())
