@@ -23,8 +23,8 @@ from taskcoachlib import patterns, operating_system
 from taskcoachlib.i18n import _
 from pubsub import pub
 from taskcoachlib.config import Settings
+import datetime
 import locale
-import logging
 import os
 import sys
 import time
@@ -39,104 +39,97 @@ import subprocess
 # Logging Setup
 # ============================================================================
 #
-# Task Coach uses Python's logging module for Python diagnostic output,
-# plus stderr capture for native library errors (GTK, pixman, etc.).
+# Simple, unified logging system for Task Coach.
 #
 # Architecture:
-#   - FileHandler: Logs everything (DEBUG+) to taskcoachlog.txt
-#   - ErrorTracker: Custom handler that tracks if any ERROR+ occurred
-#   - StderrCapture: Intercepts stderr for native C library output
-#   - The error popup only shows if ErrorTracker.has_errors is True
+#   - One log file handle
+#   - One thread-safe error flag
+#   - log_message() for debug, log_error() for errors
+#   - StderrCapture intercepts native library output (GTK, pixman, etc.)
 #
 # Usage:
-#   logger.debug("Version info...")   -> Goes to file only
-#   logger.info("Startup complete")   -> Goes to file only
-#   logger.error("Something broke!")  -> Goes to file AND sets has_errors=True
-#   Native stderr (GTK-CRITICAL etc)  -> Goes to file AND sets has_errors=True
+#   log_message("Version info...")           -> Goes to file (and stdout if TTY)
+#   log_error("Something broke!")            -> Same + sets error flag for popup
+#   Native stderr (GTK-CRITICAL etc)         -> Captured, checked for errors
 #
-# This replaces the old RedirectedOutput hack that captured stdout/stderr.
 # ============================================================================
 
-# Create the main logger for Task Coach
-logger = logging.getLogger('taskcoach')
-logger.setLevel(logging.DEBUG)
+# Module state - initialized by init_logging()
+_log_file = None
+_original_stdout = None
+_original_stderr = None
+_has_errors = False
+_has_errors_lock = threading.Lock()
+_is_tty = False
 
-# Will be initialized by init_logging() when we know the log file path
-_file_handler = None
-_error_tracker = None
-_stderr_capture = None
-_log_file = None  # Direct file handle for stderr capture
-
-
-class ErrorTracker(logging.Handler):
-    """Custom handler that tracks if any ERROR-level (or higher) messages occurred.
-
-    This handler doesn't output anything - it just sets a flag when an error
-    is logged. The flag is checked on application exit to decide whether to
-    show the error popup.
-
-    Thread-safe: uses a lock for the has_errors flag.
-    """
-
-    def __init__(self):
-        super().__init__(level=logging.ERROR)
-        self._has_errors = False
-        self._lock = threading.Lock()
-
-    @property
-    def has_errors(self):
-        with self._lock:
-            return self._has_errors
-
-    def set_error(self):
-        """Mark that an error has occurred (called by StderrCapture)."""
-        with self._lock:
-            self._has_errors = True
-
-    def emit(self, record):
-        with self._lock:
-            self._has_errors = True
+# Patterns that indicate a real error in stderr (not just debug info)
+_ERROR_PATTERNS = re.compile(
+    r'CRITICAL|ERROR|\*\*\* BUG \*\*\*|assertion.*failed|'
+    r'Segmentation fault|SIGSEGV|SIGABRT|core dumped',
+    re.IGNORECASE
+)
 
 
-class StderrCapture:
+def _set_error():
+    """Mark that an error has occurred. Thread-safe."""
+    global _has_errors
+    with _has_errors_lock:
+        _has_errors = True
+
+
+def _get_has_errors():
+    """Check if any errors occurred. Thread-safe."""
+    with _has_errors_lock:
+        return _has_errors
+
+
+def _write_log(msg, level):
+    """Internal: write a log line to file and optionally stdout."""
+    if _log_file is None:
+        return
+
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    line = f"{timestamp} [{level}] {msg}\n"
+
+    try:
+        _log_file.write(line)
+        _log_file.flush()
+    except Exception:
+        pass
+
+    # Also write to stdout if running from terminal
+    if _is_tty and _original_stdout:
+        try:
+            _original_stdout.write(line)
+            _original_stdout.flush()
+        except Exception:
+            pass
+
+
+def log_message(msg):
+    """Log a debug message to the log file (and stdout if running from terminal)."""
+    _write_log(msg, "DEBUG")
+
+
+def log_error(msg):
+    """Log an error message and set the error flag for the exit popup."""
+    _write_log(msg, "ERROR")
+    _set_error()
+
+
+class _StderrCapture:
     """Captures stderr output from native libraries (GTK, pixman, etc.).
 
-    Native C libraries write directly to stderr, bypassing Python's logging.
+    Native C libraries write directly to stderr, bypassing Python.
     This class intercepts stderr to:
     1. Log all stderr output to the log file
-    2. Detect error patterns and set ErrorTracker.has_errors
+    2. Detect error patterns and set the error flag
     3. Also write to original stderr (for terminal visibility)
-
-    Error patterns detected:
-    - GTK-CRITICAL, GTK-WARNING, Gtk-CRITICAL, etc.
-    - *** BUG ***
-    - CRITICAL, ERROR (case-insensitive)
-    - assertion ... failed
-    - Segmentation fault, SIGSEGV, etc.
     """
 
-    # Patterns that indicate a real error (not just debug info)
-    ERROR_PATTERNS = [
-        r'CRITICAL',
-        r'ERROR',
-        r'\*\*\* BUG \*\*\*',
-        r'assertion.*failed',
-        r'Segmentation fault',
-        r'SIGSEGV',
-        r'SIGABRT',
-        r'core dumped',
-    ]
-
-    def __init__(self, original_stderr, log_file, error_tracker):
+    def __init__(self, original_stderr):
         self._original_stderr = original_stderr
-        self._log_file = log_file
-        self._error_tracker = error_tracker
         self._lock = threading.Lock()
-        # Compile patterns for efficiency
-        self._error_regex = re.compile(
-            '|'.join(self.ERROR_PATTERNS),
-            re.IGNORECASE
-        )
 
     def write(self, text):
         """Write to log file and original stderr, checking for errors."""
@@ -145,40 +138,41 @@ class StderrCapture:
 
         with self._lock:
             # Write to log file with timestamp
-            try:
-                import datetime
-                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self._log_file.write(f"{timestamp} [STDERR] {text}")
-                if not text.endswith('\n'):
-                    self._log_file.write('\n')
-                self._log_file.flush()
-            except Exception:
-                pass  # Don't crash on logging failure
+            if _log_file:
+                try:
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    _log_file.write(f"{timestamp} [STDERR] {text}")
+                    if not text.endswith('\n'):
+                        _log_file.write('\n')
+                    _log_file.flush()
+                except Exception:
+                    pass
 
             # Write to original stderr (for terminal visibility)
-            try:
-                if self._original_stderr:
+            if self._original_stderr:
+                try:
                     self._original_stderr.write(text)
                     self._original_stderr.flush()
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
             # Check for error patterns
-            if self._error_regex.search(text):
-                self._error_tracker.set_error()
+            if _ERROR_PATTERNS.search(text):
+                _set_error()
 
     def flush(self):
         """Flush both log file and original stderr."""
         with self._lock:
-            try:
-                self._log_file.flush()
-            except Exception:
-                pass
-            try:
-                if self._original_stderr:
+            if _log_file:
+                try:
+                    _log_file.flush()
+                except Exception:
+                    pass
+            if self._original_stderr:
+                try:
                     self._original_stderr.flush()
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
     def fileno(self):
         """Return file descriptor for compatibility."""
@@ -198,57 +192,35 @@ def init_logging():
     """Initialize the logging system.
 
     Sets up:
-    - FileHandler: Always logs DEBUG+ to taskcoachlog.txt
-    - StreamHandler: When running from TTY, also logs to stdout
-    - ErrorTracker: Tracks if any ERROR+ occurred (for popup decision)
-    - StderrCapture: Captures native library stderr (GTK, pixman errors)
-    - Exception hook: Logs uncaught exceptions
+    - Log file for all messages
+    - Stdout echo when running from terminal
+    - Stderr capture for native library output (GTK, pixman errors)
+    - Exception hook for uncaught exceptions
 
     Called early in Application.init().
     """
-    global _file_handler, _error_tracker, _stderr_capture, _log_file
+    global _log_file, _original_stdout, _original_stderr, _is_tty
 
     log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
 
-    # Create formatter for all handlers
-    formatter = logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-
-    # File handler - always logs everything to file
-    _file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
-    _file_handler.setLevel(logging.DEBUG)
-    _file_handler.setFormatter(formatter)
-    logger.addHandler(_file_handler)
-
-    # Stream handler - also log to stdout when running from terminal
-    try:
-        isatty = sys.stdout.isatty()
-    except AttributeError:
-        isatty = False
-
-    if isatty:
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setLevel(logging.DEBUG)
-        stream_handler.setFormatter(formatter)
-        logger.addHandler(stream_handler)
-
-    # Error tracker - tracks if any ERROR+ occurred (for popup decision)
-    _error_tracker = ErrorTracker()
-    logger.addHandler(_error_tracker)
-
-    # Capture stderr for native library output (GTK, pixman, etc.)
-    # These bypass Python's logging module, writing directly to stderr.
-    # We need a separate file handle because logging.FileHandler owns its handle.
+    # Open log file
     _log_file = open(log_path, 'a', encoding='utf-8')
-    _stderr_capture = StderrCapture(sys.stderr, _log_file, _error_tracker)
-    sys.stderr = _stderr_capture
+
+    # Check if running from terminal
+    _original_stdout = sys.stdout
+    _original_stderr = sys.stderr
+    try:
+        _is_tty = sys.stdout.isatty()
+    except AttributeError:
+        _is_tty = False
+
+    # Capture stderr for native library output
+    sys.stderr = _StderrCapture(_original_stderr)
 
     # Log session start marker
-    logger.debug("=" * 60)
-    logger.debug("Task Coach session started")
-    logger.debug("=" * 60)
+    log_message("=" * 60)
+    log_message("Task Coach session started")
+    log_message("=" * 60)
 
     # Install exception hook to log uncaught exceptions
     _original_excepthook = sys.excepthook
@@ -256,39 +228,40 @@ def init_logging():
     def logging_excepthook(exc_type, exc_value, exc_traceback):
         """Log uncaught exceptions before they crash the app."""
         if issubclass(exc_type, KeyboardInterrupt):
-            # Don't log keyboard interrupts as errors
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
-        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-        # Also call the original hook (for faulthandler etc.)
+        import traceback
+        tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        log_error("Uncaught exception:\n" + "".join(tb_lines))
         _original_excepthook(exc_type, exc_value, exc_traceback)
 
     sys.excepthook = logging_excepthook
 
 
 def shutdown_logging():
-    """Check if errors occurred and show popup if needed, then close handlers.
+    """Check if errors occurred and show popup if needed, then close log file.
 
     Called from Application.quitApplication().
     """
-    global _file_handler, _error_tracker, _stderr_capture, _log_file
+    global _log_file, _original_stderr
 
-    # Restore original stderr before closing log file
-    if _stderr_capture:
-        sys.stderr = _stderr_capture._original_stderr
-        _stderr_capture = None
+    # Restore original stderr
+    if _original_stderr:
+        sys.stderr = _original_stderr
 
-    if _error_tracker and _error_tracker.has_errors:
-        log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
+    has_errors = _get_has_errors()
 
-        # Close file handlers before showing popup (releases file lock)
-        if _file_handler:
-            _file_handler.close()
-            logger.removeHandler(_file_handler)
-        if _log_file:
+    # Close log file
+    if _log_file:
+        try:
             _log_file.close()
-            _log_file = None
+        except Exception:
+            pass
+        _log_file = None
 
+    # Show error popup if needed
+    if has_errors:
+        log_path = os.path.join(Settings.pathToDocumentsDir(), "taskcoachlog.txt")
         if operating_system.isWindows():
             wx.MessageBox(
                 _(
@@ -303,24 +276,16 @@ def shutdown_logging():
                 _("Error"),
                 wx.OK,
             )
-    else:
-        # No errors, just close the file handlers
-        if _file_handler:
-            _file_handler.close()
-            logger.removeHandler(_file_handler)
-        if _log_file:
-            _log_file.close()
-            _log_file = None
 
 
 def _log_gui_environment():
     """Log GUI environment details for debugging window positioning issues."""
-    logger.debug("=" * 60)
-    logger.debug("GUI ENVIRONMENT INFO")
-    logger.debug("=" * 60)
+    log_message("=" * 60)
+    log_message("GUI ENVIRONMENT INFO")
+    log_message("=" * 60)
 
     # wx platform details (more detailed than basic wx.version())
-    logger.debug(f"wx.PlatformInfo: {wx.PlatformInfo}")
+    log_message(f"wx.PlatformInfo: {wx.PlatformInfo}")
 
     # Platform-specific info
     if sys.platform == 'win32':
@@ -333,7 +298,7 @@ def _log_gui_environment():
     # Display/monitor info (cross-platform)
     try:
         num_displays = wx.Display.GetCount()
-        logger.debug(f"Number of displays: {num_displays}")
+        log_message(f"Number of displays: {num_displays}")
         for i in range(num_displays):
             display = wx.Display(i)
             geom = display.GetGeometry()
@@ -341,16 +306,16 @@ def _log_gui_environment():
             # Get DPI/scaling if available
             try:
                 ppi = display.GetPPI()
-                logger.debug(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                log_message(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
                              f"client_area={client.x},{client.y} {client.width}x{client.height}  "
                              f"PPI={ppi.x}x{ppi.y}")
             except Exception:
-                logger.debug(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
+                log_message(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
                              f"client_area={client.x},{client.y} {client.width}x{client.height}")
     except Exception as e:
-        logger.debug(f"Display info unavailable: {e}")
+        log_message(f"Display info unavailable: {e}")
 
-    logger.debug("=" * 60)
+    log_message("=" * 60)
 
 
 def _log_windows_environment():
@@ -358,26 +323,26 @@ def _log_windows_environment():
     import platform
 
     # Windows version
-    logger.debug(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
-    logger.debug(f"Windows Edition: {platform.win32_edition()}")
+    log_message(f"Windows Version: {platform.win32_ver()[0]} {platform.win32_ver()[1]}")
+    log_message(f"Windows Edition: {platform.win32_edition()}")
 
     # DPI awareness
     try:
         import ctypes
         awareness = ctypes.windll.shcore.GetProcessDpiAwareness(0)
         awareness_names = {0: 'Unaware', 1: 'System', 2: 'PerMonitor'}
-        logger.debug(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
+        log_message(f"DPI Awareness: {awareness_names.get(awareness, awareness)}")
     except Exception as e:
-        logger.debug(f"DPI Awareness: unavailable ({e})")
+        log_message(f"DPI Awareness: unavailable ({e})")
 
     # DWM (Desktop Window Manager) composition
     try:
         import ctypes
         dwm_enabled = ctypes.c_bool()
         ctypes.windll.dwmapi.DwmIsCompositionEnabled(ctypes.byref(dwm_enabled))
-        logger.debug(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
+        log_message(f"DWM Composition: {'Enabled' if dwm_enabled.value else 'Disabled'}")
     except Exception as e:
-        logger.debug(f"DWM Composition: unavailable ({e})")
+        log_message(f"DWM Composition: unavailable ({e})")
 
     # System DPI
     try:
@@ -386,9 +351,9 @@ def _log_windows_environment():
         dpi_x = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
         dpi_y = ctypes.windll.gdi32.GetDeviceCaps(hdc, 90)  # LOGPIXELSY
         ctypes.windll.user32.ReleaseDC(0, hdc)
-        logger.debug(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
+        log_message(f"System DPI: {dpi_x}x{dpi_y} (scale: {dpi_x/96*100:.0f}%)")
     except Exception as e:
-        logger.debug(f"System DPI: unavailable ({e})")
+        log_message(f"System DPI: unavailable ({e})")
 
 
 def _log_macos_environment():
@@ -397,17 +362,17 @@ def _log_macos_environment():
 
     # macOS version
     mac_ver = platform.mac_ver()
-    logger.debug(f"macOS Version: {mac_ver[0]}")
-    logger.debug(f"Architecture: {mac_ver[2]}")
+    log_message(f"macOS Version: {mac_ver[0]}")
+    log_message(f"Architecture: {mac_ver[2]}")
 
     # Check if running under Rosetta (Apple Silicon)
     try:
         result = subprocess.run(['sysctl', '-n', 'sysctl.proc_translated'],
                                capture_output=True, text=True, timeout=2)
         if result.returncode == 0 and result.stdout.strip() == '1':
-            logger.debug("Rosetta 2: Yes (x86_64 on ARM)")
+            log_message("Rosetta 2: Yes (x86_64 on ARM)")
         else:
-            logger.debug("Rosetta 2: No (native)")
+            log_message("Rosetta 2: No (native)")
     except Exception:
         pass
 
@@ -424,7 +389,7 @@ def _log_macos_environment():
             for i, disp in enumerate(displays):
                 res = disp.get('_spdisplays_resolution', 'unknown')
                 retina = disp.get('spdisplays_retina', 'unknown')
-                logger.debug(f"  macOS Display {i}: {res} Retina={retina}")
+                log_message(f"  macOS Display {i}: {res} Retina={retina}")
     except Exception:
         pass
 
@@ -434,7 +399,7 @@ def _log_macos_environment():
                                capture_output=True, text=True, timeout=2)
         # Just check if it runs - detailed parsing would be verbose
         if result.returncode == 0:
-            logger.debug("WindowServer: accessible")
+            log_message("WindowServer: accessible")
     except Exception:
         pass
 
@@ -443,28 +408,28 @@ def _log_linux_environment():
     """Log Linux/GTK-specific GUI environment info."""
     # Session type
     session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
-    logger.debug(f"XDG_SESSION_TYPE: {session_type}")
-    logger.debug(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
-    logger.debug(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
+    log_message(f"XDG_SESSION_TYPE: {session_type}")
+    log_message(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
+    log_message(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
 
     # Desktop environment
     desktop = os.environ.get('XDG_CURRENT_DESKTOP',
               os.environ.get('DESKTOP_SESSION', 'unknown'))
-    logger.debug(f"Desktop Environment: {desktop}")
+    log_message(f"Desktop Environment: {desktop}")
 
     # GTK version (if available)
     try:
         import gi
         gi.require_version('Gtk', '3.0')
         from gi.repository import Gtk
-        logger.debug(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+        log_message(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
     except Exception as e:
-        logger.debug(f"GTK Version: unavailable ({e})")
+        log_message(f"GTK Version: unavailable ({e})")
 
     # GDK backend
     try:
         gdk_backend = os.environ.get('GDK_BACKEND', 'auto')
-        logger.debug(f"GDK_BACKEND: {gdk_backend}")
+        log_message(f"GDK_BACKEND: {gdk_backend}")
     except Exception:
         pass
 
@@ -536,8 +501,8 @@ def _log_linux_environment():
     except Exception:
         pass
 
-    logger.debug(f"Window Manager: {wm_name}")
-    logger.debug(f"WM Version: {wm_version}")
+    log_message(f"Window Manager: {wm_name}")
+    log_message(f"WM Version: {wm_version}")
 
 
 # pylint: disable=W0404
@@ -648,12 +613,12 @@ class Application(object, metaclass=patterns.Singleton):
 
         # Log version info at startup for debugging
         if meta.git_commit_hash:
-            logger.debug(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
+            log_message(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
         else:
-            logger.debug(f"Task Coach {meta.version_full}")
-        logger.debug(f"Python {sys.version}")
-        logger.debug(f"wxPython {wx.version()}")
-        logger.debug(f"Platform: {platform.platform()}")
+            log_message(f"Task Coach {meta.version_full}")
+        log_message(f"Python {sys.version}")
+        log_message(f"wxPython {wx.version()}")
+        log_message(f"Platform: {platform.platform()}")
 
         # Log GTK/glibc info on Linux
         if platform.system() == 'Linux':
@@ -662,14 +627,14 @@ class Application(object, metaclass=patterns.Singleton):
                 libc = ctypes.CDLL('libc.so.6')
                 gnu_get_libc_version = libc.gnu_get_libc_version
                 gnu_get_libc_version.restype = ctypes.c_char_p
-                logger.debug(f"glibc {gnu_get_libc_version().decode()}")
+                log_message(f"glibc {gnu_get_libc_version().decode()}")
             except (OSError, AttributeError):
                 pass  # glibc version detection may fail
 
         # Log zeroconf version (used for iPhone sync)
         try:
             import zeroconf
-            logger.debug(f"zeroconf {zeroconf.__version__}")
+            log_message(f"zeroconf {zeroconf.__version__}")
         except ImportError:
             pass  # zeroconf is optional
 
