@@ -1961,6 +1961,7 @@ if operating_system.isGTK():
 - ✅ Main toolbar flicker on customization (December 2025) - Simplified to use GetBestSize() for automatic height
 - ✅ File locking library deprecated (December 2025) - Replaced lockfile with fasteners
 - ✅ App icon grouping across platforms (December 2025) - Added WM_CLASS, StartupWMClass, CFBundleIdentifier, AppUserModelID
+- ✅ GNOME Wayland app icon shows generic gear (December 2025) - Added g_set_prgname via ctypes before GTK init
 
 ---
 
@@ -2052,7 +2053,7 @@ TaskCoach windows were not grouping properly in taskbars/docks across different 
 
 ### Platform-Specific Solutions
 
-#### Linux: WM_CLASS
+#### Linux: WM_CLASS (X11)
 
 Set at application startup in `taskcoachlib/application/application.py`:
 
@@ -2061,7 +2062,54 @@ if operating_system.isGTK():
     self.SetClassName("taskcoach")
 ```
 
-The `WM_CLASS` property tells the window manager which windows belong together.
+The `WM_CLASS` property tells the X11 window manager which windows belong together.
+
+#### Linux: GLib prgname (Wayland)
+
+**Important:** On Wayland, GNOME Shell uses `app_id` (derived from GLib's `prgname`) instead of X11's `WM_CLASS` to match running applications to their `.desktop` files.
+
+Set at the very start of `taskcoach.py`, **before** any wxPython/GTK imports:
+
+```python
+def _set_wayland_app_id():
+    """Set GLib prgname for Wayland app_id matching.
+
+    On Wayland, GNOME Shell uses the app_id (derived from GLib's prgname)
+    to match running applications to their .desktop files for proper
+    icon display. This must be called BEFORE wxPython imports GTK.
+    """
+    if sys.platform != "linux":
+        return
+
+    try:
+        import ctypes
+
+        libglib = ctypes.CDLL("libglib-2.0.so.0")
+        g_set_prgname = libglib.g_set_prgname
+        g_set_prgname.argtypes = [ctypes.c_char_p]
+        g_set_prgname.restype = None
+        g_set_prgname(b"taskcoach")
+
+        g_set_application_name = libglib.g_set_application_name
+        g_set_application_name.argtypes = [ctypes.c_char_p]
+        g_set_application_name.restype = None
+        g_set_application_name(b"Task Coach")
+    except (OSError, AttributeError):
+        pass
+
+# Must be called before wx/GTK imports
+_set_wayland_app_id()
+```
+
+**Why ctypes instead of PyGObject:**
+- Using `gi.repository.GLib` can cause segfaults when combined with wxPython
+- ctypes directly calls the C function without importing Python GTK bindings
+- Avoids potential conflicts with wxPython's GTK initialization
+
+**Why before wxPython imports:**
+- GTK reads the prgname during initialization
+- wxPython imports GTK when the `wx` module is loaded
+- Setting prgname after GTK init has no effect on app_id
 
 #### Linux: StartupWMClass (Desktop Entry)
 
@@ -2073,7 +2121,7 @@ Added to `build.in/linux_common/taskcoach.desktop`:
 StartupWMClass=taskcoach
 ```
 
-This links the desktop entry to the WM_CLASS for proper dock/taskbar integration.
+This links the desktop entry to both WM_CLASS (X11) and app_id (Wayland) for proper dock/taskbar integration.
 
 #### macOS: CFBundleIdentifier
 
@@ -2097,15 +2145,23 @@ if operating_system.isWindows():
 
 | File | Change |
 |------|--------|
-| `taskcoachlib/application/application.py` | SetClassName (Linux), AppUserModelID (Windows) |
+| `taskcoach.py` | g_set_prgname via ctypes (Wayland) |
+| `taskcoachlib/application/application.py` | SetClassName (X11), AppUserModelID (Windows) |
 | `build.in/linux_common/taskcoach.desktop` | StartupWMClass=taskcoach |
 | `pymake.py` | CFBundleIdentifier for macOS |
 
 ### Testing
 
-- **Linux (GNOME/KDE)**: All TaskCoach windows group under single taskbar icon
+- **Linux (GNOME/KDE on X11)**: All TaskCoach windows group under single taskbar icon via WM_CLASS
+- **Linux (GNOME on Wayland)**: App icon displays correctly in dock via app_id/prgname
 - **Windows**: Windows group in taskbar with correct app identity
 - **macOS**: Windows group under single Dock icon
+
+### References
+
+- [GTK Wayland app_id documentation](https://docs.gtk.org/gtk3/wayland.html)
+- [GNOME Application-Based design](https://wiki.gnome.org/Projects/GnomeShell/ApplicationBased)
+- [GTK commit: Use g_get_prgname() for xdg_surface.set_app_id](https://gitlab.gnome.org/GNOME/gtk/-/commit/e1fd87728dd841cf1d71025983107765e395b152)
 
 ---
 
