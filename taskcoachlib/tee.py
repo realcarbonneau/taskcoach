@@ -54,8 +54,6 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
     """Thread that reads from pipe and writes to both console and log file."""
     global _has_errors
 
-    stream_name = "stderr" if is_stderr else "stdout"
-
     try:
         while not _stop_event.is_set():
             try:
@@ -66,17 +64,15 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
                 # Write to original console
                 try:
                     os.write(original_fd, data)
-                except OSError as e:
-                    # Debug: write error to original fd
-                    os.write(original_fd, f"[TEE {stream_name}] console write error: {e}\n".encode())
+                except OSError:
+                    pass
 
                 # Write to log file (raw, no formatting)
                 try:
                     log_file.write(data.decode('utf-8', errors='replace'))
                     log_file.flush()
-                except Exception as e:
-                    # Debug: write error to original fd
-                    os.write(original_fd, f"[TEE {stream_name}] log write error: {e}\n".encode())
+                except Exception:
+                    pass
 
                 # Set error flag if any stderr data
                 if is_stderr:
@@ -107,10 +103,6 @@ def init_tee():
         log_path = _get_log_path()
         _log_file = open(log_path, 'a', encoding='utf-8')
         _stop_event = threading.Event()
-
-        # Debug: write startup message directly to log file
-        _log_file.write(f"=== TEE INITIALIZED, log path: {log_path} ===\n")
-        _log_file.flush()
 
         # Set up stdout tee
         _original_stdout_fd = os.dup(1)
