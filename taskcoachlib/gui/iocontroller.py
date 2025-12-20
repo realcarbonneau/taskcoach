@@ -594,7 +594,9 @@ class IOController(object):
         return True
 
     def __askBreakLock(self, filename):
-        result = wx.MessageBox(
+        parent = wx.GetApp().GetTopWindow()
+        dlg = wx.MessageDialog(
+            parent,
             _(
                 """Cannot open %s because it is locked.
 
@@ -609,10 +611,15 @@ Break the lock?"""
             _("%s: file locked") % meta.name,
             style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
         )
-        return result == wx.YES
+        dlg.CenterOnParent()
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        return result == wx.ID_YES
 
     def __askOpenUnlocked(self, filename):
-        result = wx.MessageBox(
+        parent = wx.GetApp().GetTopWindow()
+        dlg = wx.MessageDialog(
+            parent,
             _(
                 "Cannot acquire a lock because locking is not "
                 "supported\non the location of %s.\n"
@@ -622,7 +629,10 @@ Break the lock?"""
             _("%s: file locked") % meta.name,
             style=wx.YES_NO | wx.ICON_QUESTION | wx.NO_DEFAULT,
         )
-        return result == wx.YES
+        dlg.CenterOnParent()
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        return result == wx.ID_YES
 
     def __closeUnconditionally(self):
         self.__messageCallback(_("Closed %s") % self.__taskFile.filename())
