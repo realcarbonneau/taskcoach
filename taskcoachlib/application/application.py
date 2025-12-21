@@ -265,21 +265,29 @@ class wxApp(wx.App):
         self.reopenCallback()
 
     def OnInit(self):
-        # Suppress harmless GTK critical messages (must be called early, before widgets)
+        # Suppress harmless GTK critical/warning messages (must be called early, before widgets)
         # GTK 3.20+ has known bugs that produce these warnings during layout.
         # To see GTK messages for debugging, either:
         #   - Set environment variable: TASKCOACH_SHOW_GTK_WARNINGS=1
         #   - Set suppress_gtk_warnings=False in [feature] section of TaskCoach.ini
-        if operating_system.isGTK():
-            should_show = self._should_show_gtk_warnings()
-            has_method = callable(getattr(wx.App, 'GTKSuppressDiagnostics', None))
-            log_message(f"GTK suppression: should_show={should_show}, has_method={has_method}")
-            if not should_show and has_method:
-                self.GTKSuppressDiagnostics()
-                log_message("GTKSuppressDiagnostics() called")
+        if operating_system.isGTK() and not self._should_show_gtk_warnings():
+            self._install_gtk_log_handler()
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
         return True
+
+    def _install_gtk_log_handler(self):
+        """Install GLib log handler to suppress GTK warnings and criticals."""
+        try:
+            from gi.repository import GLib
+            # Suppress WARNING and CRITICAL for Gtk domain
+            # These are harmless layout bugs in GTK 3.20+
+            flags = GLib.LogLevelFlags.LEVEL_WARNING | GLib.LogLevelFlags.LEVEL_CRITICAL
+            GLib.log_set_handler("Gtk", flags, lambda *args: None, None)
+        except ImportError:
+            # Fall back to wxPython's method (only suppresses warnings)
+            if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
+                self.GTKSuppressDiagnostics()
 
     def _should_show_gtk_warnings(self):
         """Check if GTK warnings should be shown (not suppressed)."""
