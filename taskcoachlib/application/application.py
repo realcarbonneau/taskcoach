@@ -96,14 +96,7 @@ def _log_environment():
         except (OSError, AttributeError):
             pass
 
-        # GTK version (via gi.repository, no wxApp needed)
-        try:
-            import gi
-            gi.require_version('Gtk', '3.0')
-            from gi.repository import Gtk
-            log_message(f"GTK {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
-        except Exception:
-            pass
+        # NOTE: GTK version logged in _log_wx_info() after wxApp creates GTK context
 
     # Log zeroconf version (used for iPhone sync)
     try:
@@ -134,7 +127,19 @@ def _log_wx_info():
     """Log wx-specific info after wxApp is created.
 
     This logs display info that requires wxApp to be initialized.
+    GTK version is logged here because importing gi.repository.Gtk before
+    wxApp would cause 'gtk_disable_setlocale() must be called before gtk_init()'.
     """
+    # Log GTK version (must be after wxApp creates GTK context)
+    if sys.platform == 'linux':
+        try:
+            import gi
+            gi.require_version('Gtk', '3.0')
+            from gi.repository import Gtk
+            log_message(f"GTK {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+        except Exception:
+            pass
+
     log_message("=" * 60)
     log_message("WX DISPLAY INFO")
     log_message("=" * 60)
