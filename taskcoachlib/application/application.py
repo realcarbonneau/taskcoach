@@ -350,6 +350,9 @@ class Application(object, metaclass=patterns.Singleton):
 
         self.init(**kwargs)
 
+        # Initialize session monitor (requires settings from init)
+        self.__init_session_monitor()
+
     def _install_gtk_log_handler(self):
         """Install a GLib log handler to capture GTK warnings with stack traces."""
         try:
@@ -375,6 +378,7 @@ class Application(object, metaclass=patterns.Singleton):
         except Exception as e:
             print(f"[GTK_TRACE] Failed to install GLib log handler: {e}", file=sys.stderr, flush=True)
 
+    def __init_session_monitor(self):
         if operating_system.isGTK():
             if self.settings.getboolean("feature", "usesm2"):
                 from taskcoachlib.powermgt import xsm
