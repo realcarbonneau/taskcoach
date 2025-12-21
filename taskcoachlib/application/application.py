@@ -254,10 +254,9 @@ def _log_macos_environment():
 
 
 class wxApp(wx.App):
-    def __init__(self, sessionCallback, reopenCallback, settings=None, *args, **kwargs):
+    def __init__(self, sessionCallback, reopenCallback, *args, **kwargs):
         self.sessionCallback = sessionCallback
         self.reopenCallback = reopenCallback
-        self.settings = settings
         self.__shutdownInProgress = False
         super().__init__(*args, **kwargs)
 
@@ -265,51 +264,9 @@ class wxApp(wx.App):
         self.reopenCallback()
 
     def OnInit(self):
-        # Suppress harmless GTK critical/warning messages (must be called early, before widgets)
-        # GTK 3.20+ has known bugs that produce these warnings during layout.
-        # To see GTK messages for debugging, either:
-        #   - Set environment variable: TASKCOACH_SHOW_GTK_WARNINGS=1
-        #   - Set suppress_gtk_warnings=False in [feature] section of TaskCoach.ini
-        if operating_system.isGTK() and not self._should_show_gtk_warnings():
-            self._install_gtk_log_handler()
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
         return True
-
-    def _install_gtk_log_handler(self):
-        """Install GLib log handler to suppress specific known-harmless GTK messages."""
-        try:
-            from gi.repository import GLib
-
-            # Only suppress these specific known-harmless messages
-            suppressed_patterns = (
-                # GTK 3.20+ layout bug - wxWidgets #17585
-                "gtk_distribute_natural_allocation",
-                # wxPython init order - harmless
-                "gtk_disable_setlocale",
-            )
-
-            def gtk_log_filter(domain, level, message, user_data):
-                # Suppress only known-harmless messages, let others through
-                if message and any(p in message for p in suppressed_patterns):
-                    return  # Suppress
-                # Log other messages normally
-                GLib.log_default_handler(domain, level, message, user_data)
-
-            flags = GLib.LogLevelFlags.LEVEL_WARNING | GLib.LogLevelFlags.LEVEL_CRITICAL
-            GLib.log_set_handler("Gtk", flags, gtk_log_filter, None)
-        except ImportError:
-            pass  # Can't filter without GLib, let messages through
-
-    def _should_show_gtk_warnings(self):
-        """Check if GTK warnings should be shown (not suppressed)."""
-        # Environment variable takes precedence
-        if os.environ.get('TASKCOACH_SHOW_GTK_WARNINGS'):
-            return True
-        # Check settings (loaded before wxApp creation)
-        if self.settings is not None:
-            return not self.settings.getboolean("feature", "suppress_gtk_warnings")
-        return False  # Default: suppress warnings
 
     def onQueryEndSession(self, event=None):
         if not self.__shutdownInProgress:
@@ -343,13 +300,12 @@ class Application(object, metaclass=patterns.Singleton):
         # 1. Log environment info first (no dependencies)
         _log_environment()
 
-        # 2. Load settings (needed for GTK warning suppression in wxApp)
+        # 2. Load settings
         self.__init_config(kwargs.get('loadSettings', True))
 
-        # 3. Create wxApp with settings (GTK suppression happens in OnInit)
+        # 3. Create wxApp
         self.__wx_app = wxApp(
-            self.on_end_session, self.on_reopen_app,
-            settings=self.settings, redirect=False
+            self.on_end_session, self.on_reopen_app, redirect=False
         )
 
         # 4. Log wx-specific info (needs wxApp)

@@ -573,7 +573,6 @@ defaults = {
         "sdtcspans_effort": "60,120,180,240",
         "decimaltime": "False",
         # New settings should use snake_case naming convention (PEP 8)
-        "suppress_gtk_warnings": "True",  # Suppress harmless GTK 3.20+ warnings on Linux
     },
     "syncml": {
         "url": "",
