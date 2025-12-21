@@ -277,17 +277,29 @@ class wxApp(wx.App):
         return True
 
     def _install_gtk_log_handler(self):
-        """Install GLib log handler to suppress GTK warnings and criticals."""
+        """Install GLib log handler to suppress specific known-harmless GTK messages."""
         try:
             from gi.repository import GLib
-            # Suppress WARNING and CRITICAL for Gtk domain
-            # These are harmless layout bugs in GTK 3.20+
+
+            # Only suppress these specific known-harmless messages
+            suppressed_patterns = (
+                # GTK 3.20+ layout bug - wxWidgets #17585
+                "gtk_distribute_natural_allocation",
+                # wxPython init order - harmless
+                "gtk_disable_setlocale",
+            )
+
+            def gtk_log_filter(domain, level, message, user_data):
+                # Suppress only known-harmless messages, let others through
+                if message and any(p in message for p in suppressed_patterns):
+                    return  # Suppress
+                # Log other messages normally
+                GLib.log_default_handler(domain, level, message, user_data)
+
             flags = GLib.LogLevelFlags.LEVEL_WARNING | GLib.LogLevelFlags.LEVEL_CRITICAL
-            GLib.log_set_handler("Gtk", flags, lambda *args: None, None)
+            GLib.log_set_handler("Gtk", flags, gtk_log_filter, None)
         except ImportError:
-            # Fall back to wxPython's method (only suppresses warnings)
-            if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
-                self.GTKSuppressDiagnostics()
+            pass  # Can't filter without GLib, let messages through
 
     def _should_show_gtk_warnings(self):
         """Check if GTK warnings should be shown (not suppressed)."""
