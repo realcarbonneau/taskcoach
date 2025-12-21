@@ -64,24 +64,85 @@ def log_error(msg):
     print(msg, file=sys.stderr)
 
 
-def _log_gui_environment():
-    """Log GUI environment details for debugging window positioning issues."""
+def _log_environment():
+    """Log environment info early, before wxApp is created.
+
+    This logs version info and environment variables that don't require wx.
+    """
+    from taskcoachlib import meta
+    import platform
+
+    # Log session start with date/time centered in separator
+    date_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
+    log_message(f" {date_str} ".center(60, "="))
+
+    # Log version info at startup for debugging
+    if meta.git_commit_hash:
+        log_message(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
+    else:
+        log_message(f"Task Coach {meta.version_full}")
+    log_message(f"Python {sys.version}")
+    log_message(f"wxPython {wx.version()}")
+    log_message(f"Platform: {platform.platform()}")
+
+    # Log GTK/glibc info on Linux
+    if platform.system() == 'Linux':
+        try:
+            import ctypes
+            libc = ctypes.CDLL('libc.so.6')
+            gnu_get_libc_version = libc.gnu_get_libc_version
+            gnu_get_libc_version.restype = ctypes.c_char_p
+            log_message(f"glibc {gnu_get_libc_version().decode()}")
+        except (OSError, AttributeError):
+            pass
+
+        # GTK version (via gi.repository, no wxApp needed)
+        try:
+            import gi
+            gi.require_version('Gtk', '3.0')
+            from gi.repository import Gtk
+            log_message(f"GTK {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+        except Exception:
+            pass
+
+    # Log zeroconf version (used for iPhone sync)
+    try:
+        import zeroconf
+        log_message(f"zeroconf {zeroconf.__version__}")
+    except ImportError:
+        pass
+
+    # Platform-specific environment info (no wx needed)
     log_message("=" * 60)
-    log_message("GUI ENVIRONMENT INFO")
+    if sys.platform == 'linux':
+        _log_linux_environment_early()
+
+
+def _log_linux_environment_early():
+    """Log Linux environment variables (no wx needed)."""
+    log_message(f"XDG_SESSION_TYPE: {os.environ.get('XDG_SESSION_TYPE', 'not set')}")
+    log_message(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
+    log_message(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
+    log_message(f"GDK_BACKEND: {os.environ.get('GDK_BACKEND', 'auto')}")
+
+    desktop = os.environ.get('XDG_CURRENT_DESKTOP',
+              os.environ.get('DESKTOP_SESSION', 'unknown'))
+    log_message(f"Desktop Environment: {desktop}")
+
+
+def _log_wx_info():
+    """Log wx-specific info after wxApp is created.
+
+    This logs display info that requires wxApp to be initialized.
+    """
+    log_message("=" * 60)
+    log_message("WX DISPLAY INFO")
     log_message("=" * 60)
 
-    # wx platform details (more detailed than basic wx.version())
+    # wx platform details
     log_message(f"wx.PlatformInfo: {wx.PlatformInfo}")
 
-    # Platform-specific info
-    if sys.platform == 'win32':
-        _log_windows_environment()
-    elif sys.platform == 'darwin':
-        _log_macos_environment()
-    else:
-        _log_linux_environment()
-
-    # Display/monitor info (cross-platform)
+    # Display/monitor info (cross-platform, requires wxApp)
     try:
         num_displays = wx.Display.GetCount()
         log_message(f"Number of displays: {num_displays}")
@@ -89,7 +150,6 @@ def _log_gui_environment():
             display = wx.Display(i)
             geom = display.GetGeometry()
             client = display.GetClientArea()
-            # Get DPI/scaling if available
             try:
                 ppi = display.GetPPI()
                 log_message(f"  Display {i}: geometry={geom.x},{geom.y} {geom.width}x{geom.height}  "
@@ -190,114 +250,14 @@ def _log_macos_environment():
         pass
 
 
-def _log_linux_environment():
-    """Log Linux/GTK-specific GUI environment info."""
-    # Session type
-    session_type = os.environ.get('XDG_SESSION_TYPE', 'unknown')
-    log_message(f"XDG_SESSION_TYPE: {session_type}")
-    log_message(f"WAYLAND_DISPLAY: {os.environ.get('WAYLAND_DISPLAY', 'not set')}")
-    log_message(f"DISPLAY: {os.environ.get('DISPLAY', 'not set')}")
-
-    # Desktop environment
-    desktop = os.environ.get('XDG_CURRENT_DESKTOP',
-              os.environ.get('DESKTOP_SESSION', 'unknown'))
-    log_message(f"Desktop Environment: {desktop}")
-
-    # GTK version (if available)
-    try:
-        import gi
-        gi.require_version('Gtk', '3.0')
-        from gi.repository import Gtk
-        log_message(f"GTK Version: {Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
-    except Exception as e:
-        log_message(f"GTK Version: unavailable ({e})")
-
-    # GDK backend
-    try:
-        gdk_backend = os.environ.get('GDK_BACKEND', 'auto')
-        log_message(f"GDK_BACKEND: {gdk_backend}")
-    except Exception:
-        pass
-
-    # Window manager detection
-    wm_name = "unknown"
-    wm_version = "unknown"
-
-    # Try wmctrl first
-    try:
-        result = subprocess.run(['wmctrl', '-m'], capture_output=True, text=True, timeout=2)
-        if result.returncode == 0:
-            for line in result.stdout.split('\n'):
-                if line.startswith('Name:'):
-                    wm_name = line.split(':', 1)[1].strip()
-                    break
-    except Exception:
-        pass
-
-    # Try xprop for WM info
-    if wm_name == "unknown":
-        try:
-            result = subprocess.run(
-                ['xprop', '-root', '-notype', '_NET_WM_NAME', '_NET_SUPPORTING_WM_CHECK'],
-                capture_output=True, text=True, timeout=2
-            )
-            if result.returncode == 0:
-                for line in result.stdout.split('\n'):
-                    if '_NET_WM_NAME' in line and '=' in line:
-                        wm_name = line.split('=', 1)[1].strip().strip('"')
-                        break
-        except Exception:
-            pass
-
-    # Try getting WM version from common WMs
-    wm_lower = wm_name.lower()
-    try:
-        if 'openbox' in wm_lower:
-            result = subprocess.run(['openbox', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.split('\n')[0]
-        elif 'mutter' in wm_lower or 'gnome' in wm_lower:
-            result = subprocess.run(['mutter', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.strip()
-        elif 'kwin' in wm_lower:
-            result = subprocess.run(['kwin_x11', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.split('\n')[0]
-        elif 'xfwm' in wm_lower:
-            result = subprocess.run(['xfwm4', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.split('\n')[0]
-        elif 'marco' in wm_lower:
-            result = subprocess.run(['marco', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.strip()
-        elif 'metacity' in wm_lower:
-            result = subprocess.run(['metacity', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.strip()
-        elif 'i3' in wm_lower:
-            result = subprocess.run(['i3', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.split('\n')[0]
-        elif 'sway' in wm_lower:
-            result = subprocess.run(['sway', '--version'], capture_output=True, text=True, timeout=2)
-            if result.returncode == 0:
-                wm_version = result.stdout.strip()
-    except Exception:
-        pass
-
-    log_message(f"Window Manager: {wm_name}")
-    log_message(f"WM Version: {wm_version}")
-
-
 # pylint: disable=W0404
 
 
 class wxApp(wx.App):
-    def __init__(self, sessionCallback, reopenCallback, *args, **kwargs):
+    def __init__(self, sessionCallback, reopenCallback, settings=None, *args, **kwargs):
         self.sessionCallback = sessionCallback
         self.reopenCallback = reopenCallback
+        self.settings = settings
         self.__shutdownInProgress = False
         super().__init__(*args, **kwargs)
 
@@ -309,15 +269,13 @@ class wxApp(wx.App):
         # GTK 3.20+ has known bugs that produce these warnings during layout.
         # To see GTK messages for debugging, either:
         #   - Set environment variable: TASKCOACH_SHOW_GTK_WARNINGS=1
-        #   - Set suppressgtkwarnings=False in [feature] section of TaskCoach.ini
+        #   - Set suppress_gtk_warnings=False in [feature] section of TaskCoach.ini
         if operating_system.isGTK():
             if not self._should_show_gtk_warnings():
                 if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
                     self.GTKSuppressDiagnostics()
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
-        # NOTE: stdout/stderr redirection removed.
-        # Now using tee module initialized in taskcoach.py.
         return True
 
     def _should_show_gtk_warnings(self):
@@ -325,21 +283,9 @@ class wxApp(wx.App):
         # Environment variable takes precedence
         if os.environ.get('TASKCOACH_SHOW_GTK_WARNINGS'):
             return True
-        # Check INI file setting (read early, before full Settings init)
-        try:
-            import configparser
-            from taskcoachlib import meta
-            # Construct INI path for GTK (Linux)
-            from xdg import BaseDirectory
-            config_dir = BaseDirectory.save_config_path(meta.name)
-            ini_path = os.path.join(config_dir, "%s.ini" % meta.filename)
-            if os.path.exists(ini_path):
-                config = configparser.ConfigParser()
-                config.read(ini_path)
-                if config.has_option('feature', 'suppressgtkwarnings'):
-                    return config.get('feature', 'suppressgtkwarnings').lower() == 'false'
-        except Exception:
-            pass  # If anything fails, use default (suppress)
+        # Check settings (loaded before wxApp creation)
+        if self.settings is not None:
+            return not self.settings.getboolean("feature", "suppress_gtk_warnings")
         return False  # Default: suppress warnings
 
     def onQueryEndSession(self, event=None):
@@ -370,36 +316,27 @@ class Application(object, metaclass=patterns.Singleton):
     def __init__(self, options=None, args=None, **kwargs):
         self._options = options
         self._args = args
-        # NOTE: Twisted initialization removed - using native wx event loop
+
+        # 1. Load settings first (needed for GTK warning suppression in wxApp)
+        self.__init_config(kwargs.get('loadSettings', True))
+
+        # 2. Log environment info (no wxApp needed)
+        _log_environment()
+
+        # 3. Create wxApp with settings (GTK suppression happens in OnInit)
         self.__wx_app = wxApp(
-            self.on_end_session, self.on_reopen_app, redirect=False
+            self.on_end_session, self.on_reopen_app,
+            settings=self.settings, redirect=False
         )
 
+        # 4. Log wx-specific info (needs wxApp)
+        _log_wx_info()
+
+        # 5. Continue with rest of initialization
         self.init(**kwargs)
 
-        # Suppress GTK warnings if configured (requires settings from init)
-        self.__init_gtk_warning_suppression()
-
-        # Initialize session monitor (requires settings from init)
+        # 6. Initialize session monitor (requires settings)
         self.__init_session_monitor()
-
-    def __init_gtk_warning_suppression(self):
-        """Suppress harmless GTK critical messages on Linux.
-
-        GTK 3.20+ has a known bug where gtk_distribute_natural_allocation
-        occasionally asserts 'extra_space >= 0' during layout calculations.
-        This is harmless but goes to stderr, which can trigger error popups.
-
-        Controlled by [feature] suppressgtkwarnings setting in TaskCoach.ini.
-        Set to False to see GTK diagnostic messages for debugging.
-        """
-        if not operating_system.isGTK():
-            return
-        if not self.settings.getboolean("feature", "suppressgtkwarnings"):
-            return
-        # Use wxPython's built-in GTK warning suppression (available since 4.2.0)
-        if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
-            self.__wx_app.GTKSuppressDiagnostics()
 
     def __init_session_monitor(self):
         if operating_system.isGTK():
@@ -449,42 +386,6 @@ class Application(object, metaclass=patterns.Singleton):
     # Now using native wx.App.MainLoop() which is simpler and more reliable.
     # See class docstring for migration details.
 
-    def _log_version_info(self):
-        """Log version info for debugging - called early in init() before any GUI."""
-        from taskcoachlib import meta
-        import platform
-
-        # Log session start with date/time centered in separator
-        date_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-        log_message(f" {date_str} ".center(60, "="))
-
-        # Log version info at startup for debugging
-        if meta.git_commit_hash:
-            log_message(f"Task Coach {meta.version_full} (commit {meta.git_commit_hash})")
-        else:
-            log_message(f"Task Coach {meta.version_full}")
-        log_message(f"Python {sys.version}")
-        log_message(f"wxPython {wx.version()}")
-        log_message(f"Platform: {platform.platform()}")
-
-        # Log GTK/glibc info on Linux
-        if platform.system() == 'Linux':
-            try:
-                import ctypes
-                libc = ctypes.CDLL('libc.so.6')
-                gnu_get_libc_version = libc.gnu_get_libc_version
-                gnu_get_libc_version.restype = ctypes.c_char_p
-                log_message(f"glibc {gnu_get_libc_version().decode()}")
-            except (OSError, AttributeError):
-                pass  # glibc version detection may fail
-
-        # Log zeroconf version (used for iPhone sync)
-        try:
-            import zeroconf
-            log_message(f"zeroconf {zeroconf.__version__}")
-        except ImportError:
-            pass  # zeroconf is optional
-
     def start(self):
         """Call this to start the Application."""
         from taskcoachlib import meta
@@ -507,17 +408,13 @@ class Application(object, metaclass=patterns.Singleton):
             wx.Log.SetLogLevel(wx.LOG_Info)
             wx.Log.SetVerbose(True)
 
-        print("[GTK_TRACE] APP: Before mainwindow.Show()", file=sys.stderr, flush=True)
         self.mainwindow.Show()
-        print("[GTK_TRACE] APP: After mainwindow.Show()", file=sys.stderr, flush=True)
         # Position correction is handled automatically by WindowDimensionsTracker
         # via EVT_MOVE detection until EVT_ACTIVATE fires (window ready for input)
         # Use native wxPython main loop instead of Twisted reactor
         # NOTE: Previously used reactor.run() with wxreactor integration.
         # Now using wx.App.MainLoop() directly for simpler event handling.
-        print("[GTK_TRACE] APP: Before MainLoop()", file=sys.stderr, flush=True)
         self.__wx_app.MainLoop()
-        print("[GTK_TRACE] APP: After MainLoop() (exiting)", file=sys.stderr, flush=True)
 
     def __copy_default_templates(self):
         """Copy default templates that don't exist yet in the user's
@@ -546,12 +443,8 @@ class Application(object, metaclass=patterns.Singleton):
         """Initialize the application. Needs to be called before
         Application.start()."""
         # Note: tee is initialized in taskcoach.py before any imports
+        # Note: Settings and logging already done in __init__ before wxApp creation
 
-        # Log version/environment info for debugging
-        self._log_version_info()
-        _log_gui_environment()
-
-        self.__init_config(loadSettings)
         self.__init_language()
         self.__init_domain_objects()
         self.__init_application()
@@ -579,13 +472,10 @@ class Application(object, metaclass=patterns.Singleton):
         self.iocontroller = gui.IOController(
             self.taskFile, self.displayMessage, self.settings
         )
-        print("[GTK_TRACE] APP: Before MainWindow creation", file=sys.stderr, flush=True)
         self.mainwindow = gui.MainWindow(
             self.iocontroller, self.taskFile, self.settings
         )
-        print("[GTK_TRACE] APP: After MainWindow creation", file=sys.stderr, flush=True)
         self.__wx_app.SetTopWindow(self.mainwindow)
-        print("[GTK_TRACE] APP: After SetTopWindow", file=sys.stderr, flush=True)
         self.__init_spell_checking()
         if not self.settings.getboolean("file", "inifileloaded"):
             self.__warn_user_that_ini_file_was_not_loaded()

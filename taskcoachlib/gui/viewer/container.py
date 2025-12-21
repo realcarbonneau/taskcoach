@@ -40,14 +40,10 @@ class ViewerContainer(object):
         super().__init__(*args, **kwargs)
 
     def componentsCreated(self):
-        import sys
-        print("[GTK_TRACE] [CallAfter] componentsCreated START", file=sys.stderr, flush=True)
         self._notifyActiveViewer = True
         # Activate the first viewer (TaskViewer) as the default at startup
         if self.viewers:
-            print(f"[GTK_TRACE]   componentsCreated: activating viewer {self.viewers[0]}", file=sys.stderr, flush=True)
             self.activateViewer(self.viewers[0])
-        print("[GTK_TRACE] [CallAfter] componentsCreated END", file=sys.stderr, flush=True)
 
     def advanceSelection(self, forward):
         """Activate the next viewer if forward is true else the previous
@@ -127,17 +123,11 @@ class ViewerContainer(object):
 
     def activateViewer(self, viewer_to_activate):
         """Activate (select) the specified viewer."""
-        import sys
-        print(f"[GTK_TRACE]   activateViewer START for {viewer_to_activate}", file=sys.stderr, flush=True)
-        print("[GTK_TRACE]     calling ActivatePane...", file=sys.stderr, flush=True)
         self.containerWidget.manager.ActivatePane(viewer_to_activate)
         paneInfo = self.containerWidget.manager.GetPane(viewer_to_activate)
         if paneInfo.IsNotebookPage():
-            print("[GTK_TRACE]     calling ShowPane (notebook page)...", file=sys.stderr, flush=True)
             self.containerWidget.manager.ShowPane(viewer_to_activate, True)
-        print("[GTK_TRACE]     calling sendViewerStatusEvent...", file=sys.stderr, flush=True)
         self.sendViewerStatusEvent()
-        print("[GTK_TRACE]   activateViewer END", file=sys.stderr, flush=True)
 
     def __del__(self):
         pass  # Don't forward del to one of the viewers.

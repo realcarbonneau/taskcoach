@@ -69,19 +69,11 @@ class MainWindow(
     def __init__(
         self, iocontroller, taskFile, settings: Settings, *args, **kwargs
     ):
-        import sys
-        def _gtk_log(msg):
-            print(f"[GTK_TRACE] {msg}", file=sys.stderr, flush=True)
-        self._gtk_log = _gtk_log
-        self._gtk_log("=== MainWindow.__init__ START ===")
-
         # Initialize with valid default size to prevent GTK warnings
         # The WindowDimensionsTracker will set the actual saved size/position
         if 'size' not in kwargs:
             kwargs['size'] = (800, 600)
-        self._gtk_log(f"  Calling super().__init__ with size={kwargs.get('size')}")
         super().__init__(None, -1, "", *args, **kwargs)
-        self._gtk_log(f"  super().__init__ done, window size={self.GetSize()}")
         # This prevents the viewers from flickering on Windows 7 when refreshed:
         if operating_system.isWindows7_OrNewer():
             turn_on_double_buffering_on_windows(self)
@@ -97,15 +89,11 @@ class MainWindow(
         self.Bind(wx.EVT_CLOSE, self.onClose)
         self.Bind(wx.EVT_ICONIZE, self.onIconify)
         self.Bind(wx.EVT_SIZE, self.onResize)
-        self._gtk_log("  Calling _create_window_components...")
         self._create_window_components()  # Not private for test purposes
-        self._gtk_log("  Calling __init_window_components...")
         self.__init_window_components()
-        self._gtk_log("  Calling __init_window...")
         self.__init_window()
-        self._gtk_log("  Calling __register_for_window_component_changes...")
         self.__register_for_window_component_changes()
-        self._gtk_log("  post-init: syncml check...")
+
         if settings.getboolean("feature", "syncml"):
             try:
                 import taskcoachlib.syncml.core  # pylint: disable=W0612,W0404
@@ -118,20 +106,16 @@ class MainWindow(
                     finally:
                         dlg.Destroy()
 
-        self._gtk_log("  post-init: bonjour setup...")
         self.bonjourRegister = None
         self.bonjourAcceptor = None
         self._registerBonjour()
         pub.subscribe(self._registerBonjour, "settings.feature.iphone")
 
-        self._gtk_log("  post-init: IdleController setup...")
         self._idleController = idlecontroller.IdleController(
             self, self.settings, self.taskFile.efforts()
         )
 
-        self._gtk_log("  post-init: scheduling CallAfter(checkXFCE4)...")
         wx.CallAfter(self.checkXFCE4)
-        self._gtk_log("=== MainWindow.__init__ END ===")
 
     def _registerBonjour(self, value=True):
         if self.bonjourRegister is not None:
@@ -173,7 +157,6 @@ class MainWindow(
                     dlg.Destroy()
 
     def checkXFCE4(self):
-        self._gtk_log("[CallAfter] checkXFCE4 START")
         if operating_system.isGTK():
             mon = application.Application().sessionMonitor
             if (
@@ -184,7 +167,6 @@ class MainWindow(
             ):
                 dlg = XFCE4WarningDialog(self, self.settings)
                 dlg.Show()
-        self._gtk_log("[CallAfter] checkXFCE4 END")
 
     def setShutdownInProgress(self):
         self.__shutdown = True
@@ -245,34 +227,26 @@ class MainWindow(
         )
 
     def __init_window_components(self):
-        self._gtk_log(f"  __init_window_components: START, window size={self.GetSize()}")
         # Freeze to prevent flickering during AUI layout restoration
         self.Freeze()
 
         try:
-            self._gtk_log("  __init_window_components: calling showToolBar...")
             self.showToolBar(self.settings.getvalue("view", "toolbar"))
-            self._gtk_log("  __init_window_components: showToolBar done")
 
             # We use CallAfter because otherwise the statusbar will appear at the
             # top of the window when it is initially hidden and later shown.
             wx.CallAfter(
                 self.showStatusBar, self.settings.getboolean("view", "statusbar")
             )
-            self._gtk_log("  __init_window_components: calling __restore_perspective...")
             self.__restore_perspective()
-            self._gtk_log("  __init_window_components: __restore_perspective done")
         finally:
-            self._gtk_log("  __init_window_components: calling Thaw...")
             self.Thaw()
-            self._gtk_log("  __init_window_components: END")
 
         # Note: Window position/size tracking uses debouncing to handle spurious
         # events from AUI LoadPerspective() and GTK window realization.
         # Events are bound immediately in __init__, no manual start needed.
 
     def __restore_perspective(self):
-        self._gtk_log(f"    __restore_perspective: START, window size={self.GetSize()}")
         perspective = self.settings.get("view", "perspective")
         for viewer_type in viewer.viewerTypes():
             if self.__perspective_and_settings_viewer_count_differ(
@@ -284,9 +258,7 @@ class MainWindow(
                 break
 
         try:
-            self._gtk_log("    __restore_perspective: calling LoadPerspective...")
             self.manager.LoadPerspective(perspective)
-            self._gtk_log("    __restore_perspective: LoadPerspective done")
         except Exception as reason:
             # wxPython's AUI LoadPerspective can raise Exception (not ValueError)
             # with "Bad perspective string" when the saved layout is corrupt.
@@ -318,11 +290,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 pane.Caption(pane.window.title())
             # MainToolBar uses auto-resize - clear any saved MinSize from old INI files
             if pane.name == "toolbar":
-                self._gtk_log("    __restore_perspective: clearing toolbar MinSize")
                 pane.MinSize((-1, -1))
-        self._gtk_log("    __restore_perspective: calling manager.Update...")
         self.manager.Update()
-        self._gtk_log("    __restore_perspective: END")
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
         perspective = self.settings.get("view", "perspective")
@@ -439,16 +408,12 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         event.Skip()
 
     def showStatusBar(self, value=True):
-        self._gtk_log(f"[CallAfter] showStatusBar START value={value}")
         # FIXME: First hiding the statusbar, then hiding the toolbar, then
         # showing the statusbar puts it in the wrong place (only on Linux?)
         statusBar = self.GetStatusBar()
         if statusBar:
-            self._gtk_log("  showStatusBar: calling statusBar.Show")
             statusBar.Show(value)
-            self._gtk_log("  showStatusBar: calling SendSizeEvent")
             self.SendSizeEvent()
-        self._gtk_log("[CallAfter] showStatusBar END")
 
     def createToolBarUICommands(self):
         """UI commands to put on the toolbar of this window."""
@@ -481,19 +446,14 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         self.settings.set("view", "toolbarperspective", perspective)
 
     def showToolBar(self, value):
-        self._gtk_log(f"    showToolBar: START value={value}, window size={self.GetSize()}")
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
-            self._gtk_log("    showToolBar: detaching existing toolbar")
             self.manager.DetachPane(currentToolbar.window)
             currentToolbar.window.Destroy()
         if value:
-            self._gtk_log("    showToolBar: creating MainToolBar...")
             bar = toolbar.MainToolBar(self, self.settings, size=value)
-            self._gtk_log(f"    showToolBar: toolbar created, size={bar.GetSize()} best={bar.GetBestSize()}")
             # MainToolBar uses auto-resize - AUI handles sizing automatically
             # DockFixed() makes the pane span full width of its dock
-            self._gtk_log("    showToolBar: calling AddPane...")
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -504,10 +464,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .DockFixed()
                 .DestroyOnClose(),
             )
-            self._gtk_log("    showToolBar: AddPane done")
-        self._gtk_log("    showToolBar: calling manager.Update...")
         self.manager.Update()
-        self._gtk_log("    showToolBar: END")
 
     def onCloseToolBar(self, event):
         if event.GetPane().IsToolbar():
