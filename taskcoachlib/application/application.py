@@ -450,13 +450,17 @@ class Application(object, metaclass=patterns.Singleton):
             wx.Log.SetLogLevel(wx.LOG_Info)
             wx.Log.SetVerbose(True)
 
+        print("[GTK_TRACE] APP: Before mainwindow.Show()", file=sys.stderr, flush=True)
         self.mainwindow.Show()
+        print("[GTK_TRACE] APP: After mainwindow.Show()", file=sys.stderr, flush=True)
         # Position correction is handled automatically by WindowDimensionsTracker
         # via EVT_MOVE detection until EVT_ACTIVATE fires (window ready for input)
         # Use native wxPython main loop instead of Twisted reactor
         # NOTE: Previously used reactor.run() with wxreactor integration.
         # Now using wx.App.MainLoop() directly for simpler event handling.
+        print("[GTK_TRACE] APP: Before MainLoop()", file=sys.stderr, flush=True)
         self.__wx_app.MainLoop()
+        print("[GTK_TRACE] APP: After MainLoop() (exiting)", file=sys.stderr, flush=True)
 
     def __copy_default_templates(self):
         """Copy default templates that don't exist yet in the user's
@@ -518,10 +522,13 @@ class Application(object, metaclass=patterns.Singleton):
         self.iocontroller = gui.IOController(
             self.taskFile, self.displayMessage, self.settings
         )
+        print("[GTK_TRACE] APP: Before MainWindow creation", file=sys.stderr, flush=True)
         self.mainwindow = gui.MainWindow(
             self.iocontroller, self.taskFile, self.settings
         )
+        print("[GTK_TRACE] APP: After MainWindow creation", file=sys.stderr, flush=True)
         self.__wx_app.SetTopWindow(self.mainwindow)
+        print("[GTK_TRACE] APP: After SetTopWindow", file=sys.stderr, flush=True)
         self.__init_spell_checking()
         if not self.settings.getboolean("file", "inifileloaded"):
             self.__warn_user_that_ini_file_was_not_loaded()

@@ -105,8 +105,7 @@ class MainWindow(
         self.__init_window()
         self._gtk_log("  Calling __register_for_window_component_changes...")
         self.__register_for_window_component_changes()
-        self._gtk_log("=== MainWindow.__init__ END ===")
-
+        self._gtk_log("  post-init: syncml check...")
         if settings.getboolean("feature", "syncml"):
             try:
                 import taskcoachlib.syncml.core  # pylint: disable=W0612,W0404
@@ -119,16 +118,20 @@ class MainWindow(
                     finally:
                         dlg.Destroy()
 
+        self._gtk_log("  post-init: bonjour setup...")
         self.bonjourRegister = None
         self.bonjourAcceptor = None
         self._registerBonjour()
         pub.subscribe(self._registerBonjour, "settings.feature.iphone")
 
+        self._gtk_log("  post-init: IdleController setup...")
         self._idleController = idlecontroller.IdleController(
             self, self.settings, self.taskFile.efforts()
         )
 
+        self._gtk_log("  post-init: scheduling CallAfter(checkXFCE4)...")
         wx.CallAfter(self.checkXFCE4)
+        self._gtk_log("=== MainWindow.__init__ END ===")
 
     def _registerBonjour(self, value=True):
         if self.bonjourRegister is not None:
@@ -170,6 +173,7 @@ class MainWindow(
                     dlg.Destroy()
 
     def checkXFCE4(self):
+        self._gtk_log("[CallAfter] checkXFCE4 START")
         if operating_system.isGTK():
             mon = application.Application().sessionMonitor
             if (
@@ -180,6 +184,7 @@ class MainWindow(
             ):
                 dlg = XFCE4WarningDialog(self, self.settings)
                 dlg.Show()
+        self._gtk_log("[CallAfter] checkXFCE4 END")
 
     def setShutdownInProgress(self):
         self.__shutdown = True
@@ -434,12 +439,16 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         event.Skip()
 
     def showStatusBar(self, value=True):
+        self._gtk_log(f"[CallAfter] showStatusBar START value={value}")
         # FIXME: First hiding the statusbar, then hiding the toolbar, then
         # showing the statusbar puts it in the wrong place (only on Linux?)
         statusBar = self.GetStatusBar()
         if statusBar:
+            self._gtk_log("  showStatusBar: calling statusBar.Show")
             statusBar.Show(value)
+            self._gtk_log("  showStatusBar: calling SendSizeEvent")
             self.SendSizeEvent()
+        self._gtk_log("[CallAfter] showStatusBar END")
 
     def createToolBarUICommands(self):
         """UI commands to put on the toolbar of this window."""
