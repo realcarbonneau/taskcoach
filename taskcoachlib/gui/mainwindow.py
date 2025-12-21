@@ -406,14 +406,19 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             event.Skip()
 
     def onResize(self, event):
-        # MainToolBar uses auto-resize, so AUI handles width automatically.
-        # We only need to ensure the pane info has the correct height for
-        # AUI's layout calculations.
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
+            width = event.GetSize().GetWidth()
             best_size = currentToolbar.window.GetBestSize()
-            # Tell AUI pane the toolbar height; width is -1 (auto from AUI)
-            currentToolbar.MinSize((-1, best_size.GetHeight()))
+            height = best_size.GetHeight()
+            # Set toolbar width for stretch spacer functionality
+            currentToolbar.window.SetSize((width, -1))
+            # NOTE: We intentionally do NOT call SetMinSize() here.
+            # SetMinSize((width, height)) creates a hard GTK constraint that
+            # causes "gtk_distribute_natural_allocation: assertion 'extra_space >= 0'"
+            # errors during maximize or rapid resize operations.
+            # AUI pane MinSize with -1 width lets AUI handle layout flexibly.
+            currentToolbar.MinSize((-1, height))
         event.Skip()
 
     def showStatusBar(self, value=True):
