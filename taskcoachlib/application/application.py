@@ -98,17 +98,68 @@ def _log_environment():
 
         # NOTE: GTK version logged in _log_wx_info() after wxApp creates GTK context
 
-    # Log zeroconf version (used for iPhone sync)
-    try:
-        import zeroconf
-        log_message(f"zeroconf {zeroconf.__version__}")
-    except ImportError:
-        pass
+    # Log required package versions
+    _log_required_packages()
 
     # Platform-specific environment info (no wx needed)
     log_message("=" * 60)
     if sys.platform == 'linux':
         _log_linux_environment_early()
+
+
+def _get_package_version(package_name, import_name=None):
+    """Get version of a package. Returns version string or 'missing'."""
+    if import_name is None:
+        import_name = package_name
+    try:
+        # Try importlib.metadata first (Python 3.8+)
+        from importlib.metadata import version
+        return version(package_name)
+    except Exception:
+        pass
+    # Try importing the module and checking __version__
+    try:
+        module = __import__(import_name)
+        if hasattr(module, '__version__'):
+            return module.__version__
+        if hasattr(module, 'VERSION'):
+            return str(module.VERSION)
+        return 'installed (version unknown)'
+    except ImportError:
+        return 'missing'
+
+
+def _log_required_packages():
+    """Log versions of all required packages."""
+    log_message("-" * 60)
+    log_message("Required packages:")
+
+    # Core packages (package_name, import_name if different)
+    packages = [
+        ('six', None),
+        ('desktop3', 'desktop'),
+        ('pypubsub', 'pubsub'),
+        ('watchdog', None),
+        ('chardet', None),
+        ('python-dateutil', 'dateutil'),
+        ('pyparsing', None),
+        ('lxml', None),
+        ('pyxdg', 'xdg'),
+        ('keyring', None),
+        ('numpy', None),
+        ('fasteners', None),
+        ('gntp', None),
+        ('zeroconf', None),
+        ('squaremap', None),
+    ]
+
+    # Windows-only
+    if sys.platform == 'win32':
+        packages.append(('WMI', 'wmi'))
+
+    for pkg_name, import_name in packages:
+        version = _get_package_version(pkg_name, import_name)
+        log_message(f"  {pkg_name}: {version}")
 
 
 def _log_linux_environment_early():
