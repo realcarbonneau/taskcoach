@@ -453,6 +453,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
             # MainToolBar uses auto-resize - AUI handles sizing automatically
+            # DockFixed() makes the pane span full width of its dock
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -460,6 +461,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .Caption("Toolbar")
                 .ToolbarPane()
                 .Top()
+                .DockFixed()
                 .DestroyOnClose(),
             )
         self.manager.Update()
