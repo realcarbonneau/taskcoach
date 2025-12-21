@@ -317,11 +317,11 @@ class Application(object, metaclass=patterns.Singleton):
         self._options = options
         self._args = args
 
-        # 1. Load settings first (needed for GTK warning suppression in wxApp)
-        self.__init_config(kwargs.get('loadSettings', True))
-
-        # 2. Log environment info (no wxApp needed)
+        # 1. Log environment info first (no dependencies)
         _log_environment()
+
+        # 2. Load settings (needed for GTK warning suppression in wxApp)
+        self.__init_config(kwargs.get('loadSettings', True))
 
         # 3. Create wxApp with settings (GTK suppression happens in OnInit)
         self.__wx_app = wxApp(
@@ -546,8 +546,6 @@ Break the lock?"""
         ini_file = self._options.inifile if self._options else None
         # pylint: disable=W0201
         self.settings = config.Settings(load_settings, ini_file)
-        # Make settings accessible via wx.GetApp() for dialogs that need it
-        self.__wx_app.settings = self.settings
 
     def __init_language(self):
         """Initialize the current translation."""
