@@ -63,9 +63,12 @@ def _get_log_path():
     return os.path.join(base, 'taskcoachlog.txt')
 
 
-def _should_ignore_stderr(text):
-    """Check if stderr text matches a known harmless pattern."""
-    return any(pattern in text for pattern in STDERR_IGNORE_PATTERNS)
+def _get_ignore_pattern(text):
+    """Return the ignore pattern that matches text, or None if no match."""
+    for pattern in STDERR_IGNORE_PATTERNS:
+        if pattern in text:
+            return pattern
+    return None
 
 
 def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
@@ -95,10 +98,24 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
                 except Exception:
                     pass
 
-                # Set error flag for stderr, unless it matches ignore patterns
-                if is_stderr and not _should_ignore_stderr(text):
-                    with _has_errors_lock:
-                        _has_errors = True
+                # Set error flag for stderr, unless it matches ignore patterns or is empty
+                if is_stderr:
+                    # Ignore empty/whitespace-only output
+                    if not text.strip():
+                        pass  # Empty line, don't flag as error
+                    else:
+                        ignore_pattern = _get_ignore_pattern(text)
+                        if ignore_pattern:
+                            # Log that we're ignoring this for the error flag
+                            try:
+                                log_file.write(f"[TEE] Ignored for Error Popup Flag: matched '{ignore_pattern}'\n")
+                                log_file.flush()
+                            except Exception:
+                                pass
+                        else:
+                            # Real error - set the flag
+                            with _has_errors_lock:
+                                _has_errors = True
 
             except OSError:
                 break
