@@ -192,16 +192,7 @@ class MainToolBar(ToolBar):
     """Main window toolbar for use in AUI-managed main window.
 
     The toolbar is docked at the top and spans full window width.
-    Uses auto-resize so AUI provides the width and stretch spacers work
-    naturally without manual SetSize() calls.
-
-    Note: The base _Toolbar class uses AUI_TB_NO_AUTORESIZE which is needed
-    for viewer toolbars inside panels. But MainToolBar spans the full window
-    width, so we enable auto-resize here for proper stretch spacer behavior.
+    Uses NO_AUTORESIZE like other toolbars, with manual SetSize() in
+    mainwindow.onResize() to set width for stretch spacer functionality.
     """
-
-    def __init__(self, window, settings, size=(32, 32)):
-        super().__init__(window, settings, size)
-        # Enable auto-resize for main toolbar - AUI pane provides width,
-        # stretch spacers work naturally, no manual SetSize needed
-        self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
+    pass
