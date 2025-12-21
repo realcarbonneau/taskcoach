@@ -288,29 +288,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             # incorrect when the user changes translation:
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
-            # Reset toolbar MinSize - width is derived from window, not saved.
-            # Old INI files may have hard-coded widths like minw=1840.
-            # Use GetBestSize() for height - toolbar calculates this in Realize()
+            # MainToolBar uses auto-resize - clear any saved MinSize from old INI files
             if pane.name == "toolbar":
-                import logging
-                logger = logging.getLogger(__name__)
-                best_size = pane.window.GetBestSize()
-                current_size = pane.window.GetSize()
-                min_size = pane.window.GetMinSize()
-                pane_min = pane.min_size
-                logger.debug(
-                    "__restore_perspective toolbar: current=(%d,%d) best=(%d,%d) "
-                    "widget_min=(%d,%d) pane_min_before=(%d,%d)",
-                    current_size.GetWidth(), current_size.GetHeight(),
-                    best_size.GetWidth(), best_size.GetHeight(),
-                    min_size.GetWidth(), min_size.GetHeight(),
-                    pane_min.GetWidth(), pane_min.GetHeight()
-                )
-                pane.MinSize((-1, best_size.GetHeight()))
-                logger.debug(
-                    "__restore_perspective toolbar: pane_min_after=(%d,%d)",
-                    pane.min_size.GetWidth(), pane.min_size.GetHeight()
-                )
+                pane.MinSize((-1, -1))
         self.manager.Update()
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
@@ -423,43 +403,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             event.Skip()
 
     def onResize(self, event):
-        import logging
-        logger = logging.getLogger(__name__)
-
-        event_size = event.GetSize()
-        event_width = event_size.GetWidth()
-        event_height = event_size.GetHeight()
-
-        currentToolbar = self.manager.GetPane("toolbar")
-        if currentToolbar.IsOk():
-            toolbar_current_size = currentToolbar.window.GetSize()
-            toolbar_best_size = currentToolbar.window.GetBestSize()
-            toolbar_min_size = currentToolbar.window.GetMinSize()
-            pane_min_size = currentToolbar.min_size
-
-            logger.debug(
-                "onResize: event=(%d,%d) toolbar_current=(%d,%d) "
-                "toolbar_best=(%d,%d) toolbar_min=(%d,%d) pane_min=(%d,%d)",
-                event_width, event_height,
-                toolbar_current_size.GetWidth(), toolbar_current_size.GetHeight(),
-                toolbar_best_size.GetWidth(), toolbar_best_size.GetHeight(),
-                toolbar_min_size.GetWidth(), toolbar_min_size.GetHeight(),
-                pane_min_size.GetWidth(), pane_min_size.GetHeight()
-            )
-
-            # Check for suspicious values
-            if event_width <= 0 or event_height <= 0:
-                logger.warning("onResize: SUSPICIOUS event size (%d,%d)", event_width, event_height)
-            if toolbar_best_size.GetWidth() <= 0 or toolbar_best_size.GetHeight() <= 0:
-                logger.warning("onResize: SUSPICIOUS toolbar best size (%d,%d)",
-                    toolbar_best_size.GetWidth(), toolbar_best_size.GetHeight())
-
-            height = toolbar_best_size.GetHeight()
-            # Set toolbar width for stretch spacer functionality
-            currentToolbar.window.SetSize((event_width, -1))
-            currentToolbar.MinSize((-1, height))
-        else:
-            logger.debug("onResize: event=(%d,%d) - no toolbar pane", event_width, event_height)
+        # MainToolBar uses auto-resize - AUI handles toolbar sizing automatically.
+        # No manual SetSize/SetMinSize/MinSize calls needed.
         event.Skip()
 
     def showStatusBar(self, value=True):
@@ -501,28 +446,13 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         self.settings.set("view", "toolbarperspective", perspective)
 
     def showToolBar(self, value):
-        import logging
-        logger = logging.getLogger(__name__)
-
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
             self.manager.DetachPane(currentToolbar.window)
             currentToolbar.window.Destroy()
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
-            # Use GetBestSize() for height - toolbar calculates this during Realize()
-            best_size = bar.GetBestSize()
-            current_size = bar.GetSize()
-            min_size = bar.GetMinSize()
-            window_size = self.GetSize()
-            logger.debug(
-                "showToolBar: value=%s window=(%d,%d) toolbar_current=(%d,%d) "
-                "toolbar_best=(%d,%d) toolbar_min=(%d,%d)",
-                value, window_size.GetWidth(), window_size.GetHeight(),
-                current_size.GetWidth(), current_size.GetHeight(),
-                best_size.GetWidth(), best_size.GetHeight(),
-                min_size.GetWidth(), min_size.GetHeight()
-            )
+            # MainToolBar uses auto-resize - AUI handles sizing automatically
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -530,10 +460,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .Caption("Toolbar")
                 .ToolbarPane()
                 .Top()
-                .MinSize((-1, best_size.GetHeight()))
                 .DestroyOnClose(),
             )
-            logger.debug("showToolBar: pane added with MinSize((-1, %d))", best_size.GetHeight())
         self.manager.Update()
 
     def onCloseToolBar(self, event):
