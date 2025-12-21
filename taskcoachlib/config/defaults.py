@@ -572,6 +572,7 @@ defaults = {
         "sdtcspans": "60,120,1440,2880",
         "sdtcspans_effort": "60,120,180,240",
         "decimaltime": "False",
+        "suppressgtkwarnings": "True",  # Suppress harmless GTK critical messages on Linux
     },
     "syncml": {
         "url": "",

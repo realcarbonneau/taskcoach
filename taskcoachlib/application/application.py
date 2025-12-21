@@ -344,39 +344,31 @@ class Application(object, metaclass=patterns.Singleton):
             self.on_end_session, self.on_reopen_app, redirect=False
         )
 
-        # Install GTK log handler to trace allocation errors
-        if operating_system.isGTK():
-            self._install_gtk_log_handler()
-
         self.init(**kwargs)
+
+        # Suppress GTK warnings if configured (requires settings from init)
+        self.__init_gtk_warning_suppression()
 
         # Initialize session monitor (requires settings from init)
         self.__init_session_monitor()
 
-    def _install_gtk_log_handler(self):
-        """Install a GLib log handler to capture GTK warnings with stack traces."""
-        try:
-            import gi
-            gi.require_version('Gtk', '3.0')
-            from gi.repository import GLib
-            import traceback
+    def __init_gtk_warning_suppression(self):
+        """Suppress harmless GTK critical messages on Linux.
 
-            def gtk_log_handler(domain, level, message, user_data):
-                # Print the GTK message
-                print(f"[GTK_HANDLER] domain={domain} level={level}", file=sys.stderr, flush=True)
-                print(f"[GTK_HANDLER] message: {message}", file=sys.stderr, flush=True)
-                # Print Python stack trace to see what triggered this
-                print("[GTK_HANDLER] Python stack trace:", file=sys.stderr, flush=True)
-                traceback.print_stack(file=sys.stderr)
-                print("[GTK_HANDLER] --- end stack trace ---", file=sys.stderr, flush=True)
-                # Return False to let GTK also handle it (print its normal message)
-                return False
+        GTK 3.20+ has a known bug where gtk_distribute_natural_allocation
+        occasionally asserts 'extra_space >= 0' during layout calculations.
+        This is harmless but goes to stderr, which can trigger error popups.
 
-            # Install handler for Gtk domain at CRITICAL level
-            GLib.log_set_handler("Gtk", GLib.LogLevelFlags.LEVEL_CRITICAL, gtk_log_handler, None)
-            print("[GTK_TRACE] Installed GLib log handler for Gtk CRITICAL messages", file=sys.stderr, flush=True)
-        except Exception as e:
-            print(f"[GTK_TRACE] Failed to install GLib log handler: {e}", file=sys.stderr, flush=True)
+        Controlled by [feature] suppressgtkwarnings setting in TaskCoach.ini.
+        Set to False to see GTK diagnostic messages for debugging.
+        """
+        if not operating_system.isGTK():
+            return
+        if not self.settings.getboolean("feature", "suppressgtkwarnings"):
+            return
+        # Use wxPython's built-in GTK warning suppression (available since 4.2.0)
+        if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
+            self.__wx_app.GTKSuppressDiagnostics()
 
     def __init_session_monitor(self):
         if operating_system.isGTK():
