@@ -406,19 +406,14 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             event.Skip()
 
     def onResize(self, event):
+        # MainToolBar uses auto-resize, so AUI handles width automatically.
+        # We only need to ensure the pane info has the correct height for
+        # AUI's layout calculations.
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
-            width = event.GetSize().GetWidth()
-            # Get height from toolbar's GetBestSize() - calculated during Realize()
             best_size = currentToolbar.window.GetBestSize()
-            height = best_size.GetHeight()
-            # Set size on the window widget for current display
-            currentToolbar.window.SetSize((width, -1))
-            currentToolbar.window.SetMinSize((width, height))
-            # Use -1 for width on pane info so SavePerspective doesn't save
-            # a hard-coded width value. The toolbar width is derived from
-            # window width at runtime, not a user preference to persist.
-            currentToolbar.MinSize((-1, height))
+            # Tell AUI pane the toolbar height; width is -1 (auto from AUI)
+            currentToolbar.MinSize((-1, best_size.GetHeight()))
         event.Skip()
 
     def showStatusBar(self, value=True):
