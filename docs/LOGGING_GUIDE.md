@@ -201,6 +201,9 @@ STDERR_IGNORE_PATTERNS = (
     "gtk_disable_setlocale",
     # Pixman rect validation, cosmetic issue
     "pixman_region32_init_rect",
+    # wxPython debug messages about duplicate handlers, harmless
+    "Adding duplicate image handler",
+    "Adding duplicate animation handler",
 )
 ```
 
