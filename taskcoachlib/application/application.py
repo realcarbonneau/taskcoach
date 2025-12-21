@@ -271,9 +271,12 @@ class wxApp(wx.App):
         #   - Set environment variable: TASKCOACH_SHOW_GTK_WARNINGS=1
         #   - Set suppress_gtk_warnings=False in [feature] section of TaskCoach.ini
         if operating_system.isGTK():
-            if not self._should_show_gtk_warnings():
-                if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
-                    self.GTKSuppressDiagnostics()
+            should_show = self._should_show_gtk_warnings()
+            has_method = callable(getattr(wx.App, 'GTKSuppressDiagnostics', None))
+            log_message(f"GTK suppression: should_show={should_show}, has_method={has_method}")
+            if not should_show and has_method:
+                self.GTKSuppressDiagnostics()
+                log_message("GTKSuppressDiagnostics() called")
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
         return True
