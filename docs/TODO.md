@@ -54,8 +54,8 @@ The INI file settings use a mix of naming conventions (legacy):
 
 ```ini
 [feature]
-suppress_gtk_warnings = True    # New style (PEP 8 snake_case)
-showsmwarning = True            # Old style (avoid for new settings)
+my_new_setting = True    # New style (PEP 8 snake_case)
+showsmwarning = True     # Old style (avoid for new settings)
 ```
 
 **Rationale:**
