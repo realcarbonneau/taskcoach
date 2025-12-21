@@ -305,11 +305,42 @@ class wxApp(wx.App):
         self.reopenCallback()
 
     def OnInit(self):
+        # Suppress harmless GTK critical messages (must be called early, before widgets)
+        # GTK 3.20+ has known bugs that produce these warnings during layout.
+        # To see GTK messages for debugging, either:
+        #   - Set environment variable: TASKCOACH_SHOW_GTK_WARNINGS=1
+        #   - Set suppressgtkwarnings=False in [feature] section of TaskCoach.ini
+        if operating_system.isGTK():
+            if not self._should_show_gtk_warnings():
+                if callable(getattr(wx.App, 'GTKSuppressDiagnostics', None)):
+                    self.GTKSuppressDiagnostics()
         if operating_system.isWindows():
             self.Bind(wx.EVT_QUERY_END_SESSION, self.onQueryEndSession)
         # NOTE: stdout/stderr redirection removed.
         # Now using tee module initialized in taskcoach.py.
         return True
+
+    def _should_show_gtk_warnings(self):
+        """Check if GTK warnings should be shown (not suppressed)."""
+        # Environment variable takes precedence
+        if os.environ.get('TASKCOACH_SHOW_GTK_WARNINGS'):
+            return True
+        # Check INI file setting (read early, before full Settings init)
+        try:
+            import configparser
+            from taskcoachlib import meta
+            # Construct INI path for GTK (Linux)
+            from xdg import BaseDirectory
+            config_dir = BaseDirectory.save_config_path(meta.name)
+            ini_path = os.path.join(config_dir, "%s.ini" % meta.filename)
+            if os.path.exists(ini_path):
+                config = configparser.ConfigParser()
+                config.read(ini_path)
+                if config.has_option('feature', 'suppressgtkwarnings'):
+                    return config.get('feature', 'suppressgtkwarnings').lower() == 'false'
+        except Exception:
+            pass  # If anything fails, use default (suppress)
+        return False  # Default: suppress warnings
 
     def onQueryEndSession(self, event=None):
         if not self.__shutdownInProgress:
