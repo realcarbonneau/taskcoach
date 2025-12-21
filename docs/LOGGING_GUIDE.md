@@ -210,6 +210,8 @@ STDERR_IGNORE_PATTERNS = (
 **Behavior:**
 - All stderr messages are still written to both console and log file (nothing is hidden)
 - Messages matching these patterns will NOT trigger the error popup on exit
+- When a pattern matches, a debug line is logged: `[TEE] Ignored for Error Popup Flag: matched 'pattern'`
+- Empty/whitespace-only stderr lines are also ignored (no popup)
 - Messages NOT matching these patterns will trigger the popup
 
 ### Adding New Ignore Patterns
