@@ -343,7 +343,37 @@ class Application(object, metaclass=patterns.Singleton):
         self.__wx_app = wxApp(
             self.on_end_session, self.on_reopen_app, redirect=False
         )
+
+        # Install GTK log handler to trace allocation errors
+        if operating_system.isGTK():
+            self._install_gtk_log_handler()
+
         self.init(**kwargs)
+
+    def _install_gtk_log_handler(self):
+        """Install a GLib log handler to capture GTK warnings with stack traces."""
+        try:
+            import gi
+            gi.require_version('Gtk', '3.0')
+            from gi.repository import GLib
+            import traceback
+
+            def gtk_log_handler(domain, level, message, user_data):
+                # Print the GTK message
+                print(f"[GTK_HANDLER] domain={domain} level={level}", file=sys.stderr, flush=True)
+                print(f"[GTK_HANDLER] message: {message}", file=sys.stderr, flush=True)
+                # Print Python stack trace to see what triggered this
+                print("[GTK_HANDLER] Python stack trace:", file=sys.stderr, flush=True)
+                traceback.print_stack(file=sys.stderr)
+                print("[GTK_HANDLER] --- end stack trace ---", file=sys.stderr, flush=True)
+                # Return False to let GTK also handle it (print its normal message)
+                return False
+
+            # Install handler for Gtk domain at CRITICAL level
+            GLib.log_set_handler("Gtk", GLib.LogLevelFlags.LEVEL_CRITICAL, gtk_log_handler, None)
+            print("[GTK_TRACE] Installed GLib log handler for Gtk CRITICAL messages", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[GTK_TRACE] Failed to install GLib log handler: {e}", file=sys.stderr, flush=True)
 
         if operating_system.isGTK():
             if self.settings.getboolean("feature", "usesm2"):
