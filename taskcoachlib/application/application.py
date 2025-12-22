@@ -367,10 +367,13 @@ class Application(object, metaclass=patterns.Singleton):
         # 4. Log wx-specific info (needs wxApp)
         _log_wx_info()
 
-        # 5. Continue with rest of initialization
+        # 5. Acquire INI lock (needs wxApp for error dialog)
+        self.settings.acquire_ini_lock()
+
+        # 6. Continue with rest of initialization
         self.init(**kwargs)
 
-        # 6. Initialize session monitor (requires settings)
+        # 7. Initialize session monitor (requires settings)
         self.__init_session_monitor()
 
     def __init_session_monitor(self):

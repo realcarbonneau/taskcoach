@@ -71,11 +71,6 @@ class Settings(CachingConfigParser):
 
         self.migrateConfigurationFiles()
 
-        # Acquire lock on ini file to prevent multiple instances from
-        # corrupting the config. This must happen before reading the file.
-        if load:
-            self.__acquire_ini_lock()
-
         if load:
             # First, try to load the settings file from the program directory,
             # if that fails, load the settings file from the settings directory
@@ -99,9 +94,12 @@ class Settings(CachingConfigParser):
             "settings.file.saveinifileinprogramdir",
         )
 
-    def __acquire_ini_lock(self):
+    def acquire_ini_lock(self):
         """Acquire lock on ini file to prevent multiple instances from
-        corrupting config. Shows error and exits if another instance has lock."""
+        corrupting config. Shows error and exits if another instance has lock.
+
+        Note: This must be called after wxApp is created, as it may display
+        a wx.MessageBox on failure."""
         try:
             import fasteners
             lock_path = self.filename() + ".lock"
