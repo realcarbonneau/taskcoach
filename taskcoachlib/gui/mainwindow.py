@@ -320,8 +320,13 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         # Try more AUI manager events
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATING, self._debugPaneFloating)
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATED, self._debugPaneFloated)
+        # Start a timer to log toolbar position every second
+        self._debug_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._debugTimerTick, self._debug_timer)
+        self._debug_timer.Start(1000)  # every 1 second
+        self._last_dock_pos = None
         import time
-        print(f"[{time.time():.6f}] Event bindings registered")
+        print(f"[{time.time():.6f}] Event bindings registered + timer started")
 
     def __onFilenameChanged(self, filename):
         self.__filename = filename
@@ -512,11 +517,29 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         import time
         return f"{time.time():.6f}"
 
+    def _debugTimerTick(self, event):
+        """Log toolbar position every second."""
+        pane = self.manager.GetPane("toolbar")
+        if pane.IsOk():
+            pos = pane.dock_pos
+            # Only log if position changed or first time
+            if pos != self._last_dock_pos:
+                print(f"[{self._ts()}] TIMER: dock_pos CHANGED {self._last_dock_pos} -> {pos}, "
+                      f"row={pane.dock_row}, dir={pane.dock_direction}, "
+                      f"floating={pane.IsFloating()}, docked={pane.IsDocked()}")
+                self._last_dock_pos = pos
+            else:
+                print(f"[{self._ts()}] TIMER: dock_pos={pos} (unchanged)")
+
     def _debugOnRender(self, event):
-        """Debug: trace render events (fires frequently, so limit output)."""
+        """Debug: trace render events - log position on every render."""
         self._render_count += 1
-        if self._render_count <= 5 or self._render_count % 100 == 0:
-            print(f"[{self._ts()}] EVT_AUI_RENDER #{self._render_count}")
+        pane = self.manager.GetPane("toolbar")
+        if pane.IsOk():
+            pos = pane.dock_pos
+            # Log every render with position (but limit to first 10, then every 50th)
+            if self._render_count <= 10 or self._render_count % 50 == 0:
+                print(f"[{self._ts()}] RENDER #{self._render_count}: dock_pos={pos}, row={pane.dock_row}")
         event.Skip()
 
     def _debugOnPaneButton(self, event):
