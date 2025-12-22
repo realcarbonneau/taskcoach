@@ -71,11 +71,6 @@ class Settings(CachingConfigParser):
 
         self.migrateConfigurationFiles()
 
-        # Acquire lock on ini file to prevent multiple instances from
-        # corrupting the config. This must happen before reading the file.
-        if load:
-            self.__acquire_ini_lock()
-
         if load:
             # First, try to load the settings file from the program directory,
             # if that fails, load the settings file from the settings directory
@@ -99,9 +94,12 @@ class Settings(CachingConfigParser):
             "settings.file.saveinifileinprogramdir",
         )
 
-    def __acquire_ini_lock(self):
+    def acquire_ini_lock(self):
         """Acquire lock on ini file to prevent multiple instances from
-        corrupting config. Shows error and exits if another instance has lock."""
+        corrupting config. Shows error and exits if another instance has lock.
+
+        Note: This must be called after wxApp is created, as it may display
+        a wx.MessageBox on failure."""
         try:
             import fasteners
             lock_path = self.filename() + ".lock"
@@ -109,17 +107,15 @@ class Settings(CachingConfigParser):
             acquired = self.__ini_lock.acquire(blocking=False)
             if not acquired:
                 # Another instance has the lock
-                # Note: We cannot use wx.MessageBox or _() translation here because
-                # this runs before wxApp is created, and translation would trigger
-                # wx.Locale calls that require wxApp to exist.
-                print(
-                    "Error: Another instance of %s is already running with the same "
-                    "configuration file.\n\n"
-                    "You can run multiple instances with different configuration "
-                    "files using the --ini option:\n"
-                    "  taskcoach --ini=/path/to/other.ini\n\n"
-                    "The program will now exit." % meta.name,
-                    file=sys.stderr,
+                wx.MessageBox(
+                    _("Another instance of %s is already running with the same "
+                      "configuration file.\n\n"
+                      "You can run multiple instances with different configuration "
+                      "files using the --ini option:\n"
+                      "  taskcoach --ini=/path/to/other.ini\n\n"
+                      "The program will now exit.") % meta.name,
+                    _("%s: configuration locked") % meta.name,
+                    style=wx.OK | wx.ICON_ERROR,
                 )
                 sys.exit(1)
         except ImportError:
