@@ -107,9 +107,16 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
                         ignore_pattern = _get_ignore_pattern(text)
                         if ignore_pattern:
                             # Log that we're ignoring this for the error flag
+                            ignore_msg = f"[TEE] Ignored for Error Popup Flag: matched '{ignore_pattern}'\n"
                             try:
-                                log_file.write(f"[TEE] Ignored for Error Popup Flag: matched '{ignore_pattern}'\n")
+                                log_file.write(ignore_msg)
                                 log_file.flush()
+                            except Exception:
+                                pass
+                            # Also write to stdout so user can see in console
+                            try:
+                                if _original_stdout_fd is not None:
+                                    os.write(_original_stdout_fd, ignore_msg.encode('utf-8'))
                             except Exception:
                                 pass
                         else:
