@@ -4,20 +4,32 @@ Task Coach is a simple open source todo manager to keep track of personal tasks 
 
 ## Quick Start
 
-Download and install the latest `.deb` package:
+Download the package for your system from the [latest release](https://github.com/realcarbonneau/taskcoach/releases):
+
+| Platform | Package |
+|----------|---------|
+| Debian 12 (Bookworm) | `taskcoach_*_debian-12-bookworm_all.deb` |
+| Debian 13 (Trixie) | `taskcoach_*_debian-13-trixie_all.deb` |
+| Debian Sid | `taskcoach_*_debian-sid-sid_all.deb` |
+| Ubuntu 22.04 (Jammy) | `taskcoach_*_ubuntu-22.04-jammy_all.deb` |
+| Ubuntu 24.04 (Noble) | `taskcoach_*_ubuntu-24.04-noble_all.deb` |
+| Any Linux (x86_64) | `TaskCoach-*-x86_64.AppImage` |
+
+Install the `.deb` package:
 
 ```bash
-# Download the latest release
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1_all.deb
-
-# Install (handles all dependencies automatically)
-sudo apt install ./taskcoach_1.6.1_all.deb
-
-# Run
+sudo apt install ./taskcoach_1.6.1.68_debian-12-bookworm_all.deb
 taskcoach
 ```
 
-To uninstall: `sudo apt remove taskcoach`
+Or run the AppImage directly (no install needed):
+
+```bash
+chmod +x TaskCoach-*-x86_64.AppImage
+./TaskCoach-*-x86_64.AppImage
+```
+
+To uninstall the .deb: `sudo apt remove taskcoach`
 
 ## Running from Source
 
