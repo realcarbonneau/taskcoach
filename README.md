@@ -46,19 +46,19 @@ See [docs/DEBIAN_BOOKWORM_SETUP.md](docs/DEBIAN_BOOKWORM_SETUP.md) for detailed 
 
 ## Testing
 
-Run the test suite:
+Quick sanity check to verify the installation:
 
 ```bash
-make unittests
+./test_taskcoach.sh
 ```
 
-For more options: `cd tests && python test.py --help`
+This tests Python version, dependencies, module imports, and wxPython patch status.
 
 ## License
 
 Task Coach is free software licensed under the [GNU General Public License v3](https://www.gnu.org/licenses/gpl-3.0.html).
 
-Copyright (C) 2004-2016 Task Coach developers <developers@taskcoach.org>
+Copyright (C) 2004-2016 Task Coach developers
 
 ## Architecture Overview
 
