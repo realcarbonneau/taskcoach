@@ -518,18 +518,30 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         return f"{time.time():.6f}"
 
     def _debugTimerTick(self, event):
-        """Log toolbar position every second."""
+        """Log toolbar position and reset if stable and not at 0."""
         pane = self.manager.GetPane("toolbar")
-        if pane.IsOk():
+        if pane.IsOk() and pane.IsDocked():
             pos = pane.dock_pos
             # Only log if position changed or first time
             if pos != self._last_dock_pos:
                 print(f"[{self._ts()}] TIMER: dock_pos CHANGED {self._last_dock_pos} -> {pos}, "
-                      f"row={pane.dock_row}, dir={pane.dock_direction}, "
-                      f"floating={pane.IsFloating()}, docked={pane.IsDocked()}")
+                      f"row={pane.dock_row}, dir={pane.dock_direction}")
                 self._last_dock_pos = pos
+                self._stable_count = 0
             else:
-                print(f"[{self._ts()}] TIMER: dock_pos={pos} (unchanged)")
+                self._stable_count = getattr(self, '_stable_count', 0) + 1
+                print(f"[{self._ts()}] TIMER: dock_pos={pos} (stable for {self._stable_count}s)")
+                # If position is stable for 1 second and not at 0, reset it
+                if self._stable_count >= 1 and pos != 0:
+                    print(f"[{self._ts()}] TIMER: Resetting dock_pos from {pos} to 0!")
+                    pane.Position(0).Row(0)
+                    if pane.IsHorizontal():
+                        pane.MinSize((self.GetSize().GetWidth(), -1))
+                    else:
+                        pane.MinSize((-1, self.GetSize().GetHeight()))
+                    self.manager.Update()
+                    self._last_dock_pos = 0
+                    print(f"[{self._ts()}] TIMER: Reset complete")
 
     def _debugOnRender(self, event):
         """Debug: trace render events - log position on every render."""
