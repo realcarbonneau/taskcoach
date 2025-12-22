@@ -195,6 +195,6 @@ class MainToolBar(ToolBar):
 
     The toolbar is docked at the top and spans full window width.
     AUI_TB_NO_AUTORESIZE prevents shrinking to fit contents, and
-    DockFixed() in mainwindow.py makes the pane span full width.
+    MinSize((-1, height)) allows horizontal stretch while fixing height.
     """
     pass

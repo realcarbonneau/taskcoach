@@ -288,9 +288,12 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             # incorrect when the user changes translation:
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
-            # Clear any saved MinSize from old INI files - AUI handles toolbar sizing
+            # Reset toolbar MinSize - width is derived from window, not saved.
+            # Old INI files may have hard-coded widths like minw=1840.
+            # Use GetBestSize() for height - toolbar calculates this in Realize()
             if pane.name == "toolbar":
-                pane.MinSize((-1, -1))
+                best_size = pane.window.GetBestSize()
+                pane.MinSize((-1, best_size.GetHeight()))
         self.manager.Update()
 
     def __perspective_and_settings_viewer_count_differ(self, viewer_type):
@@ -403,8 +406,19 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             event.Skip()
 
     def onResize(self, event):
-        # AUI handles toolbar sizing via DockFixed() + AUI_TB_NO_AUTORESIZE.
-        # No manual SetSize/SetMinSize/MinSize calls needed.
+        currentToolbar = self.manager.GetPane("toolbar")
+        if currentToolbar.IsOk():
+            width = event.GetSize().GetWidth()
+            # Get height from toolbar's GetBestSize() - calculated during Realize()
+            best_size = currentToolbar.window.GetBestSize()
+            height = best_size.GetHeight()
+            # Set size on the window widget for current display
+            currentToolbar.window.SetSize((width, -1))
+            currentToolbar.window.SetMinSize((width, height))
+            # Use -1 for width on pane info so SavePerspective doesn't save
+            # a hard-coded width value. The toolbar width is derived from
+            # window width at runtime, not a user preference to persist.
+            currentToolbar.MinSize((-1, height))
         event.Skip()
 
     def showStatusBar(self, value=True):
@@ -452,8 +466,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             currentToolbar.window.Destroy()
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
-            # AUI_TB_NO_AUTORESIZE prevents toolbar from shrinking to fit contents
-            # DockFixed() makes the pane span full width of its dock
+            # Use GetBestSize() for height - toolbar calculates this during Realize()
+            best_size = bar.GetBestSize()
             self.manager.AddPane(
                 bar,
                 aui.AuiPaneInfo()
@@ -461,7 +475,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 .Caption("Toolbar")
                 .ToolbarPane()
                 .Top()
-                .DockFixed()
+                .MinSize((-1, best_size.GetHeight()))
                 .DestroyOnClose(),
             )
         self.manager.Update()
