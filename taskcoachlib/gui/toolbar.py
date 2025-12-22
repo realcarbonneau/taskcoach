@@ -67,7 +67,7 @@ class _Toolbar(aui.AuiToolBar):
 
 
 class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
-    def __init__(self, window, settings, size=(32, 32), agwStyle=0):
+    def __init__(self, window, settings, size=(32, 32), agwStyle=aui.AUI_TB_NO_AUTORESIZE):
         self.__window = window
         self.__settings = settings
         self.__visibleUICommands = list()
