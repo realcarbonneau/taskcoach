@@ -243,7 +243,7 @@ class MainWindow(
             self.Thaw()
 
         # Reset toolbar position after perspective is loaded
-        wx.CallAfter(self._resetToolbarPosition, "startup")
+        wx.CallAfter(self._resetToolbarPosition)
 
         # Note: Window position/size tracking uses debouncing to handle spurious
         # events from AUI LoadPerspective() and GTK window realization.
@@ -314,22 +314,8 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         pub.subscribe(self.showStatusBar, "settings.view.statusbar")
         pub.subscribe(self.showToolBar, "settings.view.toolbar")
         self.Bind(aui.EVT_AUI_PANE_CLOSE, self.onCloseToolBar)
-        self.manager.Bind(aui.EVT_AUI_PANE_DOCKED, self.onToolBarDocked)
-        # Debug: bind additional events to trace toolbar gripper behavior
-        self.manager.Bind(aui.EVT_AUI_RENDER, self._debugOnRender)
-        self.manager.Bind(aui.EVT_AUI_PANE_BUTTON, self._debugOnPaneButton)
-        # Try toolbar-specific events
-        self.Bind(aui.EVT_AUITOOLBAR_BEGIN_DRAG, self._debugToolbarBeginDrag)
-        # Try more AUI manager events
-        self.manager.Bind(aui.EVT_AUI_PANE_FLOATING, self._debugPaneFloating)
-        self.manager.Bind(aui.EVT_AUI_PANE_FLOATED, self._debugPaneFloated)
-        # Timer for debugging - logs position every 500ms
-        self._debug_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self._debugTimerTick, self._debug_timer)
-        self._debug_timer.Start(500)
-        self._last_dock_pos = None
-        import time
-        print(f"[{time.time():.6f}] Event bindings registered + debug timer started")
+        # Detect toolbar drag-end and float-to-dock transitions to reset position
+        self.manager.Bind(aui.EVT_AUI_RENDER, self._onAuiRender)
 
     def __onFilenameChanged(self, filename):
         self.__filename = filename
@@ -424,18 +410,9 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         else:
             event.Skip()
 
-    _resize_count = 0
-
     def onResize(self, event):
-        self._resize_count += 1
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
-            if self._resize_count <= 3 or self._resize_count % 50 == 0:
-                import time
-                ts = f"{time.time():.6f}"
-                print(f"[{ts}] onResize #{self._resize_count}")
-                print(f"[{ts}]   dock_pos={currentToolbar.dock_pos}, dock_row={currentToolbar.dock_row}")
-                print(f"[{ts}]   dock_direction={currentToolbar.dock_direction}")
             width = event.GetSize().GetWidth()
             # Get height from toolbar's GetBestSize() - calculated during Realize()
             best_size = currentToolbar.window.GetBestSize()
@@ -513,10 +490,13 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             self.settings.setvalue("view", "toolbar", None)
         event.Skip()
 
-    def _resetToolbarPosition(self, source="unknown"):
+    def _resetToolbarPosition(self):
         """Reset toolbar to position 0 to fill the dock area.
 
-        Called from: startup, EVT_AUI_PANE_DOCKED, and drag-end detection.
+        Called on startup, drag-end, and float-to-dock transitions.
+        For top/bottom docking: sticks left and fills width.
+        For left/right docking: sticks up and fills height.
+        Does nothing if toolbar is floating.
         """
         pane = self.manager.GetPane("toolbar")
         if not pane.IsOk() or pane.IsFloating():
@@ -528,7 +508,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             return
 
         if pane.dock_pos != 0:
-            print(f"[{self._ts()}] _resetToolbarPosition({source}): dir={direction}, pos={pane.dock_pos} -> 0")
             pane.Position(0)
             if direction in (1, 3):  # top/bottom: fill width
                 pane.MinSize((self.GetSize().GetWidth(), -1))
@@ -536,100 +515,25 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                 pane.MinSize((-1, self.GetSize().GetHeight()))
             self.manager.Update()
 
-    _render_count = 0
-
-    def _ts(self):
-        """Return high-precision timestamp for debug logging."""
-        import time
-        return f"{time.time():.6f}"
-
-    def _debugTimerTick(self, event):
-        """Debug: log toolbar position every tick."""
-        pane = self.manager.GetPane("toolbar")
-        if pane.IsOk():
-            pos = pane.dock_pos
-            action = getattr(self.manager, '_action', 0)
-            floating = pane.IsFloating()
-            direction = pane.dock_direction
-            status = f"floating" if floating else f"docked(dir={direction})"
-            if pos != self._last_dock_pos:
-                print(f"[{self._ts()}] TIMER: pos {self._last_dock_pos}->{pos}, {status}, action={action}")
-                self._last_dock_pos = pos
-            else:
-                print(f"[{self._ts()}] TIMER: pos={pos}, {status}, action={action}")
-
-    def _debugOnRender(self, event):
-        """Detect end of toolbar drag and reset position to fill dock area."""
+    def _onAuiRender(self, event):
+        """Detect toolbar drag-end and float-to-dock to reset position."""
         action = getattr(self.manager, '_action', 0)
         prev_action = getattr(self, '_prev_manager_action', 0)
 
         # Detect transition from dragging to idle
         if prev_action != 0 and action == 0:
-            wx.CallAfter(self._resetToolbarPosition, "drag-end")
+            wx.CallAfter(self._resetToolbarPosition)
 
-        # Also detect floating->docked transition
+        # Detect floating->docked transition
         pane = self.manager.GetPane("toolbar")
         if pane.IsOk():
             was_floating = getattr(self, '_toolbar_was_floating', False)
             is_floating = pane.IsFloating()
             if was_floating and not is_floating:
-                # Just docked from floating
-                wx.CallAfter(self._resetToolbarPosition, "float-to-dock")
+                wx.CallAfter(self._resetToolbarPosition)
             self._toolbar_was_floating = is_floating
 
         self._prev_manager_action = action
-        event.Skip()
-
-    def _debugOnPaneButton(self, event):
-        """Debug: trace pane button events."""
-        pane = event.GetPane()
-        print(f"[{self._ts()}] EVT_AUI_PANE_BUTTON: pane={pane.name!r}, button={event.GetButton()}")
-        event.Skip()
-
-    def _debugToolbarBeginDrag(self, event):
-        """Debug: trace toolbar drag start."""
-        print(f"[{self._ts()}] EVT_AUITOOLBAR_BEGIN_DRAG")
-        # Bind mouse up to detect drag end
-        self._toolbar_dragging = True
-        self.Bind(wx.EVT_LEFT_UP, self._onToolbarDragEnd)
-        event.Skip()
-
-    def _onToolbarDragEnd(self, event):
-        """Handle mouse release after toolbar drag - reset position."""
-        if getattr(self, '_toolbar_dragging', False):
-            self._toolbar_dragging = False
-            self.Unbind(wx.EVT_LEFT_UP)
-            print(f"[{self._ts()}] EVT_LEFT_UP after drag - resetting toolbar position!")
-            pane = self.manager.GetPane("toolbar")
-            if pane.IsOk():
-                print(f"[{self._ts()}]   dock_pos={pane.dock_pos} -> resetting to 0")
-                pane.Position(0).Row(0)
-                if pane.IsHorizontal():
-                    pane.MinSize((self.GetSize().GetWidth(), -1))
-                else:
-                    pane.MinSize((-1, self.GetSize().GetHeight()))
-                wx.CallAfter(self.manager.Update)
-                print(f"[{self._ts()}]   -> Reset applied (CallAfter)")
-        event.Skip()
-
-    def _debugPaneFloating(self, event):
-        """Debug: trace pane floating event."""
-        pane = event.GetPane()
-        print(f"[{self._ts()}] EVT_AUI_PANE_FLOATING: pane={pane.name!r}")
-        event.Skip()
-
-    def _debugPaneFloated(self, event):
-        """Debug: trace pane floated event."""
-        pane = event.GetPane()
-        print(f"[{self._ts()}] EVT_AUI_PANE_FLOATED: pane={pane.name!r}")
-        event.Skip()
-
-    def onToolBarDocked(self, event):
-        """Reset toolbar position when docked from floating."""
-        pane = event.GetPane()
-        if pane.name == "toolbar":
-            print(f"[{self._ts()}] onToolBarDocked: toolbar docked from floating")
-            wx.CallAfter(self._resetToolbarPosition, "docked-from-float")
         event.Skip()
 
     # Viewers
