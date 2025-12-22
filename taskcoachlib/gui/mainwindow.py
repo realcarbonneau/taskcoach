@@ -317,7 +317,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         self.manager.Bind(aui.EVT_AUI_PANE_BUTTON, self._debugOnPaneButton)
         # Try toolbar-specific events
         self.Bind(aui.EVT_AUITOOLBAR_BEGIN_DRAG, self._debugToolbarBeginDrag)
-        self.Bind(aui.EVT_AUITOOLBAR_END_DRAG, self._debugToolbarEndDrag)
         # Try more AUI manager events
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATING, self._debugPaneFloating)
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATED, self._debugPaneFloated)
@@ -529,21 +528,27 @@ If this happens again, please make a copy of your TaskCoach.ini file """
     def _debugToolbarBeginDrag(self, event):
         """Debug: trace toolbar drag start."""
         print(f"[{self._ts()}] EVT_AUITOOLBAR_BEGIN_DRAG")
+        # Bind mouse up to detect drag end
+        self._toolbar_dragging = True
+        self.Bind(wx.EVT_LEFT_UP, self._onToolbarDragEnd)
         event.Skip()
 
-    def _debugToolbarEndDrag(self, event):
-        """Debug: trace toolbar drag end - THIS IS WHERE WE RESET POSITION."""
-        print(f"[{self._ts()}] EVT_AUITOOLBAR_END_DRAG - gripper released!")
-        pane = self.manager.GetPane("toolbar")
-        if pane.IsOk():
-            print(f"[{self._ts()}]   dock_pos={pane.dock_pos} -> resetting to 0")
-            pane.Position(0).Row(0)
-            if pane.IsHorizontal():
-                pane.MinSize((self.GetSize().GetWidth(), -1))
-            else:
-                pane.MinSize((-1, self.GetSize().GetHeight()))
-            self.manager.Update()
-            print(f"[{self._ts()}]   -> Reset applied")
+    def _onToolbarDragEnd(self, event):
+        """Handle mouse release after toolbar drag - reset position."""
+        if getattr(self, '_toolbar_dragging', False):
+            self._toolbar_dragging = False
+            self.Unbind(wx.EVT_LEFT_UP)
+            print(f"[{self._ts()}] EVT_LEFT_UP after drag - resetting toolbar position!")
+            pane = self.manager.GetPane("toolbar")
+            if pane.IsOk():
+                print(f"[{self._ts()}]   dock_pos={pane.dock_pos} -> resetting to 0")
+                pane.Position(0).Row(0)
+                if pane.IsHorizontal():
+                    pane.MinSize((self.GetSize().GetWidth(), -1))
+                else:
+                    pane.MinSize((-1, self.GetSize().GetHeight()))
+                wx.CallAfter(self.manager.Update)
+                print(f"[{self._ts()}]   -> Reset applied (CallAfter)")
         event.Skip()
 
     def _debugPaneFloating(self, event):
