@@ -109,15 +109,17 @@ class Settings(CachingConfigParser):
             acquired = self.__ini_lock.acquire(blocking=False)
             if not acquired:
                 # Another instance has the lock
-                wx.MessageBox(
-                    _("Another instance of %s is already running with the same "
-                      "configuration file.\n\n"
-                      "You can run multiple instances with different configuration "
-                      "files using the --ini option:\n"
-                      "  taskcoach --ini=/path/to/other.ini\n\n"
-                      "The program will now exit.") % meta.name,
-                    _("%s: configuration locked") % meta.name,
-                    style=wx.OK | wx.ICON_ERROR,
+                # Note: We cannot use wx.MessageBox or _() translation here because
+                # this runs before wxApp is created, and translation would trigger
+                # wx.Locale calls that require wxApp to exist.
+                print(
+                    "Error: Another instance of %s is already running with the same "
+                    "configuration file.\n\n"
+                    "You can run multiple instances with different configuration "
+                    "files using the --ini option:\n"
+                    "  taskcoach --ini=/path/to/other.ini\n\n"
+                    "The program will now exit." % meta.name,
+                    file=sys.stderr,
                 )
                 sys.exit(1)
         except ImportError:
