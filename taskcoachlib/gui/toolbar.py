@@ -23,8 +23,9 @@ from . import uicommand
 
 
 class _Toolbar(aui.AuiToolBar):
-    def __init__(self, parent, style, agwStyle=0):
-        # Default: allow auto-resize. Pass AUI_TB_NO_AUTORESIZE to disable.
+    def __init__(self, parent, style, agwStyle=aui.AUI_TB_NO_AUTORESIZE):
+        # AUI_TB_NO_AUTORESIZE prevents toolbar from shrinking to fit contents.
+        # Combined with DockFixed(), this makes the toolbar fill full pane width.
         super().__init__(parent, agwStyle=agwStyle)
 
     def AddLabelTool(self, id, label, bitmap1, bitmap2, kind, **kwargs):
@@ -193,6 +194,7 @@ class MainToolBar(ToolBar):
     """Main window toolbar for use in AUI-managed main window.
 
     The toolbar is docked at the top and spans full window width.
-    Auto-resize is enabled by default - AUI handles all sizing.
+    AUI_TB_NO_AUTORESIZE prevents shrinking to fit contents, and
+    DockFixed() in mainwindow.py makes the pane span full width.
     """
-    pass  # Uses default auto-resize from ToolBar base class
+    pass

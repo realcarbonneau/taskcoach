@@ -288,7 +288,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             # incorrect when the user changes translation:
             if hasattr(pane.window, "title"):
                 pane.Caption(pane.window.title())
-            # MainToolBar uses auto-resize - clear any saved MinSize from old INI files
+            # Clear any saved MinSize from old INI files - AUI handles toolbar sizing
             if pane.name == "toolbar":
                 pane.MinSize((-1, -1))
         self.manager.Update()
@@ -403,7 +403,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             event.Skip()
 
     def onResize(self, event):
-        # MainToolBar uses auto-resize - AUI handles toolbar sizing automatically.
+        # AUI handles toolbar sizing via DockFixed() + AUI_TB_NO_AUTORESIZE.
         # No manual SetSize/SetMinSize/MinSize calls needed.
         event.Skip()
 
@@ -452,7 +452,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             currentToolbar.window.Destroy()
         if value:
             bar = toolbar.MainToolBar(self, self.settings, size=value)
-            # MainToolBar uses auto-resize - AUI handles sizing automatically
+            # AUI_TB_NO_AUTORESIZE prevents toolbar from shrinking to fit contents
             # DockFixed() makes the pane span full width of its dock
             self.manager.AddPane(
                 bar,
