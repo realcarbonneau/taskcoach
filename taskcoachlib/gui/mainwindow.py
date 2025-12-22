@@ -242,6 +242,9 @@ class MainWindow(
         finally:
             self.Thaw()
 
+        # Reset toolbar position after perspective is loaded
+        wx.CallAfter(self._resetToolbarPosition, "startup")
+
         # Note: Window position/size tracking uses debouncing to handle spurious
         # events from AUI LoadPerspective() and GTK window realization.
         # Events are bound immediately in __init__, no manual start needed.
@@ -510,6 +513,29 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             self.settings.setvalue("view", "toolbar", None)
         event.Skip()
 
+    def _resetToolbarPosition(self, source="unknown"):
+        """Reset toolbar to position 0 to fill the dock area.
+
+        Called from: startup, EVT_AUI_PANE_DOCKED, and drag-end detection.
+        """
+        pane = self.manager.GetPane("toolbar")
+        if not pane.IsOk() or pane.IsFloating():
+            return
+
+        direction = pane.dock_direction
+        # Only handle docked positions: 1=top, 2=right, 3=bottom, 4=left
+        if direction not in (1, 2, 3, 4):
+            return
+
+        if pane.dock_pos != 0:
+            print(f"[{self._ts()}] _resetToolbarPosition({source}): dir={direction}, pos={pane.dock_pos} -> 0")
+            pane.Position(0)
+            if direction in (1, 3):  # top/bottom: fill width
+                pane.MinSize((self.GetSize().GetWidth(), -1))
+            else:  # left/right: fill height
+                pane.MinSize((-1, self.GetSize().GetHeight()))
+            self.manager.Update()
+
     _render_count = 0
 
     def _ts(self):
@@ -539,18 +565,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
 
         # Detect transition from dragging to idle
         if prev_action != 0 and action == 0:
-            pane = self.manager.GetPane("toolbar")
-            if pane.IsOk() and not pane.IsFloating():
-                direction = pane.dock_direction
-                # Only handle docked positions: 1=top, 2=right, 3=bottom, 4=left
-                if direction in (1, 2, 3, 4) and pane.dock_pos != 0:
-                    print(f"[{self._ts()}] Drag ended - direction={direction}, dock_pos={pane.dock_pos} -> 0")
-                    pane.Position(0)
-                    if direction in (1, 3):  # top/bottom: fill width
-                        pane.MinSize((self.GetSize().GetWidth(), -1))
-                    else:  # left/right: fill height
-                        pane.MinSize((-1, self.GetSize().GetHeight()))
-                    wx.CallAfter(self.manager.Update)
+            wx.CallAfter(self._resetToolbarPosition, "drag-end")
 
         self._prev_manager_action = action
         event.Skip()
@@ -600,30 +615,11 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         event.Skip()
 
     def onToolBarDocked(self, event):
-        """Reset toolbar position to fill the dock area after gripper release."""
+        """Reset toolbar position when docked from floating."""
         pane = event.GetPane()
-        print(f"[{self._ts()}] onToolBarDocked called!")
-        print(f"[{self._ts()}]   pane.name = {pane.name!r}")
-        print(f"[{self._ts()}]   pane.IsToolbar() = {pane.IsToolbar()}")
-        print(f"[{self._ts()}]   pane.IsDocked() = {pane.IsDocked()}")
-        print(f"[{self._ts()}]   pane.IsHorizontal() = {pane.IsHorizontal()}")
-        print(f"[{self._ts()}]   pane.dock_pos = {pane.dock_pos}")
-        print(f"[{self._ts()}]   pane.dock_row = {pane.dock_row}")
-        print(f"[{self._ts()}]   pane.dock_direction = {pane.dock_direction}")
         if pane.name == "toolbar":
-            print(f"[{self._ts()}]   -> Applying fix: Position(0).Row(0)")
-            pane.Position(0).Row(0)
-            # Set size based on dock direction
-            if pane.IsHorizontal():
-                new_size = (self.GetSize().GetWidth(), -1)
-                print(f"[{self._ts()}]   -> Horizontal, MinSize = {new_size}")
-                pane.MinSize(new_size)
-            else:
-                new_size = (-1, self.GetSize().GetHeight())
-                print(f"[{self._ts()}]   -> Vertical, MinSize = {new_size}")
-                pane.MinSize(new_size)
-            self.manager.Update()
-            print(f"[{self._ts()}]   -> manager.Update() called")
+            print(f"[{self._ts()}] onToolBarDocked: toolbar docked from floating")
+            wx.CallAfter(self._resetToolbarPosition, "docked-from-float")
         event.Skip()
 
     # Viewers
