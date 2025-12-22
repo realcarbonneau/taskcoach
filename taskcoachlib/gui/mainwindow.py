@@ -520,32 +520,37 @@ If this happens again, please make a copy of your TaskCoach.ini file """
     def _debugTimerTick(self, event):
         """Debug: log toolbar position every tick."""
         pane = self.manager.GetPane("toolbar")
-        if pane.IsOk() and pane.IsDocked():
+        if pane.IsOk():
             pos = pane.dock_pos
             action = getattr(self.manager, '_action', 0)
+            floating = pane.IsFloating()
+            direction = pane.dock_direction
+            status = f"floating" if floating else f"docked(dir={direction})"
             if pos != self._last_dock_pos:
-                print(f"[{self._ts()}] TIMER: dock_pos CHANGED {self._last_dock_pos} -> {pos}, action={action}")
+                print(f"[{self._ts()}] TIMER: pos {self._last_dock_pos}->{pos}, {status}, action={action}")
                 self._last_dock_pos = pos
             else:
-                print(f"[{self._ts()}] TIMER: dock_pos={pos}, action={action}")
+                print(f"[{self._ts()}] TIMER: pos={pos}, {status}, action={action}")
 
     def _debugOnRender(self, event):
-        """Detect end of toolbar drag and reset position."""
-        # Check manager's action state - 0 means no action (drag ended)
+        """Detect end of toolbar drag and reset position to fill dock area."""
         action = getattr(self.manager, '_action', 0)
         prev_action = getattr(self, '_prev_manager_action', 0)
 
-        # Detect transition from dragging (action != 0) to idle (action == 0)
+        # Detect transition from dragging to idle
         if prev_action != 0 and action == 0:
             pane = self.manager.GetPane("toolbar")
-            if pane.IsOk() and pane.IsDocked() and pane.dock_pos != 0:
-                print(f"[{self._ts()}] Drag ended - resetting dock_pos from {pane.dock_pos} to 0")
-                pane.Position(0).Row(0)
-                if pane.IsHorizontal():
-                    pane.MinSize((self.GetSize().GetWidth(), -1))
-                else:
-                    pane.MinSize((-1, self.GetSize().GetHeight()))
-                wx.CallAfter(self.manager.Update)
+            if pane.IsOk() and not pane.IsFloating():
+                direction = pane.dock_direction
+                # Only handle docked positions: 1=top, 2=right, 3=bottom, 4=left
+                if direction in (1, 2, 3, 4) and pane.dock_pos != 0:
+                    print(f"[{self._ts()}] Drag ended - direction={direction}, dock_pos={pane.dock_pos} -> 0")
+                    pane.Position(0)
+                    if direction in (1, 3):  # top/bottom: fill width
+                        pane.MinSize((self.GetSize().GetWidth(), -1))
+                    else:  # left/right: fill height
+                        pane.MinSize((-1, self.GetSize().GetHeight()))
+                    wx.CallAfter(self.manager.Update)
 
         self._prev_manager_action = action
         event.Skip()
