@@ -21,9 +21,10 @@ Download the package for your system from the [latest release](https://github.co
 cd ~/Downloads
 wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.68_debian-13-trixie_all.deb
 sudo apt install ./taskcoach_1.6.1.68_debian-13-trixie_all.deb
+taskcoach.py
 ```
 
-Launch from **Applications → Office → Task Coach**, or run `taskcoach.py` from the terminal.
+Or launch from **Applications → Office → Task Coach**.
 
 **Or run the AppImage (any Linux, no install needed)**
 
