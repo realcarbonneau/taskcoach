@@ -320,10 +320,10 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         # Try more AUI manager events
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATING, self._debugPaneFloating)
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATED, self._debugPaneFloated)
-        # Start a timer to log toolbar position every second
+        # Start a fast timer to detect toolbar position changes
         self._debug_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._debugTimerTick, self._debug_timer)
-        self._debug_timer.Start(1000)  # every 1 second
+        self._debug_timer.Start(200)  # every 200ms for quick response
         self._last_dock_pos = None
         import time
         print(f"[{time.time():.6f}] Event bindings registered + timer started")
@@ -518,22 +518,19 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         return f"{time.time():.6f}"
 
     def _debugTimerTick(self, event):
-        """Log toolbar position and reset if stable and not at 0."""
+        """Reset toolbar position if stable and not at 0."""
         pane = self.manager.GetPane("toolbar")
         if pane.IsOk() and pane.IsDocked():
             pos = pane.dock_pos
-            # Only log if position changed or first time
             if pos != self._last_dock_pos:
-                print(f"[{self._ts()}] TIMER: dock_pos CHANGED {self._last_dock_pos} -> {pos}, "
-                      f"row={pane.dock_row}, dir={pane.dock_direction}")
+                # Position changed - reset stable counter
                 self._last_dock_pos = pos
                 self._stable_count = 0
             else:
                 self._stable_count = getattr(self, '_stable_count', 0) + 1
-                print(f"[{self._ts()}] TIMER: dock_pos={pos} (stable for {self._stable_count}s)")
-                # If position is stable for 1 second and not at 0, reset it
+                # If position is stable for 1 tick (200ms) and not at 0, reset it
                 if self._stable_count >= 1 and pos != 0:
-                    print(f"[{self._ts()}] TIMER: Resetting dock_pos from {pos} to 0!")
+                    print(f"[{self._ts()}] Resetting dock_pos from {pos} to 0")
                     pane.Position(0).Row(0)
                     if pane.IsHorizontal():
                         pane.MinSize((self.GetSize().GetWidth(), -1))
@@ -541,7 +538,6 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                         pane.MinSize((-1, self.GetSize().GetHeight()))
                     self.manager.Update()
                     self._last_dock_pos = 0
-                    print(f"[{self._ts()}] TIMER: Reset complete")
 
     def _debugOnRender(self, event):
         """Debug: trace render events - log position on every render."""
