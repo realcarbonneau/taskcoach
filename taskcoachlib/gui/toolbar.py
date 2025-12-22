@@ -23,8 +23,9 @@ from . import uicommand
 
 
 class _Toolbar(aui.AuiToolBar):
-    def __init__(self, parent, style):
-        super().__init__(parent, agwStyle=aui.AUI_TB_NO_AUTORESIZE)
+    def __init__(self, parent, style, agwStyle=0):
+        # Default: allow auto-resize. Pass AUI_TB_NO_AUTORESIZE to disable.
+        super().__init__(parent, agwStyle=agwStyle)
 
     def AddLabelTool(self, id, label, bitmap1, bitmap2, kind, **kwargs):
         long_help_string = kwargs.pop("longHelp", "")
@@ -65,12 +66,12 @@ class _Toolbar(aui.AuiToolBar):
 
 
 class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
-    def __init__(self, window, settings, size=(32, 32)):
+    def __init__(self, window, settings, size=(32, 32), agwStyle=0):
         self.__window = window
         self.__settings = settings
         self.__visibleUICommands = list()
         self.__cache = None
-        super().__init__(window, style=wx.TB_FLAT | wx.TB_NODIVIDER)
+        super().__init__(window, style=wx.TB_FLAT | wx.TB_NODIVIDER, agwStyle=agwStyle)
         self.SetToolBitmapSize(size)
         if operating_system.isMac():
             # Extra margin needed because the search control is too high
@@ -192,10 +193,6 @@ class MainToolBar(ToolBar):
     """Main window toolbar for use in AUI-managed main window.
 
     The toolbar is docked at the top and spans full window width.
-    Uses auto-resize - AUI handles all sizing automatically.
+    Auto-resize is enabled by default - AUI handles all sizing.
     """
-
-    def __init__(self, window, settings, size=(32, 32)):
-        super().__init__(window, settings, size)
-        # Enable auto-resize - let AUI handle all sizing
-        self._agwStyle &= ~aui.AUI_TB_NO_AUTORESIZE
+    pass  # Uses default auto-resize from ToolBar base class
