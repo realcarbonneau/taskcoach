@@ -315,6 +315,12 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         # Debug: bind additional events to trace toolbar gripper behavior
         self.manager.Bind(aui.EVT_AUI_RENDER, self._debugOnRender)
         self.manager.Bind(aui.EVT_AUI_PANE_BUTTON, self._debugOnPaneButton)
+        # Try toolbar-specific events
+        self.Bind(aui.EVT_AUITOOLBAR_BEGIN_DRAG, self._debugToolbarBeginDrag)
+        self.Bind(aui.EVT_AUITOOLBAR_END_DRAG, self._debugToolbarEndDrag)
+        # Try more AUI manager events
+        self.manager.Bind(aui.EVT_AUI_PANE_FLOATING, self._debugPaneFloating)
+        self.manager.Bind(aui.EVT_AUI_PANE_FLOATED, self._debugPaneFloated)
         print("[TOOLBAR DEBUG] Event bindings registered")
 
     def __onFilenameChanged(self, filename):
@@ -510,6 +516,38 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         """Debug: trace pane button events."""
         pane = event.GetPane()
         print(f"[TOOLBAR DEBUG] EVT_AUI_PANE_BUTTON: pane={pane.name!r}, button={event.GetButton()}")
+        event.Skip()
+
+    def _debugToolbarBeginDrag(self, event):
+        """Debug: trace toolbar drag start."""
+        print(f"[TOOLBAR DEBUG] EVT_AUITOOLBAR_BEGIN_DRAG")
+        event.Skip()
+
+    def _debugToolbarEndDrag(self, event):
+        """Debug: trace toolbar drag end - THIS IS WHERE WE RESET POSITION."""
+        print(f"[TOOLBAR DEBUG] EVT_AUITOOLBAR_END_DRAG - gripper released!")
+        pane = self.manager.GetPane("toolbar")
+        if pane.IsOk():
+            print(f"[TOOLBAR DEBUG]   dock_pos={pane.dock_pos} -> resetting to 0")
+            pane.Position(0).Row(0)
+            if pane.IsHorizontal():
+                pane.MinSize((self.GetSize().GetWidth(), -1))
+            else:
+                pane.MinSize((-1, self.GetSize().GetHeight()))
+            self.manager.Update()
+            print(f"[TOOLBAR DEBUG]   -> Reset applied")
+        event.Skip()
+
+    def _debugPaneFloating(self, event):
+        """Debug: trace pane floating event."""
+        pane = event.GetPane()
+        print(f"[TOOLBAR DEBUG] EVT_AUI_PANE_FLOATING: pane={pane.name!r}")
+        event.Skip()
+
+    def _debugPaneFloated(self, event):
+        """Debug: trace pane floated event."""
+        pane = event.GetPane()
+        print(f"[TOOLBAR DEBUG] EVT_AUI_PANE_FLOATED: pane={pane.name!r}")
         event.Skip()
 
     def onToolBarDocked(self, event):
