@@ -6,7 +6,8 @@ that might produce output (especially wx/GTK which load native libraries).
 
 Architecture:
 - Raw copy of stdout/stderr to both console and log file (like Unix tee)
-- Any stderr output sets the error flag for exit popup
+- Stderr output sets the error flag for exit popup, UNLESS it matches
+  a pattern in STDERR_IGNORE_PATTERNS (known harmless messages)
 - No timestamps or formatting - just raw copy
 
 Usage (in taskcoach.py, before other imports):
@@ -17,6 +18,22 @@ Usage (in taskcoach.py, before other imports):
 import os
 import sys
 import threading
+
+
+# Patterns in stderr that should NOT trigger the error popup.
+# These are known harmless messages from GTK/libraries.
+# All stderr is still logged to file - this only affects the popup.
+STDERR_IGNORE_PATTERNS = (
+    # GTK 3.20+ layout bug - wxWidgets #17585, harmless
+    "gtk_distribute_natural_allocation",
+    # wxPython calls gtk_init before gtk_disable_setlocale, harmless
+    "gtk_disable_setlocale",
+    # Pixman rect validation, cosmetic issue
+    "pixman_region32_init_rect",
+    # wxPython debug messages about duplicate handlers, harmless
+    "Adding duplicate image handler",
+    "Adding duplicate animation handler",
+)
 
 
 # Module state
@@ -46,6 +63,14 @@ def _get_log_path():
     return os.path.join(base, 'taskcoachlog.txt')
 
 
+def _get_ignore_pattern(text):
+    """Return the ignore pattern that matches text, or None if no match."""
+    for pattern in STDERR_IGNORE_PATTERNS:
+        if pattern in text:
+            return pattern
+    return None
+
+
 def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
     """Thread that reads from pipe and writes to both console and log file."""
     global _has_errors
@@ -57,6 +82,9 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
                 if not data:
                     break
 
+                # Decode for pattern matching and logging
+                text = data.decode('utf-8', errors='replace')
+
                 # Write to original console
                 try:
                     os.write(original_fd, data)
@@ -65,15 +93,36 @@ def _tee_thread(pipe_read_fd, original_fd, log_file, is_stderr):
 
                 # Write to log file (raw, no formatting)
                 try:
-                    log_file.write(data.decode('utf-8', errors='replace'))
+                    log_file.write(text)
                     log_file.flush()
                 except Exception:
                     pass
 
-                # Set error flag if any stderr data
+                # Set error flag for stderr, unless it matches ignore patterns or is empty
                 if is_stderr:
-                    with _has_errors_lock:
-                        _has_errors = True
+                    # Ignore empty/whitespace-only output
+                    if not text.strip():
+                        pass  # Empty line, don't flag as error
+                    else:
+                        ignore_pattern = _get_ignore_pattern(text)
+                        if ignore_pattern:
+                            # Log that we're ignoring this for the error flag
+                            ignore_msg = f"[TEE] Ignored for Error Popup Flag: matched '{ignore_pattern}'\n"
+                            try:
+                                log_file.write(ignore_msg)
+                                log_file.flush()
+                            except Exception:
+                                pass
+                            # Also write to stdout so user can see in console
+                            try:
+                                if _original_stdout_fd is not None:
+                                    os.write(_original_stdout_fd, ignore_msg.encode('utf-8'))
+                            except Exception:
+                                pass
+                        else:
+                            # Real error - set the flag
+                            with _has_errors_lock:
+                                _has_errors = True
 
             except OSError:
                 break
