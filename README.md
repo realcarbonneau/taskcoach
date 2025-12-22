@@ -31,8 +31,8 @@ Or launch from **Applications → Office → Task Coach**.
 ```bash
 cd ~/Downloads
 wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/TaskCoach-1.6.1.68-x86_64.AppImage
-chmod +x TaskCoach-*.AppImage
-./TaskCoach-*.AppImage
+chmod +x TaskCoach-1.6.1.68-x86_64.AppImage
+./TaskCoach-1.6.1.68-x86_64.AppImage
 ```
 
 To uninstall the .deb: `sudo apt remove taskcoach`
