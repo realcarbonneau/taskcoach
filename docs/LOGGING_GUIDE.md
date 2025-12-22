@@ -185,6 +185,55 @@ hypertreelist imported from: /path/to/.venv/lib/python3.X/site-packages/wx/lib/a
 
 ---
 
+## Stderr Error Popup
+
+Task Coach monitors stderr and shows an error popup on exit if any errors were written. This helps users notice issues that might otherwise go unnoticed.
+
+### Ignore Patterns
+
+Some stderr messages are known to be harmless (e.g., GTK library warnings). These are configured in `STDERR_IGNORE_PATTERNS` in `taskcoachlib/tee.py`:
+
+```python
+STDERR_IGNORE_PATTERNS = (
+    # GTK 3.20+ layout bug - wxWidgets #17585, harmless
+    "gtk_distribute_natural_allocation",
+    # wxPython calls gtk_init before gtk_disable_setlocale, harmless
+    "gtk_disable_setlocale",
+    # Pixman rect validation, cosmetic issue
+    "pixman_region32_init_rect",
+    # wxPython debug messages about duplicate handlers, harmless
+    "Adding duplicate image handler",
+    "Adding duplicate animation handler",
+)
+```
+
+**Behavior:**
+- All stderr messages are still written to both console and log file (nothing is hidden)
+- Messages matching these patterns will NOT trigger the error popup on exit
+- When a pattern matches, a debug line is logged: `[TEE] Ignored for Error Popup Flag: matched 'pattern'`
+- Empty/whitespace-only stderr lines are also ignored (no popup)
+- Messages NOT matching these patterns will trigger the popup
+
+### Adding New Ignore Patterns
+
+To add a new pattern that should not trigger the error popup:
+
+1. Edit `taskcoachlib/tee.py`
+2. Add the pattern string to `STDERR_IGNORE_PATTERNS`
+3. Include a comment explaining why it's harmless
+
+```python
+STDERR_IGNORE_PATTERNS = (
+    # ... existing patterns ...
+    # Description of why this is harmless
+    "your_new_pattern_here",
+)
+```
+
+**Note:** Only add patterns for messages you've verified are truly harmless. Real errors should trigger the popup so users are aware of issues.
+
+---
+
 ## Expected Timeline
 
 ```
