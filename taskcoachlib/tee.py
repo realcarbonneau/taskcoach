@@ -33,6 +33,10 @@ STDERR_IGNORE_PATTERNS = (
     # wxPython debug messages about duplicate handlers, harmless
     "Adding duplicate image handler",
     "Adding duplicate animation handler",
+    # GTK scale factor assertion on multi-monitor setups, harmless
+    "gtk_widget_get_scale_factor",
+    # Idle detection unavailable on KDE Wayland (no simple DBus API available)
+    "Idle time detection unavailable",
 )
 
 
