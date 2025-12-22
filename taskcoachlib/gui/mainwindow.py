@@ -312,6 +312,10 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         pub.subscribe(self.showToolBar, "settings.view.toolbar")
         self.Bind(aui.EVT_AUI_PANE_CLOSE, self.onCloseToolBar)
         self.manager.Bind(aui.EVT_AUI_PANE_DOCKED, self.onToolBarDocked)
+        # Debug: bind additional events to trace toolbar gripper behavior
+        self.manager.Bind(aui.EVT_AUI_RENDER, self._debugOnRender)
+        self.manager.Bind(aui.EVT_AUI_PANE_BUTTON, self._debugOnPaneButton)
+        print("[TOOLBAR DEBUG] Event bindings registered")
 
     def __onFilenameChanged(self, filename):
         self.__filename = filename
@@ -406,9 +410,16 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         else:
             event.Skip()
 
+    _resize_count = 0
+
     def onResize(self, event):
+        self._resize_count += 1
         currentToolbar = self.manager.GetPane("toolbar")
         if currentToolbar.IsOk():
+            if self._resize_count <= 3 or self._resize_count % 50 == 0:
+                print(f"[TOOLBAR DEBUG] onResize #{self._resize_count}")
+                print(f"[TOOLBAR DEBUG]   dock_pos={currentToolbar.dock_pos}, dock_row={currentToolbar.dock_row}")
+                print(f"[TOOLBAR DEBUG]   dock_direction={currentToolbar.dock_direction}")
             width = event.GetSize().GetWidth()
             # Get height from toolbar's GetBestSize() - calculated during Realize()
             best_size = currentToolbar.window.GetBestSize()
@@ -486,17 +497,46 @@ If this happens again, please make a copy of your TaskCoach.ini file """
             self.settings.setvalue("view", "toolbar", None)
         event.Skip()
 
+    _render_count = 0
+
+    def _debugOnRender(self, event):
+        """Debug: trace render events (fires frequently, so limit output)."""
+        self._render_count += 1
+        if self._render_count <= 5 or self._render_count % 100 == 0:
+            print(f"[TOOLBAR DEBUG] EVT_AUI_RENDER #{self._render_count}")
+        event.Skip()
+
+    def _debugOnPaneButton(self, event):
+        """Debug: trace pane button events."""
+        pane = event.GetPane()
+        print(f"[TOOLBAR DEBUG] EVT_AUI_PANE_BUTTON: pane={pane.name!r}, button={event.GetButton()}")
+        event.Skip()
+
     def onToolBarDocked(self, event):
         """Reset toolbar position to fill the dock area after gripper release."""
         pane = event.GetPane()
+        print(f"[TOOLBAR DEBUG] onToolBarDocked called!")
+        print(f"[TOOLBAR DEBUG]   pane.name = {pane.name!r}")
+        print(f"[TOOLBAR DEBUG]   pane.IsToolbar() = {pane.IsToolbar()}")
+        print(f"[TOOLBAR DEBUG]   pane.IsDocked() = {pane.IsDocked()}")
+        print(f"[TOOLBAR DEBUG]   pane.IsHorizontal() = {pane.IsHorizontal()}")
+        print(f"[TOOLBAR DEBUG]   pane.dock_pos = {pane.dock_pos}")
+        print(f"[TOOLBAR DEBUG]   pane.dock_row = {pane.dock_row}")
+        print(f"[TOOLBAR DEBUG]   pane.dock_direction = {pane.dock_direction}")
         if pane.name == "toolbar":
+            print(f"[TOOLBAR DEBUG]   -> Applying fix: Position(0).Row(0)")
             pane.Position(0).Row(0)
             # Set size based on dock direction
             if pane.IsHorizontal():
-                pane.MinSize((self.GetSize().GetWidth(), -1))
+                new_size = (self.GetSize().GetWidth(), -1)
+                print(f"[TOOLBAR DEBUG]   -> Horizontal, MinSize = {new_size}")
+                pane.MinSize(new_size)
             else:
-                pane.MinSize((-1, self.GetSize().GetHeight()))
+                new_size = (-1, self.GetSize().GetHeight())
+                print(f"[TOOLBAR DEBUG]   -> Vertical, MinSize = {new_size}")
+                pane.MinSize(new_size)
             self.manager.Update()
+            print(f"[TOOLBAR DEBUG]   -> manager.Update() called")
         event.Skip()
 
     # Viewers
