@@ -15,18 +15,22 @@ Download the package for your system from the [latest release](https://github.co
 | Ubuntu 24.04 (Noble) | `taskcoach_*_ubuntu-24.04-noble_all.deb` |
 | Any Linux (x86_64) | `TaskCoach-*-x86_64.AppImage` |
 
-Install the `.deb` package:
+**Example: Install on Debian 13 (Trixie)**
 
 ```bash
-sudo apt install ./taskcoach_1.6.1.68_debian-12-bookworm_all.deb
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.68_debian-13-trixie_all.deb
+sudo apt install ./taskcoach_1.6.1.68_debian-13-trixie_all.deb
 taskcoach
 ```
 
-Or run the AppImage directly (no install needed):
+**Or run the AppImage (any Linux, no install needed)**
 
 ```bash
-chmod +x TaskCoach-*-x86_64.AppImage
-./TaskCoach-*-x86_64.AppImage
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/TaskCoach-1.6.1.68-x86_64.AppImage
+chmod +x TaskCoach-*.AppImage
+./TaskCoach-*.AppImage
 ```
 
 To uninstall the .deb: `sudo apt remove taskcoach`
