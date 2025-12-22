@@ -567,6 +567,16 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         if prev_action != 0 and action == 0:
             wx.CallAfter(self._resetToolbarPosition, "drag-end")
 
+        # Also detect floating->docked transition
+        pane = self.manager.GetPane("toolbar")
+        if pane.IsOk():
+            was_floating = getattr(self, '_toolbar_was_floating', False)
+            is_floating = pane.IsFloating()
+            if was_floating and not is_floating:
+                # Just docked from floating
+                wx.CallAfter(self._resetToolbarPosition, "float-to-dock")
+            self._toolbar_was_floating = is_floating
+
         self._prev_manager_action = action
         event.Skip()
 
