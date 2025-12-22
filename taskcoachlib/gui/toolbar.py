@@ -23,10 +23,8 @@ from . import uicommand
 
 
 class _Toolbar(aui.AuiToolBar):
-    def __init__(self, parent, style, agwStyle=aui.AUI_TB_NO_AUTORESIZE):
-        # AUI_TB_NO_AUTORESIZE prevents toolbar from shrinking to fit contents.
-        # Combined with DockFixed(), this makes the toolbar fill full pane width.
-        super().__init__(parent, agwStyle=agwStyle)
+    def __init__(self, parent, style):
+        super().__init__(parent, agwStyle=aui.AUI_TB_NO_AUTORESIZE)
 
     def AddLabelTool(self, id, label, bitmap1, bitmap2, kind, **kwargs):
         long_help_string = kwargs.pop("longHelp", "")
@@ -67,12 +65,12 @@ class _Toolbar(aui.AuiToolBar):
 
 
 class ToolBar(_Toolbar, uicommand.UICommandContainerMixin):
-    def __init__(self, window, settings, size=(32, 32), agwStyle=aui.AUI_TB_NO_AUTORESIZE):
+    def __init__(self, window, settings, size=(32, 32)):
         self.__window = window
         self.__settings = settings
         self.__visibleUICommands = list()
         self.__cache = None
-        super().__init__(window, style=wx.TB_FLAT | wx.TB_NODIVIDER, agwStyle=agwStyle)
+        super().__init__(window, style=wx.TB_FLAT | wx.TB_NODIVIDER)
         self.SetToolBitmapSize(size)
         if operating_system.isMac():
             # Extra margin needed because the search control is too high
@@ -194,7 +192,7 @@ class MainToolBar(ToolBar):
     """Main window toolbar for use in AUI-managed main window.
 
     The toolbar is docked at the top and spans full window width.
-    AUI_TB_NO_AUTORESIZE prevents shrinking to fit contents, and
-    MinSize((-1, height)) allows horizontal stretch while fixing height.
+    Uses standard AUI toolbar behavior with GetBestSize() for automatic
+    height calculation based on icon size.
     """
     pass
