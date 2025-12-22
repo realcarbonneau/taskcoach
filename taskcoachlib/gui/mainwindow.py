@@ -311,6 +311,7 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         pub.subscribe(self.showStatusBar, "settings.view.statusbar")
         pub.subscribe(self.showToolBar, "settings.view.toolbar")
         self.Bind(aui.EVT_AUI_PANE_CLOSE, self.onCloseToolBar)
+        self.manager.Bind(aui.EVT_AUI_PANE_DOCKED, self.onToolBarDocked)
 
     def __onFilenameChanged(self, filename):
         self.__filename = filename
@@ -483,6 +484,19 @@ If this happens again, please make a copy of your TaskCoach.ini file """
     def onCloseToolBar(self, event):
         if event.GetPane().IsToolbar():
             self.settings.setvalue("view", "toolbar", None)
+        event.Skip()
+
+    def onToolBarDocked(self, event):
+        """Reset toolbar position to fill the dock area after gripper release."""
+        pane = event.GetPane()
+        if pane.name == "toolbar":
+            pane.Position(0).Row(0)
+            # Set size based on dock direction
+            if pane.IsHorizontal():
+                pane.MinSize((self.GetSize().GetWidth(), -1))
+            else:
+                pane.MinSize((-1, self.GetSize().GetHeight()))
+            self.manager.Update()
         event.Skip()
 
     # Viewers
