@@ -320,13 +320,10 @@ If this happens again, please make a copy of your TaskCoach.ini file """
         # Try more AUI manager events
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATING, self._debugPaneFloating)
         self.manager.Bind(aui.EVT_AUI_PANE_FLOATED, self._debugPaneFloated)
-        # Start a fast timer to detect toolbar position changes
-        self._debug_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self._debugTimerTick, self._debug_timer)
-        self._debug_timer.Start(200)  # every 200ms for quick response
+        # Timer disabled - using event-based detection in _debugOnRender
         self._last_dock_pos = None
         import time
-        print(f"[{time.time():.6f}] Event bindings registered + timer started")
+        print(f"[{time.time():.6f}] Event bindings registered")
 
     def __onFilenameChanged(self, filename):
         self.__filename = filename
@@ -540,14 +537,24 @@ If this happens again, please make a copy of your TaskCoach.ini file """
                     self._last_dock_pos = 0
 
     def _debugOnRender(self, event):
-        """Debug: trace render events - log position on every render."""
-        self._render_count += 1
-        pane = self.manager.GetPane("toolbar")
-        if pane.IsOk():
-            pos = pane.dock_pos
-            # Log every render with position (but limit to first 10, then every 50th)
-            if self._render_count <= 10 or self._render_count % 50 == 0:
-                print(f"[{self._ts()}] RENDER #{self._render_count}: dock_pos={pos}, row={pane.dock_row}")
+        """Detect end of toolbar drag and reset position."""
+        # Check manager's action state - 0 means no action (drag ended)
+        action = getattr(self.manager, '_action', 0)
+        prev_action = getattr(self, '_prev_manager_action', 0)
+
+        # Detect transition from dragging (action != 0) to idle (action == 0)
+        if prev_action != 0 and action == 0:
+            pane = self.manager.GetPane("toolbar")
+            if pane.IsOk() and pane.IsDocked() and pane.dock_pos != 0:
+                print(f"[{self._ts()}] Drag ended - resetting dock_pos from {pane.dock_pos} to 0")
+                pane.Position(0).Row(0)
+                if pane.IsHorizontal():
+                    pane.MinSize((self.GetSize().GetWidth(), -1))
+                else:
+                    pane.MinSize((-1, self.GetSize().GetHeight()))
+                wx.CallAfter(self.manager.Update)
+
+        self._prev_manager_action = action
         event.Skip()
 
     def _debugOnPaneButton(self, event):
