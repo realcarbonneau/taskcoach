@@ -39,6 +39,8 @@ STDERR_IGNORE_PATTERNS = (
     "Idle time detection unavailable",
     # wx.lib.combotreebox uses deprecated methods internally, harmless
     "wxPyDeprecationWarning",
+    # PlateButton popup cleanup race condition in wxPython, harmless
+    "PlateButton has been deleted",
 )
 
 
