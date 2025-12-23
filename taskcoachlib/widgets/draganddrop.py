@@ -32,7 +32,7 @@ def _getLinkCursor():
     if _linkCursor is None:
         iconPath = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
-            'gui', 'icons', 'arrows_looped_blue_icon16x16.png'
+            'gui', 'icons', 'paperclip_icon16x16.png'
         )
         image = wx.Image(iconPath)
         image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 8)
