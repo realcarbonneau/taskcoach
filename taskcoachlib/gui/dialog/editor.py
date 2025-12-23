@@ -90,7 +90,7 @@ class Page(patterns.Observer, widgets.BookPage):
     def close(self):
         self.removeInstance()
         for entry in list(self.entries().values()):
-            if isinstance(entry, widgets.DateTimeCtrl):
+            if hasattr(entry, 'Cleanup'):
                 entry.Cleanup()
 
 
@@ -1578,6 +1578,15 @@ class NullableDateTimeWrapper:
     def SetFocus(self):
         """Forward focus to datetime entry."""
         self._datetime_entry.SetFocus()
+
+    def Enable(self, enable=True):
+        """Enable/disable the datetime entry."""
+        self._datetime_entry.Enable(enable)
+        return True
+
+    def Cleanup(self):
+        """Forward cleanup to datetime entry."""
+        self._datetime_entry.Cleanup()
 
 
 class EffortEditBook(Page):
