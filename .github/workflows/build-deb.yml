@@ -96,8 +96,14 @@ jobs:
           VERSION=$(dpkg-parsechangelog -S Version | cut -d- -f1)
           echo "Creating orig tarball for version: $VERSION"
 
-          # Create orig tarball excluding debian/ and .git/
-          tar --exclude='debian' --exclude='.git' --exclude='.github' \
+          # Clean up any __pycache__ directories created during version extraction
+          find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+          find . -type f -name '*.pyc' -delete 2>/dev/null || true
+
+          # Create orig tarball excluding only debian/ and .git/
+          # Everything else (including .github/) must be included to match source tree
+          tar --exclude='debian' --exclude='.git' \
+              --exclude='__pycache__' --exclude='*.pyc' \
               -czf ../taskcoach_${VERSION}.orig.tar.gz .
           ls -la ../taskcoach_${VERSION}.orig.tar.gz
 
