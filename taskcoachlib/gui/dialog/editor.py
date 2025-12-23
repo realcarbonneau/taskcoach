@@ -1629,12 +1629,7 @@ class EffortEditBook(Page):
     def __add_start_and_stop_entries(self):
         # pylint: disable=W0201,W0142
         date_time_entry_kw_args = dict(showSeconds=True)
-        flags = [
-            None,
-            wx.ALIGN_LEFT | wx.ALL | wx.ALIGN_CENTER_VERTICAL,
-            wx.ALIGN_LEFT | wx.ALL | wx.ALIGN_CENTER_VERTICAL,
-            None,
-        ]
+        # Use default flags (includes EXPAND) - no custom flags needed
 
         current_start_date_time = self.items[0].getStart()
         self._startDateTimeEntry = entry.DateTimeEntry(
@@ -1667,7 +1662,6 @@ class EffortEditBook(Page):
             _("Start"),
             self._startDateTimeEntry,
             start_from_last_effort_button,
-            flags=flags,
         )
 
         current_stop_date_time = self.items[0].getStop()
@@ -1702,7 +1696,7 @@ class EffortEditBook(Page):
         stop_now_button = self.__create_stop_now_button()
         self._invalidPeriodMessage = self.__create_invalid_period_message()
         self.addEntry(
-            _("Stop"), self._stopDateTimeEntry, stop_now_button, flags=flags
+            _("Stop"), self._stopDateTimeEntry, stop_now_button
         )
         self.__onStartDateTimeChanged(current_start_date_time)
         self._stopDateTimeEntry.LoadChoices(
