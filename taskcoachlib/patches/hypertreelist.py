@@ -3847,6 +3847,12 @@ class TreeListMainWindow(CustomTreeCtrl):
                     # Don't highlight target items if dragging full-screen.
                     return
 
+                # Check if mouse is outside client area - don't highlight items
+                w, h = self.GetSize()
+                mouseOutside = p.x < 0 or p.x > w or p.y < 0 or p.y > h
+                if mouseOutside:
+                    item = None  # Treat as no item when outside
+
                 if self._countDrag == 0 and item:
                     self._oldItem = self._current
                     self._oldSelection = self._current
