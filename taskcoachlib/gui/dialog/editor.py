@@ -1765,6 +1765,10 @@ class EffortEditBook(Page):
             else _("Warning: start must be earlier than stop")
         )
         self._invalidPeriodMessage.SetLabel(message)
+        # Force layout update after changing the label text
+        # InvalidateBestSize() resets cached size, Layout() recalculates the sizer
+        self._invalidPeriodMessage.InvalidateBestSize()
+        self.Layout()
 
     def __is_period_valid(self):
         """Return whether the current period is valid, i.e. the start date
