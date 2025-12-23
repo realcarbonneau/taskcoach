@@ -1,7 +1,7 @@
 Source: taskcoach
 Section: productivity
 Priority: optional
-Maintainer: Task Coach Developers <https://github.com/realcarbonneau/taskcoach>
+Maintainer: Task Coach developers <developers@taskcoach.org>
 Build-Depends: debhelper-compat (= 13),
                dh-python,
                python3-all,
@@ -9,8 +9,6 @@ Build-Depends: debhelper-compat (= 13),
                python3-distro
 Standards-Version: 4.6.2
 Homepage: https://github.com/realcarbonneau/taskcoach
-Vcs-Git: https://github.com/realcarbonneau/taskcoach.git
-Vcs-Browser: https://github.com/realcarbonneau/taskcoach
 Rules-Requires-Root: no
 
 Package: taskcoach

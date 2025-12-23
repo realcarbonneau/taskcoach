@@ -17,7 +17,8 @@ Copyright: 2006-2014 Andrea Gavana <andrea.gavana@gmail.com>
 License: wxWindows
 
 Files: debian/*
-Copyright: 2025 Task Coach developers
+Copyright: 2025 Task Coach developers <developers@taskcoach.org>
+           Based on former Debian packaging work
 License: GPL-3+
 
 License: GPL-3+
