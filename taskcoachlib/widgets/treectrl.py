@@ -457,9 +457,21 @@ class TreeListCtrl(
         try:
             if self:
                 self.dragAndDropCommand(drop_item, drag_items, part, column, isEdge)
+                # Expand the drop target if items were dropped on it (not as sibling)
+                if drop_item is not None and not isEdge:
+                    self._expandDropTarget(drop_item)
         except RuntimeError:
             # wrapped C/C++ object has been deleted
             pass
+
+    def _expandDropTarget(self, drop_item):
+        """Expand the drop target item so the dropped children are visible."""
+        # Find the tree item for the drop target
+        for item in self.GetItemChildren(recursively=True):
+            if self.GetItemPyData(item) == drop_item:
+                if self.GetChildrenCount(item, recursively=False) > 0 or self.ItemHasChildren(item):
+                    self.Expand(item)
+                break
 
     def onItemExpanding(self, event):
         event.Skip()

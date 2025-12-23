@@ -17,11 +17,37 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os
 import wx
 import urllib.request, urllib.parse, urllib.error
 from taskcoachlib.mailer import thunderbird, outlook
 from taskcoachlib.i18n import _
 from taskcoachlib.patches.hypertreelist import TREE_HITTEST_ONITEMEDGE
+
+# Create a link cursor for drag over prereq/dep columns
+_linkCursor = None
+
+def _getLinkCursor():
+    """Get or create a link cursor for prereq/dep column drag."""
+    global _linkCursor
+    if _linkCursor is None:
+        # Try to load custom cursor from icon, fall back to stock cursor
+        try:
+            iconPath = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                'gui', 'icons', 'arrows_looped_blue_icon16x16.png'
+            )
+            if os.path.exists(iconPath):
+                image = wx.Image(iconPath)
+                image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 8)
+                image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 8)
+                _linkCursor = wx.Cursor(image)
+            else:
+                # Fallback to a distinctive stock cursor
+                _linkCursor = wx.Cursor(wx.CURSOR_BULLSEYE)
+        except Exception:
+            _linkCursor = wx.Cursor(wx.CURSOR_BULLSEYE)
+    return _linkCursor
 
 
 class FileDropTarget(wx.FileDropTarget):
@@ -374,7 +400,12 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
         if not item:
             item = self.GetRootItem()
         if self.IsValidDropTarget(item):
-            self.SetCursorToDragging()
+            # Use link cursor when over prereq/dep columns
+            isEdge = bool(flags & TREE_HITTEST_ONITEMEDGE)
+            if not isEdge and self._isPrereqOrDepColumn(column):
+                self.SetCursorToLink()
+            else:
+                self.SetCursorToDragging()
             # Update drop visual feedback
             self._UpdateDropFeedback(item, flags, column, point)
         else:
@@ -426,23 +457,100 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
     def StartDragging(self):
         self.GetMainWindow().Bind(wx.EVT_MOTION, self.OnDragging)
         self.Bind(wx.EVT_TREE_END_DRAG, self.OnEndDrag)
+        # Also bind to header window for header drops
+        headerWin = self.GetHeaderWindow()
+        if headerWin:
+            headerWin.Bind(wx.EVT_MOTION, self.OnDraggingOverHeader)
+            headerWin.Bind(wx.EVT_LEFT_UP, self.OnDropOnHeader)
         self.SetCursorToDragging()
+        self._droppedOnHeader = False
 
     def StopDragging(self):
         self.GetMainWindow().Unbind(wx.EVT_MOTION)
         self.Unbind(wx.EVT_TREE_END_DRAG)
+        # Unbind header events
+        headerWin = self.GetHeaderWindow()
+        if headerWin:
+            headerWin.Unbind(wx.EVT_MOTION)
+            headerWin.Unbind(wx.EVT_LEFT_UP)
         self.ResetCursor()
+        self._ResetHeaderCursor()
         self._ClearDropFeedback()
         self.selectDraggedItems()
 
     def SetCursorToDragging(self):
         self.GetMainWindow().SetCursor(wx.Cursor(wx.CURSOR_HAND))
 
+    def SetCursorToLink(self):
+        """Set cursor to link icon when over prereq/dep columns."""
+        self.GetMainWindow().SetCursor(_getLinkCursor())
+
     def SetCursorToDroppingImpossible(self):
         self.GetMainWindow().SetCursor(wx.Cursor(wx.CURSOR_NO_ENTRY))
 
     def ResetCursor(self):
         self.GetMainWindow().SetCursor(wx.NullCursor)
+
+    def _ResetHeaderCursor(self):
+        """Reset cursor on header window."""
+        headerWin = self.GetHeaderWindow()
+        if headerWin:
+            headerWin.SetCursor(wx.NullCursor)
+
+    def OnDraggingOverHeader(self, event):
+        """Handle mouse motion over the header window during dragging."""
+        if not self._dragItems:
+            event.Skip()
+            return
+        # Show hand cursor when over header
+        headerWin = self.GetHeaderWindow()
+        if headerWin:
+            headerWin.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+        # Clear drop feedback in main window since we're over header
+        self._ClearDropFeedback()
+        event.Skip()
+
+    def OnDropOnHeader(self, event):
+        """Handle drop on the header window - makes task a root task."""
+        if not self._dragItems:
+            event.Skip()
+            return
+
+        # Get the column under the mouse
+        headerWin = self.GetHeaderWindow()
+        if not headerWin:
+            event.Skip()
+            return
+
+        x, _ = self.CalcUnscrolledPosition(event.GetX(), 0)
+        column = headerWin.XToCol(x)
+
+        # Only the main column (first column, index 0) makes task a root
+        # For other columns, we could add different behaviors later
+        if column == 0:
+            self._droppedOnHeader = True
+            # Make tasks root tasks by dropping on hidden root
+            dropTarget = self.GetRootItem()
+            self.OnDrop(dropTarget, self._dragItems, 0, 0, isEdge=False)
+
+        self.StopDragging()
+        self._dragItems = []
+        event.Skip()
+
+    def _isPrereqOrDepColumn(self, column):
+        """Check if the column index is a prerequisites or dependencies column."""
+        if column < 0:
+            return False
+        try:
+            # Try to get column name via _getColumn (available in TreeListCtrl)
+            if hasattr(self, '_getColumn'):
+                col = self._getColumn(column)
+                if hasattr(col, 'name'):
+                    name = col.name()
+                    return name in ('prerequisites', 'dependencies')
+        except (IndexError, AttributeError):
+            pass
+        return False
 
     def IsValidDropTarget(self, dropTarget):
         if self._validateDragCallback is not None:
