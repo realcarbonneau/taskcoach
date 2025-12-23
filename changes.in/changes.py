@@ -27,14 +27,10 @@ releases = [
         summary="""This release fixes task drag-and-drop functionality.""",
         bugsFixed=[
             Bugv2("""Fix task drag-and-drop to restore hierarchical task reorganization.
-Dragging a task onto another task makes it a child. Dragging to empty space
-(whitespace below tasks, column header, or outside the tree) makes it a root task.
-Dragging onto prerequisites/dependencies columns sets task relationships with
-a paperclip cursor indicator."""),
-            Bugv2("""Fix drag image ghosting by properly hiding the drag image before
-refreshing tree lines during drag operations."""),
-            Bugv2("""Fix flickering highlights when dragging tasks outside the tree
-client area."""),
+Dragging a task onto another task makes it a child. Dragging anywhere else,
+including outside the window, moves the task to the root level. Dragging onto
+prerequisites/dependencies columns sets task relationships (paperclip cursor)."""),
+            Bugv2("""Fix drag image ghosting and highlight flickering during drag."""),
         ],
         featuresAdded=[
             Feature("""Auto-expand parent task when a child task is dropped onto it."""),
