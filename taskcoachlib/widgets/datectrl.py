@@ -79,6 +79,7 @@ class DateTimeCtrl(wx.Panel):
         showRelative=False,
         adjustEndOfDay=False,
         units=None,
+        reserveCheckboxSpace=False,
         **kwargs
     ):
         super().__init__(parent, **kwargs)
@@ -96,6 +97,7 @@ class DateTimeCtrl(wx.Panel):
             secondDelta=interval,
             showRelative=showRelative,
             units=units,
+            reserveCheckboxSpace=reserveCheckboxSpace,
         )
         self.__ctrl.EnableChoices()
 
