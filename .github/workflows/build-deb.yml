@@ -90,30 +90,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Create orig tarball
-        run: |
-          # Get version from changelog (without debian revision)
-          VERSION=$(dpkg-parsechangelog -S Version | cut -d- -f1)
-          echo "Creating orig tarball for version: $VERSION"
-
-          # Clean up any __pycache__ directories created during version extraction
-          find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
-          find . -type f -name '*.pyc' -delete 2>/dev/null || true
-
-          # Create orig tarball excluding only debian/ and .git/
-          # Everything else (including .github/) must be included to match source tree
-          tar --exclude='debian' --exclude='.git' \
-              --exclude='__pycache__' --exclude='*.pyc' \
-              -czf ../taskcoach_${VERSION}.orig.tar.gz .
-          ls -la ../taskcoach_${VERSION}.orig.tar.gz
-
-      - name: Build source package
-        run: |
-          # Build source package (unsigned)
-          dpkg-buildpackage -us -uc -S
-          echo "Source package built"
-          ls -la ../
-
       - name: Build binary package
         run: |
           # Build binary package (unsigned)
@@ -152,11 +128,9 @@ jobs:
             fi
           done
 
-          # Copy other build artifacts with original names
+          # Copy other build artifacts (binary build only, no source packages)
           cp ../*.changes artifacts/ 2>/dev/null || echo "No .changes files"
           cp ../*.buildinfo artifacts/ 2>/dev/null || echo "No .buildinfo files"
-          cp ../*.dsc artifacts/ 2>/dev/null || echo "No .dsc files"
-          cp ../*.tar.* artifacts/ 2>/dev/null || echo "No .tar files"
           ls -la artifacts/
 
       - name: Upload build artifacts
