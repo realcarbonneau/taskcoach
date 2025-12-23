@@ -39,6 +39,7 @@ debian/
 ├── changelog          # Version history (UNRELEASED)
 ├── control            # Package metadata
 ├── copyright          # DEP-5 license info
+├── gbp.conf           # git-buildpackage configuration
 ├── patches/
 │   └── series         # Empty (see wxPython note below)
 ├── README.source      # Explains this is for local builds
