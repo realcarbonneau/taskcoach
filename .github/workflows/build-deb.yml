@@ -90,6 +90,17 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
+      - name: Create orig tarball
+        run: |
+          # Get version from changelog (without debian revision)
+          VERSION=$(dpkg-parsechangelog -S Version | cut -d- -f1)
+          echo "Creating orig tarball for version: $VERSION"
+
+          # Create orig tarball excluding debian/ and .git/
+          tar --exclude='debian' --exclude='.git' --exclude='.github' \
+              -czf ../taskcoach_${VERSION}.orig.tar.gz .
+          ls -la ../taskcoach_${VERSION}.orig.tar.gz
+
       - name: Build source package
         run: |
           # Build source package (unsigned)
