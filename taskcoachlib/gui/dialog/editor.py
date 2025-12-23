@@ -1545,19 +1545,25 @@ class NullableDateTimeWrapper:
 
     def GetValue(self):
         """Return None if checkbox unchecked, else datetime value."""
-        if not self._checkbox.GetValue():
-            return None
-        return self._datetime_entry.GetValue()
+        try:
+            if not self._checkbox.GetValue():
+                return None
+            return self._datetime_entry.GetValue()
+        except RuntimeError:
+            return None  # Widget already deleted (dialog closed)
 
     def SetValue(self, value):
         """Set value - None unchecks checkbox, otherwise sets datetime."""
-        if value is None:
-            self._checkbox.SetValue(False)
-            self._datetime_entry.Enable(False)
-        else:
-            self._checkbox.SetValue(True)
-            self._datetime_entry.Enable(True)
-            self._datetime_entry.SetValue(value)
+        try:
+            if value is None:
+                self._checkbox.SetValue(False)
+                self._datetime_entry.Enable(False)
+            else:
+                self._checkbox.SetValue(True)
+                self._datetime_entry.Enable(True)
+                self._datetime_entry.SetValue(value)
+        except RuntimeError:
+            pass  # Widget already deleted (dialog closed)
 
     def Bind(self, event_type, handler, source=None, id=wx.ID_ANY, id2=wx.ID_ANY):
         """Forward bind to datetime entry."""
