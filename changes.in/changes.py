@@ -24,11 +24,15 @@ releases = [
     Release(
         "1.6.1.72",
         "December 23, 2025",
-        summary="""This release fixes the warning textbox sizing in the effort editor.""",
+        summary="""This release improves the effort editor layout.""",
         bugsFixed=[
             Bugv2("""Fix warning message not fully visible in effort editor when
 start time is later than stop time. The warning text was truncated until the
 window was resized because the StaticText control was created with zero size."""),
+        ],
+        featuresAdded=[
+            Feature("""Description text box in effort editor now spans full width
+and expands with the window. Removed redundant "Description" label."""),
         ],
     ),
     Release(

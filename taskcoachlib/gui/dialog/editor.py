@@ -1829,7 +1829,12 @@ class EffortEditBook(Page):
             wx.EVT_KILL_FOCUS,
             self.items[0].descriptionChangedEventType(),
         )
-        self.addEntry(_("Description"), self._descriptionEntry, growable=True)
+        # Description text box spans full width - label not needed as purpose is obvious
+        self.addEntry(
+            self._descriptionEntry,
+            flags=[wx.ALL | wx.EXPAND],
+            growable=True
+        )
 
     def setFocus(self, column_name):
         self.setFocusOnEntry(column_name)
