@@ -1551,6 +1551,7 @@ class NullableDateTimeWrapper:
 
     def SetValue(self, value):
         """Set value - None unchecks checkbox, otherwise sets datetime."""
+        print(f"DEBUG NullableDateTimeWrapper.SetValue called with: {value}")
         if value is None:
             self._checkbox.SetValue(False)
             self._datetime_entry.Enable(False)
@@ -1558,6 +1559,7 @@ class NullableDateTimeWrapper:
             self._checkbox.SetValue(True)
             self._datetime_entry.Enable(True)
             self._datetime_entry.SetValue(value)
+        print(f"DEBUG NullableDateTimeWrapper.SetValue done, checkbox={self._checkbox.GetValue()}")
 
     def Bind(self, event_type, handler, source=None, id=wx.ID_ANY, id2=wx.ID_ANY):
         """Forward bind to datetime entry."""
@@ -1843,7 +1845,10 @@ class EffortEditBook(Page):
         self.onDateTimeChanged(event)
 
     def onStopNow(self, event):
+        print(f"DEBUG onStopNow called, items={self.items}")
+        print(f"DEBUG effort stop before: {self.items[0].getStop()}")
         command.StopEffortCommand(self._effortList, self.items).do()
+        print(f"DEBUG effort stop after: {self.items[0].getStop()}")
 
     def onStopDateTimeChanged(self, *args, **kwargs):
         self.onDateTimeChanged(*args, **kwargs)
