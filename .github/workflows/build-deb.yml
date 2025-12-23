@@ -90,13 +90,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Build source package
-        run: |
-          # Build source package (unsigned)
-          dpkg-buildpackage -us -uc -S
-          echo "Source package built"
-          ls -la ../
-
       - name: Build binary package
         run: |
           # Build binary package (unsigned)
@@ -135,11 +128,9 @@ jobs:
             fi
           done
 
-          # Copy other build artifacts with original names
+          # Copy other build artifacts (binary build only, no source packages)
           cp ../*.changes artifacts/ 2>/dev/null || echo "No .changes files"
           cp ../*.buildinfo artifacts/ 2>/dev/null || echo "No .buildinfo files"
-          cp ../*.dsc artifacts/ 2>/dev/null || echo "No .dsc files"
-          cp ../*.tar.* artifacts/ 2>/dev/null || echo "No .tar files"
           ls -la artifacts/
 
       - name: Upload build artifacts
