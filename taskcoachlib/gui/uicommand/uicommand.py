@@ -1837,7 +1837,7 @@ class TaskDecPriority(
 
 class DragAndDropCommand(ViewerCommand):
     def onCommandActivate(
-        self, dropItem, dragItems, part, column, isEdge=False
+        self, dropItem, dragItems, part, column
     ):  # pylint: disable=W0221
         """Override onCommandActivate to be able to accept two items instead
         of one event."""
@@ -1846,12 +1846,11 @@ class DragAndDropCommand(ViewerCommand):
             dragItems,
             part,
             None if column == -1 else self.viewer.visibleColumns()[column],
-            isEdge,
             column,  # Pass raw column index as dropColumn
         )
 
     def doCommand(
-        self, dropItem, dragItems, part, column, isEdge=False, dropColumn=-1
+        self, dropItem, dragItems, part, column, dropColumn=-1
     ):  # pylint: disable=W0221
         dragAndDropCommand = self.createCommand(
             dropItem=dropItem,
@@ -1859,20 +1858,19 @@ class DragAndDropCommand(ViewerCommand):
             part=part,
             column=column,
             isTree=self.viewer.isTreeViewer(),
-            isEdge=isEdge,
             dropColumn=dropColumn,
         )
         if dragAndDropCommand.canDo():
             dragAndDropCommand.do()
             return dragAndDropCommand
 
-    def createCommand(self, dropItem, dragItems, part, column, isTree, isEdge=False, dropColumn=-1):
+    def createCommand(self, dropItem, dragItems, part, column, isTree, dropColumn=-1):
         raise NotImplementedError  # pragma: no cover
 
 
 class OrderingDragAndDropCommand(DragAndDropCommand):
-    def doCommand(self, dropItem, dragItems, part, column, isEdge=False, dropColumn=-1):
-        cmd = super().doCommand(dropItem, dragItems, part, column, isEdge, dropColumn)
+    def doCommand(self, dropItem, dragItems, part, column, dropColumn=-1):
+        cmd = super().doCommand(dropItem, dragItems, part, column, dropColumn)
         if cmd is not None and cmd.isOrdering():
             sortCommand = ViewerSortByCommand(
                 viewer=self.viewer, value="ordering"
@@ -1881,7 +1879,7 @@ class OrderingDragAndDropCommand(DragAndDropCommand):
 
 
 class TaskDragAndDrop(OrderingDragAndDropCommand, TaskListCommand):
-    def createCommand(self, dropItem, dragItems, part, column, isTree, isEdge=False, dropColumn=-1):
+    def createCommand(self, dropItem, dragItems, part, column, isTree, dropColumn=-1):
         # Get column name if dropColumn is valid
         dropColumnName = None
         if dropColumn >= 0:
@@ -1896,7 +1894,6 @@ class TaskDragAndDrop(OrderingDragAndDropCommand, TaskListCommand):
             part=part,
             column=column,
             isTree=isTree,
-            isEdge=isEdge,
             dropColumn=dropColumn,
             dropColumnName=dropColumnName,
         )
@@ -2466,7 +2463,7 @@ class CategoryNew(CategoriesCommand, settings_uicommand.SettingsCommand):
 
 
 class CategoryDragAndDrop(OrderingDragAndDropCommand, CategoriesCommand):
-    def createCommand(self, dropItem, dragItems, part, column, isTree, isEdge=False, dropColumn=-1):
+    def createCommand(self, dropItem, dragItems, part, column, isTree, dropColumn=-1):
         return command.DragAndDropCategoryCommand(
             self.categories,
             dragItems,
@@ -2474,7 +2471,6 @@ class CategoryDragAndDrop(OrderingDragAndDropCommand, CategoriesCommand):
             part=part,
             column=column,
             isTree=isTree,
-            isEdge=isEdge,
             dropColumn=dropColumn,
         )
 
@@ -2524,7 +2520,7 @@ class NewNoteWithSelectedCategories(NoteNew, ViewerCommand):
 
 
 class NoteDragAndDrop(OrderingDragAndDropCommand, NotesCommand):
-    def createCommand(self, dropItem, dragItems, part, column, isTree, isEdge=False, dropColumn=-1):
+    def createCommand(self, dropItem, dragItems, part, column, isTree, dropColumn=-1):
         return command.DragAndDropNoteCommand(
             self.notes,
             dragItems,
@@ -2532,7 +2528,6 @@ class NoteDragAndDrop(OrderingDragAndDropCommand, NotesCommand):
             part=part,
             column=column,
             isTree=isTree,
-            isEdge=isEdge,
             dropColumn=dropColumn,
         )
 

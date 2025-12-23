@@ -342,8 +342,6 @@ TREE_HITTEST_ONITEMCOLUMN     = 0x2000
 """ On the item column. """
 TREE_HITTEST_ONITEMCHECKICON  = 0x4000
 """ On the check icon, if present. """
-TREE_HITTEST_ONITEMEDGE       = 0x8000
-""" On the edge zone between items (for insertion line). """
 
 # HyperTreeList styles
 TR_DEFAULT_STYLE = wx.TR_DEFAULT_STYLE
@@ -1498,23 +1496,13 @@ class TreeListItem(GenericTreeItem):
             if point.y >= self._y and point.y <= self._y + h:
 
                 maincol = theCtrl.GetMainColumn()
-
-                # check for edge zones (for insertion line) vs body (for making children)
-                # Edge zone is ~15% at top and bottom of item
                 y_mid = self._y + h // 2
-                edge_size = max(4, h // 6)  # At least 4 pixels, or ~15% of height
-                y_top_edge = self._y + edge_size
-                y_bottom_edge = self._y + h - edge_size
 
-                if point.y < y_top_edge:
-                    # Top edge zone - for inserting above this item
+                # check for upper/lower half of item
+                if point.y < y_mid:
                     flags |= wx.TREE_HITTEST_ONITEMUPPERPART
-                    flags |= TREE_HITTEST_ONITEMEDGE
-                elif point.y > y_bottom_edge:
-                    # Bottom edge zone - for inserting below this item
+                else:
                     flags |= wx.TREE_HITTEST_ONITEMLOWERPART
-                    flags |= TREE_HITTEST_ONITEMEDGE
-                # else: body of item - no upper/lower flag, used for making children
 
                 # check for button hit
                 if self.HasPlus() and theCtrl.HasButtons():
@@ -2220,11 +2208,6 @@ class TreeListMainWindow(CustomTreeCtrl):
         self._dragItem = None
         self._editCtrl = None  # Track the current in-place edit control
 
-        # Drag and drop visual feedback state
-        self._dropHighlightColumn = -1  # Column index to highlight during drag (-1 = none)
-        self._insertionLineY = -1  # Y position for insertion line (-1 = none)
-        self._insertionLineItem = None  # Item below the insertion line
-
         self._imgWidth = self._imgWidth2 = 0
         self._imgHeight = self._imgHeight2 = 0
         self._btnWidth = self._btnWidth2 = 0
@@ -2886,43 +2869,16 @@ class TreeListMainWindow(CustomTreeCtrl):
         if self._dragItem:
             self.RefreshLine(self._dragItem)
 
-    def SetDropHighlight(self, item=None, column=-1, insertionY=-1):
+    def SetDropHighlight(self, item=None, column=-1):
         """
         Sets the visual feedback for drag and drop operations.
-
-        :param `item`: an instance of :class:`TreeListItem` to highlight, or None to clear.
-        :param `column`: column index to highlight for prereq/dep drops (-1 = full row).
-        :param `insertionY`: Y position for insertion line (-1 = no line).
+        Currently a no-op as visual feedback is handled by cursor changes only.
         """
-        needRefresh = False
-
-        # Handle column highlight change
-        if self._dropHighlightColumn != column:
-            self._dropHighlightColumn = column
-            needRefresh = True
-
-        # Handle insertion line change
-        oldInsertionY = self._insertionLineY
-        if self._insertionLineY != insertionY:
-            self._insertionLineY = insertionY
-            self._insertionLineItem = item
-            needRefresh = True
-
-        if needRefresh:
-            # Refresh the affected areas
-            self.Refresh()
+        pass
 
     def ClearDropHighlight(self):
         """Clears all drop visual feedback."""
-        self.SetDropHighlight(None, -1, -1)
-
-    def GetDropHighlightColumn(self):
-        """Returns the currently highlighted column index, or -1 if none."""
-        return self._dropHighlightColumn
-
-    def GetInsertionLineY(self):
-        """Returns the Y position of the insertion line, or -1 if none."""
-        return self._insertionLineY
+        pass
 
 
 # ----------------------------------------------------------------------------
@@ -3613,44 +3569,12 @@ class TreeListMainWindow(CustomTreeCtrl):
 
     def _DrawDropFeedback(self, dc):
         """
-        Draws the drag and drop visual feedback (insertion line and cell highlight).
+        Draws the drag and drop visual feedback.
 
         :param `dc`: an instance of :class:`wx.DC`.
         """
-        header_win = self._owner.GetHeaderWindow()
-        total_w = header_win.GetWidth()
-
-        # Draw insertion line if set
-        if self._insertionLineY >= 0:
-            dc.SetPen(wx.Pen(wx.Colour(0, 0, 200), 2))  # Blue line, 2 pixels thick
-            dc.DrawLine(0, self._insertionLineY, total_w, self._insertionLineY)
-            # Draw small arrows at the ends
-            arrow_size = 4
-            # Left arrow
-            dc.DrawLine(0, self._insertionLineY - arrow_size, 0, self._insertionLineY + arrow_size)
-            dc.DrawLine(0, self._insertionLineY - arrow_size, arrow_size, self._insertionLineY)
-            dc.DrawLine(0, self._insertionLineY + arrow_size, arrow_size, self._insertionLineY)
-            # Right arrow
-            dc.DrawLine(total_w - 1, self._insertionLineY - arrow_size, total_w - 1, self._insertionLineY + arrow_size)
-            dc.DrawLine(total_w - 1, self._insertionLineY - arrow_size, total_w - 1 - arrow_size, self._insertionLineY)
-            dc.DrawLine(total_w - 1, self._insertionLineY + arrow_size, total_w - 1 - arrow_size, self._insertionLineY)
-
-        # Draw cell highlight if set (for prereq/dep column drops)
-        if self._dropHighlightColumn >= 0 and self._dropTarget:
-            # Calculate column bounds
-            x_start = 0
-            for i in range(self._dropHighlightColumn):
-                if header_win.IsColumnShown(i):
-                    x_start += header_win.GetColumnWidth(i)
-
-            col_width = header_win.GetColumnWidth(self._dropHighlightColumn)
-            item_y = self._dropTarget.GetY()
-            item_h = self.GetLineHeight(self._dropTarget)
-
-            # Draw highlight rectangle around the cell
-            dc.SetPen(wx.Pen(wx.Colour(0, 120, 200), 2))  # Blue border
-            dc.SetBrush(wx.Brush(wx.Colour(200, 220, 255, 128)))  # Light blue fill
-            dc.DrawRectangle(x_start + 1, item_y + 1, col_width - 2, item_h - 2)
+        # Visual feedback removed - cursor change is sufficient
+        pass
 
 
     def HitTest(self, point, flags=0):

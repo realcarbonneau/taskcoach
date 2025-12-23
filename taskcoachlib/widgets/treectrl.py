@@ -439,7 +439,7 @@ class TreeListCtrl(
         else:
             event.Skip()
 
-    def OnDrop(self, drop_item, drag_items, part, column, isEdge=False):
+    def OnDrop(self, drop_item, drag_items, part, column):
         drop_item = (
             None
             if drop_item == self.GetRootItem()
@@ -449,16 +449,16 @@ class TreeListCtrl(
             self.GetItemPyData(drag_item) for drag_item in drag_items
         )
         wx.CallAfter(
-            self.__safeDragAndDropCommand, drop_item, drag_items, part, column, isEdge
+            self.__safeDragAndDropCommand, drop_item, drag_items, part, column
         )
 
-    def __safeDragAndDropCommand(self, drop_item, drag_items, part, column, isEdge=False):
+    def __safeDragAndDropCommand(self, drop_item, drag_items, part, column):
         """Safely call dragAndDropCommand, guarding against deleted C++ objects."""
         try:
             if self:
-                self.dragAndDropCommand(drop_item, drag_items, part, column, isEdge)
-                # Expand the drop target if items were dropped on it (not as sibling)
-                if drop_item is not None and not isEdge:
+                self.dragAndDropCommand(drop_item, drag_items, part, column)
+                # Expand the drop target if items were dropped on it
+                if drop_item is not None:
                     self._expandDropTarget(drop_item)
         except RuntimeError:
             # wrapped C/C++ object has been deleted

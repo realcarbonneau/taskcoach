@@ -82,10 +82,7 @@ class DragAndDropTaskCommand(base.OrderingDragAndDropCommand):
         return self.dropColumnName == "dependencies"
 
     def do_command(self):
-        if self.isEdge:
-            # Edge drop: insert as sibling (reorder) or change parent to make sibling
-            super().do_command()
-        elif self._isPrereqDrop():
+        if self._isPrereqDrop():
             # Dropped on prerequisites column: make dragged items prerequisites of drop target
             self._itemToDropOn.addPrerequisites(self.items)
             self._itemToDropOn.addTaskAsDependencyOf(self.items)
@@ -95,13 +92,11 @@ class DragAndDropTaskCommand(base.OrderingDragAndDropCommand):
                 item.addPrerequisites([self._itemToDropOn])
                 item.addTaskAsDependencyOf([self._itemToDropOn])
         else:
-            # Body drop on other columns: make child (change parent)
+            # Drop on other columns: make child (change parent)
             super().do_command()
 
     def undo_command(self):
-        if self.isEdge:
-            super().undo_command()
-        elif self._isPrereqDrop():
+        if self._isPrereqDrop():
             self._itemToDropOn.removePrerequisites(self.items)
             self._itemToDropOn.removeTaskAsDependencyOf(self.items)
         elif self._isDepDrop():
@@ -112,9 +107,7 @@ class DragAndDropTaskCommand(base.OrderingDragAndDropCommand):
             super().undo_command()
 
     def redo_command(self):
-        if self.isEdge:
-            super().redo_command()
-        elif self._isPrereqDrop():
+        if self._isPrereqDrop():
             self._itemToDropOn.addPrerequisites(self.items)
             self._itemToDropOn.addTaskAsDependencyOf(self.items)
         elif self._isDepDrop():
