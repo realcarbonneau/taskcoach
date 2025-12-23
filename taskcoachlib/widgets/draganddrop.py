@@ -31,22 +31,14 @@ def _getLinkCursor():
     """Get or create a link cursor for prereq/dep column drag."""
     global _linkCursor
     if _linkCursor is None:
-        # Try to load custom cursor from icon, fall back to stock cursor
-        try:
-            iconPath = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)),
-                'gui', 'icons', 'arrows_looped_blue_icon16x16.png'
-            )
-            if os.path.exists(iconPath):
-                image = wx.Image(iconPath)
-                image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 8)
-                image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 8)
-                _linkCursor = wx.Cursor(image)
-            else:
-                # Fallback to a distinctive stock cursor
-                _linkCursor = wx.Cursor(wx.CURSOR_BULLSEYE)
-        except Exception:
-            _linkCursor = wx.Cursor(wx.CURSOR_BULLSEYE)
+        iconPath = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'gui', 'icons', 'arrows_looped_blue_icon16x16.png'
+        )
+        image = wx.Image(iconPath)
+        image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 8)
+        image.SetOption(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 8)
+        _linkCursor = wx.Cursor(image)
     return _linkCursor
 
 
