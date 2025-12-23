@@ -63,47 +63,66 @@ class DragAndDropTaskCommand(base.OrderingDragAndDropCommand):
 
     def getItemsToSave(self):
         toSave = super().getItemsToSave()
-        if self.part != 0:
+        if self._isPrereqOrDepDrop():
             toSave.extend(self.getSiblings())
         return list(
             set(toSave)
         )  # Because parent may have added siblings as well
 
+    def _isPrereqOrDepDrop(self):
+        """Check if this is a prerequisite or dependency column drop."""
+        return self.dropColumnName in ("prerequisites", "dependencies")
+
+    def _isPrereqDrop(self):
+        """Check if dropping on prerequisites column."""
+        return self.dropColumnName == "prerequisites"
+
+    def _isDepDrop(self):
+        """Check if dropping on dependencies column."""
+        return self.dropColumnName == "dependencies"
+
     def do_command(self):
-        if self.part == 0 or self.isOrdering():
+        if self.isEdge:
+            # Edge drop: insert as sibling (reorder) or change parent to make sibling
             super().do_command()
-        else:
-            if self.part == -1:
-                # Up part. Add dropped items as prerequisites of dropped on item.
-                self._itemToDropOn.addPrerequisites(self.items)
-                self._itemToDropOn.addTaskAsDependencyOf(self.items)
-            else:
-                # Down. Add dropped on item as prerequisite of dropped items.
-                for item in self.items:
-                    item.addPrerequisites([self._itemToDropOn])
-                    item.addTaskAsDependencyOf([self._itemToDropOn])
-
-    def undo_command(self):
-        if self.part == 0 or self.isOrdering():
-            super().undo_command()
-        elif self.part == -1:
-            self._itemToDropOn.removePrerequisites(self.items)
-            self._itemToDropOn.removeTaskAsDependencyOf(self.items)
-        else:
-            for item in self.items:
-                item.removePrerequisites([self._itemToDropOn])
-                item.removeTaskAsDependencyOf([self._itemToDropOn])
-
-    def redo_command(self):
-        if self.part == 0 or self.isOrdering():
-            super().redo_command()
-        elif self.part == -1:
+        elif self._isPrereqDrop():
+            # Dropped on prerequisites column: make dragged items prerequisites of drop target
             self._itemToDropOn.addPrerequisites(self.items)
             self._itemToDropOn.addTaskAsDependencyOf(self.items)
-        else:
+        elif self._isDepDrop():
+            # Dropped on dependencies column: make drop target a prerequisite of dragged items
             for item in self.items:
                 item.addPrerequisites([self._itemToDropOn])
                 item.addTaskAsDependencyOf([self._itemToDropOn])
+        else:
+            # Body drop on other columns: make child (change parent)
+            super().do_command()
+
+    def undo_command(self):
+        if self.isEdge:
+            super().undo_command()
+        elif self._isPrereqDrop():
+            self._itemToDropOn.removePrerequisites(self.items)
+            self._itemToDropOn.removeTaskAsDependencyOf(self.items)
+        elif self._isDepDrop():
+            for item in self.items:
+                item.removePrerequisites([self._itemToDropOn])
+                item.removeTaskAsDependencyOf([self._itemToDropOn])
+        else:
+            super().undo_command()
+
+    def redo_command(self):
+        if self.isEdge:
+            super().redo_command()
+        elif self._isPrereqDrop():
+            self._itemToDropOn.addPrerequisites(self.items)
+            self._itemToDropOn.addTaskAsDependencyOf(self.items)
+        elif self._isDepDrop():
+            for item in self.items:
+                item.addPrerequisites([self._itemToDropOn])
+                item.addTaskAsDependencyOf([self._itemToDropOn])
+        else:
+            super().redo_command()
 
 
 class DeleteTaskCommand(base.DeleteCommand, EffortCommand):

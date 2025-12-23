@@ -21,6 +21,7 @@ import wx
 import urllib.request, urllib.parse, urllib.error
 from taskcoachlib.mailer import thunderbird, outlook
 from taskcoachlib.i18n import _
+from taskcoachlib.patches.hypertreelist import TREE_HITTEST_ONITEMEDGE
 
 
 class FileDropTarget(wx.FileDropTarget):
@@ -270,14 +271,23 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
         self.GetMainWindow().Bind(wx.EVT_LEFT_DOWN, self._OnLeftDown)
         self._dragItems = []
 
-    def OnDrop(self, dropItem, dragItems, part, column):
+    def OnDrop(self, dropItem, dragItems, part, column, isEdge=False):
         """This function must be overloaded in the derived class. dragItems
         are the items being dragged by the user. dropItem is the item the
         dragItems are dropped on. If the user doesn't drop the dragItems
         on another item, dropItem equals the (hidden) root item of the
-        tree control. `part` is 0 if the items were dropped on the middle third
-        of the dropItem, -1 if they were dropped on the upper third and 1 for
-        the lower third."""
+        tree control.
+
+        Drop modes:
+        - If isEdge is True: User dropped on edge between items (insertion line shown)
+          - part=-1: Insert above dropItem (make sibling)
+          - part=1: Insert below dropItem (make sibling)
+        - If isEdge is False: User dropped on body of dropItem
+          - column determines the action:
+            - Prerequisites column: make dragItems prerequisites of dropItem
+            - Dependencies column: make dragItems dependencies of dropItem
+            - Other columns: make dragItems children of dropItem
+        """
         raise NotImplementedError
 
     def OnBeginDrag(self, event):
@@ -325,13 +335,14 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
             self.UnselectAll()
             if dropTarget != self.GetRootItem():
                 self.SelectItem(dropTarget)
-            dummy_item, flags, dummy_column = self.HitTest(event.GetPoint())
+            dummy_item, flags, dropColumn = self.HitTest(event.GetPoint())
             part = 0
+            isEdge = bool(flags & TREE_HITTEST_ONITEMEDGE)
             if flags & wx.TREE_HITTEST_ONITEMUPPERPART:
                 part = -1
             elif flags & wx.TREE_HITTEST_ONITEMLOWERPART:
                 part = 1
-            self.OnDrop(dropTarget, self._dragItems, part, self._dragColumn)
+            self.OnDrop(dropTarget, self._dragItems, part, dropColumn, isEdge)
         else:
             # Work around an issue with HyperTreeList. HyperTreeList will
             # restore the selection to the last item highlighted by the drag,
@@ -358,13 +369,17 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
         if not event.Dragging():
             self.StopDragging()
             return
-        item, flags = self.HitTest(wx.Point(event.GetX(), event.GetY()))[:2]
+        point = wx.Point(event.GetX(), event.GetY())
+        item, flags, column = self.HitTest(point)
         if not item:
             item = self.GetRootItem()
         if self.IsValidDropTarget(item):
             self.SetCursorToDragging()
+            # Update drop visual feedback
+            self._UpdateDropFeedback(item, flags, column, point)
         else:
             self.SetCursorToDroppingImpossible()
+            self._ClearDropFeedback()
         if flags & wx.TREE_HITTEST_ONITEMBUTTON:
             self.Expand(item)
         if self.GetSelections() != [item]:
@@ -372,6 +387,41 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
             if item != self.GetRootItem():
                 self.SelectItem(item)
         event.Skip()
+
+    def _UpdateDropFeedback(self, item, flags, column, point):
+        """Update visual feedback during drag based on drop position."""
+        mainWin = self.GetMainWindow()
+        isEdge = bool(flags & TREE_HITTEST_ONITEMEDGE)
+
+        if not item or item == self.GetRootItem():
+            mainWin.ClearDropHighlight()
+            return
+
+        # item from HitTest is the internal TreeListItem with GetY() method
+        if isEdge:
+            # Show insertion line at edge between items
+            try:
+                itemY = item.GetY()
+                itemH = mainWin.GetLineHeight(item)
+                if flags & wx.TREE_HITTEST_ONITEMUPPERPART:
+                    insertionY = itemY  # Line at top of item
+                else:
+                    insertionY = itemY + itemH  # Line at bottom of item
+                mainWin.SetDropHighlight(item, -1, insertionY)
+            except (AttributeError, RuntimeError):
+                mainWin.ClearDropHighlight()
+        else:
+            # Body drop - highlight cell if on prereq/dep column, otherwise full row
+            try:
+                mainWin.SetDropHighlight(item, column, -1)
+            except (AttributeError, RuntimeError):
+                mainWin.ClearDropHighlight()
+
+    def _ClearDropFeedback(self):
+        """Clear all drop visual feedback."""
+        mainWin = self.GetMainWindow()
+        if hasattr(mainWin, 'ClearDropHighlight'):
+            mainWin.ClearDropHighlight()
 
     def StartDragging(self):
         self.GetMainWindow().Bind(wx.EVT_MOTION, self.OnDragging)
@@ -382,6 +432,7 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
         self.GetMainWindow().Unbind(wx.EVT_MOTION)
         self.Unbind(wx.EVT_TREE_END_DRAG)
         self.ResetCursor()
+        self._ClearDropFeedback()
         self.selectDraggedItems()
 
     def SetCursorToDragging(self):
