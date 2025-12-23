@@ -1854,7 +1854,12 @@ class EffortEditBook(Page):
         self.onDateTimeChanged(event)
 
     def onStopNow(self, event):
-        command.StopEffortCommand(self._effortList, self.items).do()
+        # Stop only the specific effort(s) being edited, not all efforts for the task
+        new_value = date.DateTime.now()
+        self._stopDateTimeEntry.SetValue(new_value)
+        command.EditEffortStopDateTimeCommand(
+            None, self.items, newValue=new_value
+        ).do()
 
     def onStopDateTimeChanged(self, *args, **kwargs):
         self.onDateTimeChanged(*args, **kwargs)
