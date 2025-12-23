@@ -1809,14 +1809,16 @@ class EffortEditBook(Page):
         if self._stopCheckbox.GetValue():
             # Checkbox checked - enable and set to now
             new_value = date.DateTime.now()
+            self._stopDateTimeEntry.SetValue(new_value)
+            command.EditEffortStopDateTimeCommand(
+                None, self.items, newValue=new_value
+            ).do()
         else:
             # Checkbox unchecked - set to None (resume tracking)
-            new_value = None
-        self._stopDateTimeEntry.SetValue(new_value)
-        # Immediately commit to model - don't wait for focus loss
-        command.EditEffortStopDateTimeCommand(
-            None, self.items, newValue=new_value
-        ).do()
+            # Set directly on effort since command doesn't handle None
+            self._stopDateTimeEntry.SetValue(None)
+            for item in self.items:
+                item.setStop(date.DateTime.max)  # DateTime.max means None/tracking
         self.onDateTimeChanged(event)
 
     def __create_start_from_last_effort_button(self):
