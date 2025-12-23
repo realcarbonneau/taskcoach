@@ -1703,7 +1703,9 @@ class EffortEditBook(Page):
             showRelative=True,
             **date_time_entry_kw_args
         )
-        wx.CallAfter(self._startDateTimeEntry.HideRelativeButton)
+        # Set minimum size BEFORE hiding button to prevent shrinking on resize
+        self._startDateTimeEntry.SetMinSize(self._startDateTimeEntry.GetBestSize())
+        self._startDateTimeEntry.HideRelativeButton()
         self._startDateTimeSync = attributesync.AttributeSync(
             "getStart",
             self._startDateTimeEntry,
