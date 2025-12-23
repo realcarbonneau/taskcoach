@@ -1863,10 +1863,10 @@ class EffortEditBook(Page):
         """Return whether the current period is valid, i.e. the start date
         and time is earlier than the stop date and time."""
         try:
-            return (
-                self._startDateTimeEntry.GetValue()
-                < self._stopDateTimeEntry.GetValue()
-            )
+            stop_value = self._stopDateTimeEntry.GetValue()
+            if stop_value is None:
+                return True  # No stop time means effort is ongoing
+            return self._startDateTimeEntry.GetValue() < stop_value
         except AttributeError:
             return True  # Entries not created yet
 
