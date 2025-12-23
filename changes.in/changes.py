@@ -22,6 +22,16 @@ from changetypes import *
 
 releases = [
     Release(
+        "1.6.1.72",
+        "December 23, 2025",
+        summary="""This release fixes the warning textbox sizing in the effort editor.""",
+        bugsFixed=[
+            Bugv2("""Fix warning message not fully visible in effort editor when
+start time is later than stop time. The warning text was truncated until the
+window was resized because the StaticText control was created with zero size."""),
+        ],
+    ),
+    Release(
         "1.6.1.71",
         "December 23, 2025",
         summary="""This release fixes task drag-and-drop functionality.""",

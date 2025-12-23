@@ -1712,7 +1712,11 @@ class EffortEditBook(Page):
         self._stopDateTimeEntry.Bind(
             sdtc.EVT_TIME_CHOICES_CHANGE, self.__onChoicesChanged
         )
-        self.addEntry("", self._invalidPeriodMessage)
+        # Add warning message spanning full width with left alignment and expand
+        self.addEntry(
+            self._invalidPeriodMessage,
+            flags=[wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT | wx.EXPAND]
+        )
 
     def __create_start_from_last_effort_button(self):
         button = wx.Button(self, label=_("Start tracking from last stop time"))
@@ -1765,10 +1769,6 @@ class EffortEditBook(Page):
             else _("Warning: start must be earlier than stop")
         )
         self._invalidPeriodMessage.SetLabel(message)
-        # Force layout update after changing the label text
-        # InvalidateBestSize() resets cached size, Layout() recalculates the sizer
-        self._invalidPeriodMessage.InvalidateBestSize()
-        self.Layout()
 
     def __is_period_valid(self):
         """Return whether the current period is valid, i.e. the start date
