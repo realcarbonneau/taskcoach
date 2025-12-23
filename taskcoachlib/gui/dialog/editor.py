@@ -1551,7 +1551,10 @@ class NullableDateTimeWrapper:
 
     def SetValue(self, value):
         """Set value - None unchecks checkbox, otherwise sets datetime."""
+        import traceback
         print(f"DEBUG NullableDateTimeWrapper.SetValue called with: {value}")
+        print("DEBUG SetValue traceback:")
+        traceback.print_stack(limit=10)
         if value is None:
             self._checkbox.SetValue(False)
             self._datetime_entry.Enable(False)
