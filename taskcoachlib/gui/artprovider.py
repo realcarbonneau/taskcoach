@@ -256,6 +256,7 @@ chooseableItemImages = dict(
     led_red_icon=_("Red led"),
     led_yellow_icon=_("Yellow led"),
     life_ring_icon=_("Life ring"),
+    link_icon=_("Link"),
     lock_locked_icon=_("Locked lock"),
     lock_unlocked_icon=_("Unlocked lock"),
     magnifier_glass_icon=_("Magnifier glass"),
