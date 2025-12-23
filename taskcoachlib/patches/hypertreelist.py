@@ -3853,6 +3853,10 @@ class TreeListMainWindow(CustomTreeCtrl):
 
                 if item != self._dropTarget:
 
+                    # Hide drag image before refreshing to avoid ghosting
+                    if self._dragImage:
+                        self._dragImage.Hide()
+
                     # unhighlight the previous drop target
                     if self._dropTarget:
                         self._dropTarget.SetHilight(False)
@@ -3865,9 +3869,17 @@ class TreeListMainWindow(CustomTreeCtrl):
 
                     self.Update()
 
+                    # Show drag image again
+                    if self._dragImage:
+                        self._dragImage.Show()
+
                 if self._countDrag >= 3 and self._oldItem is not None:
                     # Here I am trying to avoid ugly repainting problems... hope it works
+                    if self._dragImage:
+                        self._dragImage.Hide()
                     self.RefreshLine(self._oldItem)
+                    if self._dragImage:
+                        self._dragImage.Show()
                     self._countDrag = 0
 
                 return # nothing to do, already done
