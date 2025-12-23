@@ -1531,9 +1531,54 @@ class AttachmentEditBook(EditBook):
         return targetItem in self.items
 
 
+class NullableDateTimeWrapper:
+    """Virtual wrapper linking a checkbox with a DateTimeEntry.
+
+    GetValue returns None when checkbox is unchecked, otherwise returns
+    the datetime value. The checkbox and datetime entry remain separate
+    widgets for grid layout, but this wrapper provides unified GetValue.
+    """
+
+    def __init__(self, checkbox, datetime_entry):
+        self._checkbox = checkbox
+        self._datetime_entry = datetime_entry
+
+    def GetValue(self):
+        """Return None if checkbox unchecked, else datetime value."""
+        if not self._checkbox.GetValue():
+            return None
+        return self._datetime_entry.GetValue()
+
+    def SetValue(self, value):
+        """Set value - None unchecks checkbox, otherwise sets datetime."""
+        if value is None:
+            self._checkbox.SetValue(False)
+            self._datetime_entry.Enable(False)
+        else:
+            self._checkbox.SetValue(True)
+            self._datetime_entry.Enable(True)
+            self._datetime_entry.SetValue(value)
+
+    def Bind(self, event_type, handler, source=None, id=wx.ID_ANY, id2=wx.ID_ANY):
+        """Forward bind to datetime entry."""
+        self._datetime_entry.Bind(event_type, handler, source, id, id2)
+
+    def LoadChoices(self, choices):
+        """Forward to datetime entry."""
+        self._datetime_entry.LoadChoices(choices)
+
+    def SetRelativeChoicesStart(self, start=None):
+        """Forward to datetime entry."""
+        self._datetime_entry.SetRelativeChoicesStart(start)
+
+    def GetChildren(self):
+        """Return children for focus tracking."""
+        return self._datetime_entry.GetChildren()
+
+
 class EffortEditBook(Page):
     domainObject = "effort"
-    columns = 3
+    columns = 4  # Label, Checkbox, DateTime, Button
 
     def __init__(
         self,
@@ -1561,67 +1606,9 @@ class EffortEditBook(Page):
         pub.subscribe(
             self.__onChoicesConfigChanged, "settings.feature.sdtcspans_effort"
         )
-        # DEBUG: Add logging for resize investigation
-        self._setupDebugLogging()
 
     def __onChoicesConfigChanged(self, value=""):
         self._stopDateTimeEntry.LoadChoices(value)
-
-    def _setupDebugLogging(self):
-        """DEBUG: Set up logging for resize investigation."""
-        import logging
-        self._debug_log = logging.getLogger('EffortEditBook.DEBUG')
-        self._debug_log.setLevel(logging.DEBUG)
-        if not self._debug_log.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-            self._debug_log.addHandler(handler)
-
-        # Log initial positions
-        wx.CallAfter(self._logPositions, "INITIAL")
-
-        # Bind size events
-        self.Bind(wx.EVT_SIZE, self._onDebugSize)
-        self._startDateTimeEntry.Bind(wx.EVT_SIZE, self._onDebugStartSize)
-        self._stopDateTimeEntry.Bind(wx.EVT_SIZE, self._onDebugStopSize)
-        self.GetTopLevelParent().Bind(wx.EVT_SIZE, self._onDebugWindowSize)
-
-        # Timer to log every second
-        self._debugTimer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self._onDebugTimer, self._debugTimer)
-        self._debugTimer.Start(1000)  # 1 second
-
-    def _logPositions(self, context):
-        """Log current positions of date-time entries."""
-        start_pos = self._startDateTimeEntry.GetPosition()
-        start_size = self._startDateTimeEntry.GetSize()
-        stop_pos = self._stopDateTimeEntry.GetPosition()
-        stop_size = self._stopDateTimeEntry.GetSize()
-        panel_size = self.GetSize()
-        self._debug_log.debug(
-            f"{context}: Panel={panel_size}, "
-            f"Start pos={start_pos} size={start_size}, "
-            f"Stop pos={stop_pos} size={stop_size}"
-        )
-
-    def _onDebugSize(self, event):
-        self._logPositions("PANEL_SIZE_EVENT")
-        event.Skip()
-
-    def _onDebugStartSize(self, event):
-        self._logPositions("START_SIZE_EVENT")
-        event.Skip()
-
-    def _onDebugStopSize(self, event):
-        self._logPositions("STOP_SIZE_EVENT")
-        event.Skip()
-
-    def _onDebugWindowSize(self, event):
-        self._logPositions("WINDOW_SIZE_EVENT")
-        event.Skip()
-
-    def _onDebugTimer(self, event):
-        self._logPositions("TIMER")
 
     def getPage(self, pageName):  # pylint: disable=W0613
         return None  # An EffortEditBook is not really a notebook...
@@ -1686,14 +1673,18 @@ class EffortEditBook(Page):
 
     def __add_start_and_stop_entries(self):
         # pylint: disable=W0201,W0142
+        # Using 4 columns: Label, Checkbox, DateTime, Button
+        # Start row has empty space where Stop row has checkbox
+        # This ensures proper grid alignment
         date_time_entry_kw_args = dict(showSeconds=True)
         flags = [
-            None,
-            wx.ALIGN_RIGHT | wx.ALL,
-            wx.ALIGN_LEFT | wx.ALL | wx.ALIGN_CENTER_VERTICAL,
-            None,
+            None,  # Label - default left align
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL,  # Checkbox column
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL,  # DateTime
+            wx.ALL | wx.ALIGN_CENTER_VERTICAL,  # Button
         ]
 
+        # --- Start row: Label, (empty), DateTime, Button ---
         current_start_date_time = self.items[0].getStart()
         self._startDateTimeEntry = entry.DateTimeEntry(
             self,
@@ -1701,7 +1692,6 @@ class EffortEditBook(Page):
             current_start_date_time,
             noneAllowed=False,
             showRelative=False,
-            reserveCheckboxSpace=True,  # Align with Stop entry which has checkbox
             **date_time_entry_kw_args
         )
         self._startDateTimeSync = attributesync.AttributeSync(
@@ -1712,7 +1702,7 @@ class EffortEditBook(Page):
             command.EditEffortStartDateTimeCommand,
             entry.EVT_DATETIMEENTRY,
             self.items[0].startChangedEventType(),
-            commit_on_focus_loss=True,  # Only commit when focus leaves the field
+            commit_on_focus_loss=True,
             callback=self.__onStartDateTimeChanged,
         )
         self._startDateTimeEntry.Bind(
@@ -1721,19 +1711,27 @@ class EffortEditBook(Page):
         start_from_last_effort_button = (
             self.__create_start_from_last_effort_button()
         )
+        # Empty panel as placeholder for checkbox column
+        start_checkbox_placeholder = wx.Panel(self, size=(1, 1))
         self.addEntry(
             _("Start"),
+            start_checkbox_placeholder,
             self._startDateTimeEntry,
             start_from_last_effort_button,
             flags=flags,
         )
 
+        # --- Stop row: Label, Checkbox, DateTime, Button ---
         current_stop_date_time = self.items[0].getStop()
-        self._stopDateTimeEntry = entry.DateTimeEntry(
+        # Create checkbox separately for proper grid column alignment
+        self._stopCheckbox = wx.CheckBox(self)
+        self._stopCheckbox.SetValue(current_stop_date_time is not None)
+
+        stop_datetime_entry = entry.DateTimeEntry(
             self,
             self._settings,
-            current_stop_date_time,
-            noneAllowed=True,
+            current_stop_date_time or date.DateTime.now(),
+            noneAllowed=False,  # Checkbox is external now
             showRelative=True,
             units=[
                 (_("Minute(s)"), 60),
@@ -1743,15 +1741,28 @@ class EffortEditBook(Page):
             ],
             **date_time_entry_kw_args
         )
+        # Disable if no stop time initially
+        if current_stop_date_time is None:
+            stop_datetime_entry.Enable(False)
+
+        # Create wrapper that combines checkbox with datetime entry
+        # Wrapper provides GetValue that returns None when unchecked
+        self._stopDateTimeEntry = NullableDateTimeWrapper(
+            self._stopCheckbox, stop_datetime_entry
+        )
+
+        # Bind checkbox to handle toggle
+        self._stopCheckbox.Bind(wx.EVT_CHECKBOX, self.__onStopCheckboxToggle)
+
         self._stopDateTimeSync = attributesync.AttributeSync(
             "getStop",
-            self._stopDateTimeEntry,
+            self._stopDateTimeEntry,  # Uses the wrapper
             current_stop_date_time,
             self.items,
             command.EditEffortStopDateTimeCommand,
             entry.EVT_DATETIMEENTRY,
             self.items[0].stopChangedEventType(),
-            commit_on_focus_loss=True,  # Only commit when focus leaves the field
+            commit_on_focus_loss=True,
             callback=self.__onStopDateTimeChanged,
         )
         self._stopDateTimeEntry.Bind(
@@ -1760,21 +1771,37 @@ class EffortEditBook(Page):
         stop_now_button = self.__create_stop_now_button()
         self._invalidPeriodMessage = self.__create_invalid_period_message()
         self.addEntry(
-            _("Stop"), self._stopDateTimeEntry, stop_now_button, flags=flags
+            _("Stop"),
+            self._stopCheckbox,
+            stop_datetime_entry,  # Add the actual widget, not wrapper
+            stop_now_button,
+            flags=flags,
         )
         self.__onStartDateTimeChanged(current_start_date_time)
         self._stopDateTimeEntry.LoadChoices(
             self._settings.get("feature", "sdtcspans_effort")
         )
 
-        self._stopDateTimeEntry.Bind(
+        stop_datetime_entry.Bind(
             sdtc.EVT_TIME_CHOICES_CHANGE, self.__onChoicesChanged
         )
-        # Add warning message spanning full width with left alignment and expand
+        # Add warning message spanning full width
         self.addEntry(
             self._invalidPeriodMessage,
             flags=[wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT | wx.EXPAND]
         )
+
+    def __onStopCheckboxToggle(self, event):
+        """Handle stop checkbox toggle - enable/disable datetime entry."""
+        if self._stopCheckbox.GetValue():
+            # Checkbox checked - enable and set to now
+            self._stopDateTimeEntry.SetValue(date.DateTime.now())
+        else:
+            # Checkbox unchecked - set to None (disables entry)
+            self._stopDateTimeEntry.SetValue(None)
+        # Trigger sync
+        self._stopDateTimeSync.onAttributeEdited(event)
+        self.onDateTimeChanged(event)
 
     def __create_start_from_last_effort_button(self):
         button = wx.Button(self, label=_("Start tracking from last stop time"))

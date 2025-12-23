@@ -46,7 +46,6 @@ class DateTimeEntry(widgets.DateTimeCtrl):
         showRelative=False,
         adjustEndOfDay=False,
         units=None,
-        reserveCheckboxSpace=False,
         *args,
         **kwargs
     ):
@@ -63,7 +62,6 @@ class DateTimeEntry(widgets.DateTimeCtrl):
             showRelative=showRelative,
             adjustEndOfDay=adjustEndOfDay,
             units=units,
-            reserveCheckboxSpace=reserveCheckboxSpace,
         )
         if readonly:
             self.Disable()

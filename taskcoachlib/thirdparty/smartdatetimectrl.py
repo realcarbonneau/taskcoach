@@ -2559,8 +2559,6 @@ class SmartDateTimeCtrl(wx.Panel):
         value = kwargs.pop("value", None)
         label = kwargs.pop("label", "")
         self.__enableNone = kwargs.pop("enableNone", False)
-        # Reserve space for checkbox alignment even when no checkbox
-        self.__reserveCheckboxSpace = kwargs.pop("reserveCheckboxSpace", False)
         dateFormat = kwargs.pop(
             "dateFormat", lambda x: decodeSystemString(x.strftime("%x"))
         )
@@ -2586,11 +2584,6 @@ class SmartDateTimeCtrl(wx.Panel):
         elif label:
             self.__label = wx.StaticText(self, wx.ID_ANY, label)
             sizer.Add(self.__label, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTRE, 3)
-        elif self.__reserveCheckboxSpace:
-            # Add spacer matching checkbox size for alignment
-            # Checkbox base size is 22x20, then sizer adds 3px border
-            # Use same flags as checkbox: wx.ALL border of 3
-            sizer.Add((22, 20), 0, wx.ALL, 3)
 
         dateTime = value or datetime.datetime.now()
 
