@@ -1531,72 +1531,9 @@ class AttachmentEditBook(EditBook):
         return targetItem in self.items
 
 
-class NullableDateTimeWrapper:
-    """Virtual wrapper linking a checkbox with a DateTimeEntry.
-
-    GetValue returns None when checkbox is unchecked, otherwise returns
-    the datetime value. The checkbox and datetime entry remain separate
-    widgets for grid layout, but this wrapper provides unified GetValue.
-    """
-
-    def __init__(self, checkbox, datetime_entry):
-        self._checkbox = checkbox
-        self._datetime_entry = datetime_entry
-
-    def GetValue(self):
-        """Return None if checkbox unchecked, else datetime value."""
-        if not self._checkbox.GetValue():
-            return None
-        return self._datetime_entry.GetValue()
-
-    def SetValue(self, value):
-        """Set value - None unchecks checkbox, otherwise sets datetime."""
-        import traceback
-        print(f"DEBUG NullableDateTimeWrapper.SetValue called with: {value}")
-        print("DEBUG SetValue traceback:")
-        traceback.print_stack(limit=10)
-        if value is None:
-            self._checkbox.SetValue(False)
-            self._datetime_entry.Enable(False)
-        else:
-            self._checkbox.SetValue(True)
-            self._datetime_entry.Enable(True)
-            self._datetime_entry.SetValue(value)
-        print(f"DEBUG NullableDateTimeWrapper.SetValue done, checkbox={self._checkbox.GetValue()}")
-
-    def Bind(self, event_type, handler, source=None, id=wx.ID_ANY, id2=wx.ID_ANY):
-        """Forward bind to datetime entry."""
-        self._datetime_entry.Bind(event_type, handler, source, id, id2)
-
-    def LoadChoices(self, choices):
-        """Forward to datetime entry."""
-        self._datetime_entry.LoadChoices(choices)
-
-    def SetRelativeChoicesStart(self, start=None):
-        """Forward to datetime entry."""
-        self._datetime_entry.SetRelativeChoicesStart(start)
-
-    def GetChildren(self):
-        """Return children for focus tracking."""
-        return self._datetime_entry.GetChildren()
-
-    def SetFocus(self):
-        """Forward focus to datetime entry."""
-        self._datetime_entry.SetFocus()
-
-    def Enable(self, enable=True):
-        """Enable/disable the datetime entry."""
-        self._datetime_entry.Enable(enable)
-        return True
-
-    def Cleanup(self):
-        """Forward cleanup to datetime entry."""
-        self._datetime_entry.Cleanup()
-
-
 class EffortEditBook(Page):
     domainObject = "effort"
-    columns = 4  # Label, Checkbox, DateTime, Button
+    columns = 3
 
     def __init__(
         self,
@@ -1813,12 +1750,15 @@ class EffortEditBook(Page):
         """Handle stop checkbox toggle - enable/disable datetime entry."""
         if self._stopCheckbox.GetValue():
             # Checkbox checked - enable and set to now
-            self._stopDateTimeEntry.SetValue(date.DateTime.now())
+            new_value = date.DateTime.now()
         else:
-            # Checkbox unchecked - set to None (disables entry)
-            self._stopDateTimeEntry.SetValue(None)
-        # Trigger sync
-        self._stopDateTimeSync.onAttributeEdited(event)
+            # Checkbox unchecked - set to None (resume tracking)
+            new_value = None
+        self._stopDateTimeEntry.SetValue(new_value)
+        # Immediately commit to model - don't wait for focus loss
+        command.EditEffortStopDateTimeCommand(
+            None, self.items, newValue=new_value
+        ).do()
         self.onDateTimeChanged(event)
 
     def __create_start_from_last_effort_button(self):
