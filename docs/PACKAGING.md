@@ -1,127 +1,131 @@
-# Debian Packaging Guide for Task Coach
+# Debian/Ubuntu Packaging Guide for Task Coach
 
-This document describes the preparation and requirements for submitting Task Coach to the official Debian repositories.
+This document describes the Debian packaging setup for Task Coach and how it relates to official Debian/Ubuntu packaging.
 
-## Current Status
+## Important: Upstream vs Debian Packaging
 
-| Item | Status |
-|------|--------|
-| License | GPL-3+ (Debian-compatible) |
-| Source format | 3.0 (quilt) |
-| debian/ directory | Complete |
-| Lintian compliance | Not yet tested |
-| ITP bug filed | No |
+This repository contains an **upstream** `debian/` directory for local builds only. This is **NOT** the official Debian package.
+
+### The Two Types of debian/ Directories
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| **Upstream debian/** | This repo (`debian/`) | Local testing, convenience builds |
+| **Official Debian packaging** | Separate `debian/*` branches | Debian archive submission |
+
+Per [DEP-14](https://dep-team.pages.debian.net/deps/dep14/), official Debian packaging should use:
+- `upstream/latest` - Contains release tarball contents (no `debian/`)
+- `debian/master` - Derived from upstream, contains official `debian/` packaging
+
+### Why the Separation?
+
+1. **Different maintainers** - Upstream developers vs Debian packagers
+2. **Different workflows** - git-buildpackage (gbp) vs direct development
+3. **Patch management** - Debian uses quilt patches in `debian/patches/`
+4. **Release tracking** - Debian tracks upstream releases via `debian/watch`
+
+### This Repository's debian/
+
+The `debian/` in this repository:
+- Is for **local testing** and **convenience builds**
+- Is **excluded from release tarballs** via `.gitattributes`
+- Uses `UNRELEASED` distribution (not for archive upload)
+- Does NOT include `debian/watch` (that's for Debian to track upstream)
 
 ## Directory Structure
 
 ```
 debian/
-├── changelog                                         # Version history
-├── control                                           # Package metadata (includes compat via debhelper-compat)
-├── copyright                                         # DEP-5 license info
+├── changelog          # Version history (UNRELEASED)
+├── control            # Package metadata
+├── copyright          # DEP-5 license info
 ├── patches/
-│   └── series                                        # Empty (see note below)
-├── rules                                             # Build instructions
+│   └── series         # Empty (see wxPython note below)
+├── README.source      # Explains this is for local builds
+├── rules              # Build instructions
 ├── source/
-│   └── format                                        # 3.0 (quilt)
-├── taskcoach.install                                 # Installation notes
-└── watch                                             # Upstream version tracking
+│   └── format         # 3.0 (quilt)
+└── taskcoach.install  # Installation notes
 ```
 
-**Note on patches:** The wxPython hypertreelist fix is NOT applied via quilt patches.
-The file `wx/lib/agw/hypertreelist.py` belongs to `python3-wxgtk4.0`, not Task Coach.
-Instead, we bundle a pre-patched copy at `patches/wxpython/hypertreelist.py` and
-install it via `debian/rules` to `/usr/share/taskcoach/lib/`.
+**Note:** The `.gitattributes` file excludes `debian/` from `git archive` and GitHub release tarballs.
 
-### Files Status
+## Building Locally
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `debian/control` | Package metadata and dependencies | Done |
-| `debian/rules` | Build instructions | Done |
-| `debian/changelog` | Version history (Debian format) | Done |
-| `debian/copyright` | License info (DEP-5 format) | Done |
-| `debian/watch` | Upstream version tracking | Done |
-| `debian/taskcoach.install` | File installation notes | Done |
-| `debian/taskcoach.desktop` | Desktop entry | Uses build.in/ |
-| `debian/taskcoach.manpages` | Man page list | Skipped (optional) |
+### Quick Build
+
+```bash
+# Install build dependencies
+sudo apt install build-essential debhelper dh-python \
+    python3-all python3-setuptools python3-distro devscripts
+
+# Build binary package
+dpkg-buildpackage -us -uc -b
+
+# Package will be in parent directory
+ls ../*.deb
+```
+
+### With Lintian Checks
+
+```bash
+dpkg-buildpackage -us -uc -b
+lintian --info --display-info ../*.changes
+```
 
 ## wxPython Patch Strategy
 
-Task Coach requires a patch to wxPython's `hypertreelist.py` for correct background coloring. Since the Debian package cannot modify the system `python3-wxgtk4.0` package, we use a bundling approach with an import hook.
+Task Coach requires a patch to wxPython's `hypertreelist.py` for correct background coloring. Since packages cannot modify system `python3-wxgtk4.0`, we bundle the patch.
 
 ### The Problem
 
 - wxPython < 4.2.4 has bugs in `TR_FULL_ROW_HIGHLIGHT` and `TR_FILL_WHOLE_COLUMN_BACKGROUND`
 - Fix merged upstream in wxPython 4.2.4 (October 28, 2025)
-- Current Debian versions:
-  - Bookworm: 4.2.0 (patch required)
-  - Trixie: 4.2.3 (patch required)
-  - Sid: 4.2.3 (patch required)
+- Current Debian/Ubuntu versions ship older wxPython
 
 ### The Solution
 
-1. **Bundle the patched file** inside the Python package at `taskcoachlib/patches/hypertreelist.py`
-2. **Import hook** in `taskcoachlib/workarounds/monkeypatches.py` intercepts imports
-3. **Redirects** `wx.lib.agw.hypertreelist` to the bundled patched version
+1. **Bundled patch** at `taskcoachlib/patches/hypertreelist.py`
+2. **Import hook** in `taskcoachlib/workarounds/monkeypatches.py`
+3. **Redirects** `wx.lib.agw.hypertreelist` to bundled version
 4. System wxPython remains unmodified
 
-This approach works for **all installation methods** (Debian, Fedora, pip, Windows, macOS) because the patch is bundled with the Python package and found via `__file__`-relative paths.
-
-### Implementation Details
-
-The import hook is implemented in `taskcoachlib/workarounds/monkeypatches.py`:
-
-```python
-def _find_patched_hypertreelist():
-    # Path relative to this file: workarounds/ -> taskcoachlib/ -> patches/
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    taskcoachlib_dir = os.path.dirname(this_dir)
-    patch_path = os.path.join(taskcoachlib_dir, "patches", "hypertreelist.py")
-    if os.path.exists(patch_path):
-        return patch_path
-    return None
-```
-
-### Files Involved
-
-| File | Purpose |
-|------|---------|
-| `taskcoachlib/patches/hypertreelist.py` | Pre-patched file (bundled in package) |
-| `taskcoachlib/patches/__init__.py` | Package marker |
-| `taskcoachlib/workarounds/monkeypatches.py` | Import hook implementation |
+This works for all installation methods (Debian, Ubuntu, Fedora, pip, etc.).
 
 ### When to Remove
 
-The patch can be removed when Debian ships wxPython >= 4.2.4. At that point:
-1. Remove the import hook code from `monkeypatches.py`
+Remove when Debian/Ubuntu ship wxPython >= 4.2.4:
+1. Remove import hook from `monkeypatches.py`
 2. Remove `taskcoachlib/patches/` directory
 
 ## Dependencies
 
 ### Runtime Dependencies
 
-From `setup.py`, Task Coach requires:
-
 ```
 python3 (>= 3.8)
 python3-wxgtk4.0 (>= 4.2.0)
-python3-six (>= 1.16.0)
+python3-six
 python3-pubsub
-python3-watchdog (>= 3.0.0)
-python3-chardet (>= 5.2.0)
-python3-dateutil (>= 2.9.0)
-python3-pyparsing (>= 3.1.3)
+python3-watchdog
+python3-chardet
+python3-dateutil
+python3-pyparsing
 python3-lxml
 python3-xdg
 python3-keyring
 python3-numpy
-python3-fasteners (>= 0.19)
-python3-gntp (>= 1.0.3)
-python3-zeroconf (>= 0.50.0)
-python3-squaremap (>= 1.0.5)
+python3-fasteners
 libxss1
 xdg-utils
+```
+
+### Optional Dependencies
+
+```
+python3-zeroconf     # iPhone sync service discovery
+python3-squaremap    # Hierarchical data visualization
+python3-gntp         # Growl notifications (not in all distros)
 ```
 
 ### Build Dependencies
@@ -131,145 +135,116 @@ debhelper-compat (= 13)
 dh-python
 python3-all
 python3-setuptools
+python3-distro
 ```
 
-## Build System
+## Ubuntu PPA Publishing
 
-Task Coach uses `setup.py` with setuptools. The `debian/rules` file should use:
+The same `debian/` packaging works for Ubuntu PPAs with minor changes.
 
-```makefile
-#!/usr/bin/make -f
-%:
-	dh $@ --with python3 --buildsystem=pybuild
+### Version Naming
+
+Ubuntu packages use a suffix to distinguish from Debian:
+
+```
+# Debian (hypothetical official)
+taskcoach (1.6.1-1) unstable; urgency=medium
+
+# Ubuntu PPA
+taskcoach (1.6.1-1~ppa1) noble; urgency=medium
 ```
 
-## Submission Process
+### Publishing to a PPA
 
-### 1. File an ITP (Intent To Package) Bug
+1. **Create a Launchpad account** at https://launchpad.net
+
+2. **Set up PPA**:
+   ```bash
+   # Create PPA via Launchpad web interface
+   # https://launchpad.net/~YOUR_USERNAME/+activate-ppa
+   ```
+
+3. **Update changelog** for Ubuntu:
+   ```bash
+   # Change UNRELEASED to Ubuntu codename
+   dch -D noble -v "1.6.1-1~ppa1" "PPA release for Ubuntu Noble"
+   ```
+
+4. **Build source package**:
+   ```bash
+   dpkg-buildpackage -us -uc -S
+   ```
+
+5. **Sign and upload**:
+   ```bash
+   debsign ../*.changes
+   dput ppa:YOUR_USERNAME/YOUR_PPA ../*_source.changes
+   ```
+
+### Supported Ubuntu Releases
+
+| Codename | Version | wxPython | Status |
+|----------|---------|----------|--------|
+| Noble | 24.04 LTS | 4.2.1 | Patch required |
+| Jammy | 22.04 LTS | 4.1.1 | Patch required |
+| Oracular | 24.10 | 4.2.1 | Patch required |
+
+## Official Debian Packaging (For Debian Maintainers)
+
+If you're a Debian maintainer preparing an official package:
+
+### 1. Set Up DEP-14 Branches
 
 ```bash
-reportbug --severity=wishlist --package=wnpp --subject="ITP: taskcoach -- Personal task manager"
+# Create upstream branch from release tarball
+git checkout --orphan upstream/latest
+# Import tarball contents (no debian/)
+
+# Create debian branch
+git checkout -b debian/master upstream/latest
+# Add official debian/ directory
 ```
 
-### 2. Complete debian/ Directory
+### 2. Configure gbp
 
-Create all required files listed above.
+Create `debian/gbp.conf`:
+```ini
+[DEFAULT]
+debian-branch = debian/master
+upstream-branch = upstream/latest
+pristine-tar = True
+```
 
-### 3. Build and Test
+### 3. Add debian/watch
+
+```
+version=4
+opts=filenamemangle=s/.+\/v?(\d\S+)\.tar\.gz/taskcoach-$1\.tar\.gz/ \
+  https://github.com/realcarbonneau/taskcoach/tags .*/v?(\d[\d.]+)\.tar\.gz
+```
+
+### 4. File ITP Bug
 
 ```bash
-# Build source package
-dpkg-buildpackage -us -uc -S
-
-# Build binary package
-dpkg-buildpackage -us -uc -b
-
-# Run lintian
-lintian --info --display-info *.changes
+reportbug --severity=wishlist --package=wnpp \
+  --subject="ITP: taskcoach -- Personal task manager"
 ```
-
-### 4. Fix Lintian Warnings
-
-Address all errors and warnings from lintian.
 
 ### 5. Request Sponsorship
 
-New packages require a Debian Developer sponsor:
-- debian-mentors mailing list
-- mentors.debian.net
+- [debian-mentors mailing list](https://lists.debian.org/debian-mentors/)
+- [mentors.debian.net](https://mentors.debian.net/)
 
-## Existing Build Infrastructure
+## GitHub Actions CI
 
-Task Coach has existing (but outdated) Debian build support:
-
-- `buildlib/bdist_deb.py` - Custom distutils command for .deb building
-- `build.in/debian/` - Legacy Debian files
-- `Makefile` targets: `make deb`, `make ubuntu`
-
-These need modernization:
-- Update from `cdbs` to `dh` (debhelper)
-- Update compat level from 9 to 13
-- Update Standards-Version to 4.6.2+
-- Remove Python 2 references
-
-## Standards Compliance
-
-### Required Updates
-
-| Standard | Current | Required |
-|----------|---------|----------|
-| Debhelper compat | 9 | 13+ |
-| Standards-Version | 4.1.1 | 4.6.2+ |
-| Build system | cdbs | dh |
-| Python | 2/3 mixed | Python 3 only |
-
-### DEP-5 Copyright
-
-The `debian/copyright` file must use machine-readable format:
-
-```
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: taskcoach
-Upstream-Contact: https://github.com/taskcoach/taskcoach
-Source: https://github.com/taskcoach/taskcoach
-
-Files: *
-Copyright: 2004-2025 Task Coach developers
-License: GPL-3+
-
-Files: debian/*
-Copyright: 2025 Package maintainer
-License: GPL-3+
-
-License: GPL-3+
- [Full license text or reference]
-```
-
-## Desktop Integration (Start Menu Icons)
-
-Each platform has its own method for application menu/start menu integration:
-
-| Platform | File | Installed To | Standard |
-|----------|------|-------------|----------|
-| **Linux (all)** | `.desktop` | `/usr/share/applications/` | [XDG Desktop Entry](https://specifications.freedesktop.org/desktop-entry-spec/latest/) |
-| **Linux** | `.appdata.xml` | `/usr/share/metainfo/` | [AppStream](https://www.freedesktop.org/software/appstream/docs/) |
-| **Windows** | `.iss` script | Start Menu | [Inno Setup](https://jrsoftware.org/isinfo.php) |
-| **macOS** | `.app` bundle | `/Applications/` | [Apple Bundle](https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFBundles/) |
-
-### Linux Desktop File
-
-Task Coach uses `build.in/linux_common/taskcoach.desktop`:
-
-```ini
-[Desktop Entry]
-Name=Task Coach
-Comment=Your friendly task manager
-Exec=taskcoach
-Icon=taskcoach
-Terminal=false
-Type=Application
-Categories=Office;ProjectManagement;
-```
-
-Installed by `debian/rules` to `/usr/share/applications/`.
-
-### AppStream Metadata
-
-For software centers (GNOME Software, KDE Discover), use `build.in/debian/taskcoach.appdata.xml`.
-
-## Building with GitHub Actions
-
-You can automate `.deb` package builds using GitHub Actions:
-
-### Example Workflow (`.github/workflows/build-deb.yml`)
+### Automated .deb Builds
 
 ```yaml
 name: Build Debian Package
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -284,11 +259,10 @@ jobs:
         run: |
           apt-get update
           apt-get install -y build-essential debhelper dh-python \
-            python3-all python3-setuptools devscripts
+            python3-all python3-setuptools python3-distro devscripts
 
       - name: Build package
-        run: |
-          dpkg-buildpackage -us -uc -b
+        run: dpkg-buildpackage -us -uc -b
 
       - name: Run lintian
         run: |
@@ -299,48 +273,46 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debian-package
-          path: |
-            ../*.deb
-            ../*.changes
-            ../*.buildinfo
+          path: ../*.deb
 ```
 
-### Multi-Distribution Builds
-
-For building packages for multiple Debian/Ubuntu versions:
+### Multi-Distribution Matrix
 
 ```yaml
 jobs:
   build:
     strategy:
       matrix:
-        distro: [debian:bookworm, debian:trixie, ubuntu:noble]
+        include:
+          - distro: debian:bookworm
+            name: bookworm
+          - distro: debian:trixie
+            name: trixie
+          - distro: ubuntu:noble
+            name: noble
     runs-on: ubuntu-latest
     container: ${{ matrix.distro }}
-    steps:
-      # ... same steps as above
-```
-
-### Automatic Releases
-
-Add a release step to publish `.deb` files:
-
-```yaml
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            ../*.deb
+    # ... build steps
 ```
 
 ## References
 
+### Debian Packaging
 - [Debian New Maintainers' Guide](https://www.debian.org/doc/manuals/maint-guide/)
 - [Debian Policy Manual](https://www.debian.org/doc/debian-policy/)
-- [DEP-3: Patch Tagging Guidelines](https://dep-team.pages.debian.net/deps/dep3/)
+- [DEP-14: Git packaging layout](https://dep-team.pages.debian.net/deps/dep14/)
 - [DEP-5: Machine-readable copyright](https://dep-team.pages.debian.net/deps/dep5/)
 - [Python Policy](https://www.debian.org/doc/packaging-manuals/python-policy/)
+
+### Git Workflows
+- [PackagingWithGit - Debian Wiki](https://wiki.debian.org/PackagingWithGit)
+- [git-buildpackage Manual](http://honk.sigxcpu.org/projects/git-buildpackage/manual-html/gbp.intro.html)
+
+### Ubuntu
+- [Launchpad PPA Documentation](https://help.launchpad.net/Packaging/PPA)
+- [Ubuntu Packaging Guide](https://canonical-ubuntu-packaging-guide.readthedocs-hosted.com/)
+
+### Desktop Integration
 - [XDG Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
 - [AppStream Metadata](https://www.freedesktop.org/software/appstream/docs/)
 
