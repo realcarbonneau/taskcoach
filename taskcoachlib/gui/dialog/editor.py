@@ -1575,6 +1575,10 @@ class NullableDateTimeWrapper:
         """Return children for focus tracking."""
         return self._datetime_entry.GetChildren()
 
+    def SetFocus(self):
+        """Forward focus to datetime entry."""
+        self._datetime_entry.SetFocus()
+
 
 class EffortEditBook(Page):
     domainObject = "effort"
