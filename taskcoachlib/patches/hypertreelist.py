@@ -1496,9 +1496,9 @@ class TreeListItem(GenericTreeItem):
             if point.y >= self._y and point.y <= self._y + h:
 
                 maincol = theCtrl.GetMainColumn()
+                y_mid = self._y + h // 2
 
-                # check for above/below middle
-                y_mid = self._y + h//2
+                # check for upper/lower half of item
                 if point.y < y_mid:
                     flags |= wx.TREE_HITTEST_ONITEMUPPERPART
                 else:
@@ -2869,6 +2869,17 @@ class TreeListMainWindow(CustomTreeCtrl):
         if self._dragItem:
             self.RefreshLine(self._dragItem)
 
+    def SetDropHighlight(self, item=None, column=-1):
+        """
+        Sets the visual feedback for drag and drop operations.
+        Currently a no-op as visual feedback is handled by cursor changes only.
+        """
+        pass
+
+    def ClearDropHighlight(self):
+        """Clears all drop visual feedback."""
+        pass
+
 
 # ----------------------------------------------------------------------------
 # helpers
@@ -3552,6 +3563,19 @@ class TreeListMainWindow(CustomTreeCtrl):
         y = 2
         y, x_maincol = self.PaintLevel(self._anchor, dc, 0, y, x_maincol)
 
+        # Draw drag and drop visual feedback
+        self._DrawDropFeedback(dc)
+
+
+    def _DrawDropFeedback(self, dc):
+        """
+        Draws the drag and drop visual feedback.
+
+        :param `dc`: an instance of :class:`wx.DC`.
+        """
+        # Visual feedback removed - cursor change is sufficient
+        pass
+
 
     def HitTest(self, point, flags=0):
         """
@@ -3823,11 +3847,21 @@ class TreeListMainWindow(CustomTreeCtrl):
                     # Don't highlight target items if dragging full-screen.
                     return
 
+                # Check if mouse is outside client area - don't highlight items
+                w, h = self.GetSize()
+                mouseOutside = p.x < 0 or p.x > w or p.y < 0 or p.y > h
+                if mouseOutside:
+                    item = None  # Treat as no item when outside
+
                 if self._countDrag == 0 and item:
                     self._oldItem = self._current
                     self._oldSelection = self._current
 
                 if item != self._dropTarget:
+
+                    # Hide drag image before refreshing to avoid ghosting
+                    if self._dragImage:
+                        self._dragImage.Hide()
 
                     # unhighlight the previous drop target
                     if self._dropTarget:
@@ -3841,9 +3875,17 @@ class TreeListMainWindow(CustomTreeCtrl):
 
                     self.Update()
 
+                    # Show drag image again
+                    if self._dragImage:
+                        self._dragImage.Show()
+
                 if self._countDrag >= 3 and self._oldItem is not None:
                     # Here I am trying to avoid ugly repainting problems... hope it works
+                    if self._dragImage:
+                        self._dragImage.Hide()
                     self.RefreshLine(self._oldItem)
+                    if self._dragImage:
+                        self._dragImage.Show()
                     self._countDrag = 0
 
                 return # nothing to do, already done

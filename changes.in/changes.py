@@ -22,6 +22,21 @@ from changetypes import *
 
 releases = [
     Release(
+        "1.6.1.71",
+        "December 23, 2025",
+        summary="""This release fixes task drag-and-drop functionality.""",
+        bugsFixed=[
+            Bugv2("""Fix task drag-and-drop to restore hierarchical task reorganization.
+Dragging a task onto another task makes it a child. Dragging anywhere else,
+including outside the window, moves the task to the root level. Dragging onto
+prerequisites/dependencies columns sets task relationships (paperclip cursor)."""),
+            Bugv2("""Fix drag image ghosting and highlight flickering during drag."""),
+        ],
+        featuresAdded=[
+            Feature("""Auto-expand parent task when a child task is dropped onto it."""),
+        ],
+    ),
+    Release(
         "1.5.0",
         "August ??, 2014",
         summary="""This is a major release.""",
