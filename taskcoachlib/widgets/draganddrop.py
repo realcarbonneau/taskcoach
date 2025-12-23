@@ -341,14 +341,24 @@ class TreeCtrlDragAndDropMixin(TreeHelperMixin):
 
     def OnEndDrag(self, event):
         self.StopDragging()
-        dropTarget = event.GetItem()
-        if not dropTarget:
+        # Use HitTest to determine actual drop target, not event.GetItem()
+        # which may return the last highlighted item even when outside
+        hitItem, flags, dropColumn = self.HitTest(event.GetPoint())
+
+        # Check if drop is outside items (left, right, above, below, or nowhere)
+        outsideFlags = (wx.TREE_HITTEST_TOLEFT | wx.TREE_HITTEST_TORIGHT |
+                       wx.TREE_HITTEST_ABOVE | wx.TREE_HITTEST_BELOW |
+                       wx.TREE_HITTEST_NOWHERE)
+        if not hitItem or (flags & outsideFlags):
+            # Drop outside items - make root task
             dropTarget = self.GetRootItem()
+        else:
+            dropTarget = hitItem
+
         if self.IsValidDropTarget(dropTarget):
             self.UnselectAll()
             if dropTarget != self.GetRootItem():
                 self.SelectItem(dropTarget)
-            dummy_item, flags, dropColumn = self.HitTest(event.GetPoint())
             part = 0
             if flags & wx.TREE_HITTEST_ONITEMUPPERPART:
                 part = -1
