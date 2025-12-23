@@ -1561,9 +1561,67 @@ class EffortEditBook(Page):
         pub.subscribe(
             self.__onChoicesConfigChanged, "settings.feature.sdtcspans_effort"
         )
+        # DEBUG: Add logging for resize investigation
+        self._setupDebugLogging()
 
     def __onChoicesConfigChanged(self, value=""):
         self._stopDateTimeEntry.LoadChoices(value)
+
+    def _setupDebugLogging(self):
+        """DEBUG: Set up logging for resize investigation."""
+        import logging
+        self._debug_log = logging.getLogger('EffortEditBook.DEBUG')
+        self._debug_log.setLevel(logging.DEBUG)
+        if not self._debug_log.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+            self._debug_log.addHandler(handler)
+
+        # Log initial positions
+        wx.CallAfter(self._logPositions, "INITIAL")
+
+        # Bind size events
+        self.Bind(wx.EVT_SIZE, self._onDebugSize)
+        self._startDateTimeEntry.Bind(wx.EVT_SIZE, self._onDebugStartSize)
+        self._stopDateTimeEntry.Bind(wx.EVT_SIZE, self._onDebugStopSize)
+        self.GetTopLevelParent().Bind(wx.EVT_SIZE, self._onDebugWindowSize)
+
+        # Timer to log every second
+        self._debugTimer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._onDebugTimer, self._debugTimer)
+        self._debugTimer.Start(1000)  # 1 second
+
+    def _logPositions(self, context):
+        """Log current positions of date-time entries."""
+        start_pos = self._startDateTimeEntry.GetPosition()
+        start_size = self._startDateTimeEntry.GetSize()
+        stop_pos = self._stopDateTimeEntry.GetPosition()
+        stop_size = self._stopDateTimeEntry.GetSize()
+        panel_size = self.GetSize()
+        self._debug_log.debug(
+            f"{context}: Panel={panel_size}, "
+            f"Start pos={start_pos} size={start_size}, "
+            f"Stop pos={stop_pos} size={stop_size}"
+        )
+
+    def _onDebugSize(self, event):
+        self._logPositions("PANEL_SIZE_EVENT")
+        event.Skip()
+
+    def _onDebugStartSize(self, event):
+        self._logPositions("START_SIZE_EVENT")
+        event.Skip()
+
+    def _onDebugStopSize(self, event):
+        self._logPositions("STOP_SIZE_EVENT")
+        event.Skip()
+
+    def _onDebugWindowSize(self, event):
+        self._logPositions("WINDOW_SIZE_EVENT")
+        event.Skip()
+
+    def _onDebugTimer(self, event):
+        self._logPositions("TIMER")
 
     def getPage(self, pageName):  # pylint: disable=W0613
         return None  # An EffortEditBook is not really a notebook...

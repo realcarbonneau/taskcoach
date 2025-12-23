@@ -2588,8 +2588,9 @@ class SmartDateTimeCtrl(wx.Panel):
             sizer.Add(self.__label, 0, wx.ALL | wx.EXPAND | wx.ALIGN_CENTRE, 3)
         elif self.__reserveCheckboxSpace:
             # Add spacer matching checkbox size for alignment
-            # Checkbox is 22x20 (18+4, 16+4) plus 3px border on each side = 28x26
-            sizer.Add((28, 26), 0)
+            # Checkbox base size is 22x20, then sizer adds 3px border
+            # Use same flags as checkbox: wx.ALL border of 3
+            sizer.Add((22, 20), 0, wx.ALL, 3)
 
         dateTime = value or datetime.datetime.now()
 
