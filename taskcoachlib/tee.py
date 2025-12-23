@@ -37,6 +37,8 @@ STDERR_IGNORE_PATTERNS = (
     "gtk_widget_get_scale_factor",
     # Idle detection unavailable on KDE Wayland (no simple DBus API available)
     "Idle time detection unavailable",
+    # wx.lib.combotreebox uses deprecated methods internally, harmless
+    "wxPyDeprecationWarning",
 )
 
 

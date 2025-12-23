@@ -29,6 +29,9 @@ releases = [
             Bugv2("""Fix warning message not fully visible in effort editor when
 start time is later than stop time. The warning text was truncated until the
 window was resized because the StaticText control was created with zero size."""),
+            Bugv2("""Fix start/stop date-time entries shifting right when resizing
+the effort editor window. Entries now stay left-aligned."""),
+            Bugv2("""Suppress wxPyDeprecationWarning messages from wx.lib.combotreebox."""),
         ],
         featuresAdded=[
             Feature("""Description text box in effort editor now spans full width

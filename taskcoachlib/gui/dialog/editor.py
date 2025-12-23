@@ -1631,7 +1631,7 @@ class EffortEditBook(Page):
         date_time_entry_kw_args = dict(showSeconds=True)
         flags = [
             None,
-            wx.ALIGN_RIGHT | wx.ALL,
+            wx.ALIGN_LEFT | wx.ALL | wx.ALIGN_CENTER_VERTICAL,
             wx.ALIGN_LEFT | wx.ALL | wx.ALIGN_CENTER_VERTICAL,
             None,
         ]
