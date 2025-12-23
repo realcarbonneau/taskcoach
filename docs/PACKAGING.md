@@ -52,14 +52,14 @@ debian/
 
 ## Building Locally
 
-### Quick Build
+### Quick Binary Build
 
 ```bash
 # Install build dependencies
 sudo apt install build-essential debhelper dh-python \
     python3-all python3-setuptools python3-distro devscripts
 
-# Build binary package
+# Build binary package (no orig tarball needed)
 dpkg-buildpackage -us -uc -b
 
 # Package will be in parent directory
@@ -71,6 +71,27 @@ ls ../*.deb
 ```bash
 dpkg-buildpackage -us -uc -b
 lintian --info --display-info ../*.changes
+```
+
+### Building Source Package
+
+Source packages (for PPA uploads) require an orig tarball:
+
+```bash
+# Get version from changelog
+VERSION=$(dpkg-parsechangelog -S Version | cut -d- -f1)
+
+# Create orig tarball (excludes debian/ and .git/)
+tar --exclude='debian' --exclude='.git' \
+    -czf ../taskcoach_${VERSION}.orig.tar.gz .
+
+# Build source package
+dpkg-buildpackage -us -uc -S
+
+# Files created in parent directory:
+# - taskcoach_X.Y.Z.orig.tar.gz (upstream source)
+# - taskcoach_X.Y.Z-N.debian.tar.xz (debian/ directory)
+# - taskcoach_X.Y.Z-N.dsc (source description)
 ```
 
 ## wxPython Patch Strategy
@@ -170,12 +191,22 @@ taskcoach (1.6.1-1~ppa1) noble; urgency=medium
    dch -D noble -v "1.6.1-1~ppa1" "PPA release for Ubuntu Noble"
    ```
 
-4. **Build source package**:
+4. **Create orig tarball** (required for quilt format):
+   ```bash
+   # Get version from changelog
+   VERSION=$(dpkg-parsechangelog -S Version | cut -d- -f1)
+
+   # Create tarball excluding debian/ directory
+   tar --exclude='debian' --exclude='.git' \
+       -czf ../taskcoach_${VERSION}.orig.tar.gz .
+   ```
+
+5. **Build source package**:
    ```bash
    dpkg-buildpackage -us -uc -S
    ```
 
-5. **Sign and upload**:
+6. **Sign and upload**:
    ```bash
    debsign ../*.changes
    dput ppa:YOUR_USERNAME/YOUR_PPA ../*_source.changes
