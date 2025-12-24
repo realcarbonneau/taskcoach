@@ -145,12 +145,11 @@ jobs:
           # Copy and rename .deb file with descriptive name
           for deb in ../*.deb; do
             if [ -f "$deb" ]; then
-              # Extract package name and arch from original filename
+              # Extract package name from original filename
               BASENAME=$(basename "$deb" .deb)
               PKGNAME=$(echo "$BASENAME" | cut -d_ -f1)
-              ARCH=$(echo "$BASENAME" | cut -d_ -f3)
-              # Create descriptive filename: taskcoach_1.6.1_debian-12-bookworm_all.deb
-              NEWNAME="${PKGNAME}_${VERSION}_${OS}-${OSVER}-${CODENAME}_${ARCH}.deb"
+              # Create descriptive filename: taskcoach_1.6.1_debian-12-bookworm.deb
+              NEWNAME="${PKGNAME}_${VERSION}_${OS}-${OSVER}-${CODENAME}.deb"
               cp "$deb" "artifacts/$NEWNAME"
               echo "Renamed: $deb -> $NEWNAME"
             fi

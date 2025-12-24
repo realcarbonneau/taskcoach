@@ -1,14 +1,6 @@
 #!/bin/bash
-# TaskCoach Setup Script for Manjaro/Arch Linux
-# This script automates the setup and testing of TaskCoach on Manjaro/Arch
-#
-# For other distributions, see:
-#   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
-#   - setup_debian13_trixie.sh (Debian 13 Trixie)
-#   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
-#   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
-#   - setup_fedora.sh (Fedora 39/40)
-#   - setup.sh (unified auto-detection script)
+# TaskCoach Setup Script for Arch/Manjaro Linux
+# This script automates the setup and testing of TaskCoach on Arch/Manjaro
 #
 
 set -e  # Exit on error
@@ -24,7 +16,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}TaskCoach Setup for Manjaro/Arch Linux${NC}"
+echo -e "${BLUE}TaskCoach Setup for Arch/Manjaro Linux${NC}"
 echo -e "${BLUE}Version 1.0.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
@@ -33,7 +25,7 @@ echo
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [ "$ID" != "manjaro" ] && [ "$ID" != "arch" ] && [ "$ID_LIKE" != "arch" ]; then
-        echo -e "${YELLOW}Warning: This script is designed for Manjaro/Arch Linux${NC}"
+        echo -e "${YELLOW}Warning: This script is designed for Arch/Manjaro Linux${NC}"
         echo -e "${YELLOW}Detected: $PRETTY_NAME${NC}"
         read -p "Continue anyway? (y/n) " -n 1 -r
         echo
@@ -68,7 +60,7 @@ echo
 
 # Install system dependencies
 echo -e "${BLUE}[2/8] Installing system dependencies...${NC}"
-echo "This will install system packages from Manjaro/Arch repos."
+echo "This will install system packages from Arch/Manjaro repos."
 echo "Requires sudo privileges."
 
 if command -v sudo &> /dev/null; then
@@ -288,7 +280,7 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
-echo "TaskCoach has been set up for Manjaro/Arch Linux with:"
+echo "TaskCoach has been set up for Arch/Manjaro Linux with:"
 echo "  • System packages from official repos (wxPython, numpy, lxml, fasteners, watchdog, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
 echo "  • Additional packages in venv (desktop3, distro)"
@@ -305,5 +297,5 @@ echo "To see all options:"
 echo -e "  ${BLUE}./taskcoach-run.sh --help${NC}"
 echo
 echo "To build a package for installation:"
-echo -e "  ${BLUE}./scripts/build-manjaro.sh${NC}"
+echo -e "  ${BLUE}./scripts/build-arch.sh${NC}"
 echo

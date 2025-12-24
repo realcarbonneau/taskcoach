@@ -1,4 +1,4 @@
-taskcoach (1.6.1.73-1) UNRELEASED; urgency=medium
+taskcoach (1.6.1.74-1) UNRELEASED; urgency=medium
 
   * Upstream debian/ directory for local builds only.
   * This is NOT the official Debian package. Official Debian packaging

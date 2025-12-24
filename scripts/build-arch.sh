@@ -1,10 +1,10 @@
 #!/bin/bash
-# TaskCoach Manjaro/Arch Package Build Script
-# Builds a .pkg.tar.zst package for installation on Manjaro/Arch Linux
+# TaskCoach Arch/Manjaro Package Build Script
+# Builds a .pkg.tar.zst package for installation on Arch/Manjaro Linux
 #
 # Usage:
-#   ./scripts/build-manjaro.sh           # Build package from current source
-#   ./scripts/build-manjaro.sh --install # Build and install package
+#   ./scripts/build-arch.sh           # Build package from current source
+#   ./scripts/build-arch.sh --install # Build and install package
 #
 # Requirements:
 #   - base-devel package group installed
@@ -23,7 +23,7 @@ NC='\033[0m' # No Color
 # Script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BUILD_DIR="$PROJECT_ROOT/build-area/manjaro"
+BUILD_DIR="$PROJECT_ROOT/build-area/arch"
 INSTALL_PKG=false
 
 # Parse arguments
@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}TaskCoach Manjaro/Arch Package Builder${NC}"
+echo -e "${BLUE}TaskCoach Arch/Manjaro Package Builder${NC}"
 echo -e "${BLUE}Version 1.0.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
@@ -58,7 +58,7 @@ echo
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [ "$ID" != "manjaro" ] && [ "$ID" != "arch" ] && [ "$ID_LIKE" != "arch" ]; then
-        echo -e "${YELLOW}Warning: This script is designed for Manjaro/Arch Linux${NC}"
+        echo -e "${YELLOW}Warning: This script is designed for Arch/Manjaro Linux${NC}"
         echo -e "${YELLOW}Detected: $PRETTY_NAME${NC}"
         read -p "Continue anyway? (y/n) " -n 1 -r
         echo
@@ -126,8 +126,8 @@ SHA256=$(sha256sum "taskcoach-$FULL_VERSION.tar.gz" | cut -d' ' -f1)
 echo "SHA256: $SHA256"
 
 # Copy and update PKGBUILD
-cp "$PROJECT_ROOT/build.in/manjaro/PKGBUILD" "$BUILD_DIR/"
-cp "$PROJECT_ROOT/build.in/manjaro/taskcoach.install" "$BUILD_DIR/"
+cp "$PROJECT_ROOT/build.in/arch/PKGBUILD" "$BUILD_DIR/"
+cp "$PROJECT_ROOT/build.in/arch/taskcoach.install" "$BUILD_DIR/"
 
 # Update PKGBUILD with correct version and checksum
 sed -i "s/^pkgver=.*/pkgver=$FULL_VERSION/" "$BUILD_DIR/PKGBUILD"

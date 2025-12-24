@@ -2,12 +2,6 @@
 # TaskCoach Setup Script for Ubuntu 22.04 (Jammy Jellyfish)
 # This script automates the setup and testing of TaskCoach on Ubuntu 22.04
 #
-# For other distributions, see:
-#   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
-#   - setup_debian13_trixie.sh (Debian 13 Trixie)
-#   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
-#   - setup.sh (unified auto-detection script)
-#
 
 set -e  # Exit on error
 

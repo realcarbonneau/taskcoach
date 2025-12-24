@@ -87,7 +87,7 @@ jobs:
       - name: Prepare build directory
         run: |
           # Create build directory
-          mkdir -p build-area/manjaro
+          mkdir -p build-area/arch
 
           # Create source tarball
           VERSION="${{ steps.version.outputs.version }}"
@@ -100,16 +100,16 @@ jobs:
               --exclude='.mypy_cache' \
               --exclude='.pytest_cache' \
               --exclude='*.egg-info' \
-              -czf "build-area/manjaro/taskcoach-$VERSION.tar.gz" \
+              -czf "build-area/arch/taskcoach-$VERSION.tar.gz" \
               --transform "s,^.,taskcoach-$VERSION," \
               .
 
           # Copy PKGBUILD and install files
-          cp build.in/manjaro/PKGBUILD build-area/manjaro/
-          cp build.in/manjaro/taskcoach.install build-area/manjaro/
+          cp build.in/arch/PKGBUILD build-area/arch/
+          cp build.in/arch/taskcoach.install build-area/arch/
 
           # Generate SHA256 checksum
-          cd build-area/manjaro
+          cd build-area/arch
           SHA256=$(sha256sum "taskcoach-$VERSION.tar.gz" | cut -d' ' -f1)
           echo "SHA256: $SHA256"
 
@@ -131,7 +131,7 @@ jobs:
 
       - name: Build package
         run: |
-          cd build-area/manjaro
+          cd build-area/arch
 
           # Build package as non-root user
           su builder -c "makepkg -sf --noconfirm"
@@ -145,13 +145,14 @@ jobs:
           mkdir -p artifacts
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Copy and rename package with descriptive name
-          for pkg in build-area/manjaro/*.pkg.tar.*; do
+          # Rename package to match other distro naming pattern
+          for pkg in build-area/arch/*.pkg.tar.*; do
             if [ -f "$pkg" ]; then
-              BASENAME=$(basename "$pkg")
-              # Keep original name but also create a copy with arch-linux prefix
-              cp "$pkg" "artifacts/$BASENAME"
-              echo "Package: $BASENAME"
+              # Extract extension (pkg.tar.zst or pkg.tar.xz)
+              EXT="${pkg#*.pkg.}"
+              NEWNAME="taskcoach-${VERSION}-arch.pkg.${EXT}"
+              cp "$pkg" "artifacts/$NEWNAME"
+              echo "Package: $NEWNAME"
             fi
           done
 

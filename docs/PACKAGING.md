@@ -90,8 +90,8 @@ This table shows how dependencies are handled in **built packages** and **setup 
 | Debian 13 Trixie | debian13 | `setup_debian13_trixie.sh` | `build-deb.yml` | Distro deps sufficient |
 | Ubuntu 22.04 Jammy | ubuntu22 | `setup_ubuntu2204_jammy.sh` | `build-deb.yml` | pip: pyparsing, watchdog |
 | Ubuntu 24.04 Noble | ubuntu24 | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | Distro deps sufficient |
-| Arch Linux | arch | `setup_manjaro.sh` | `build-arch.yml` | pip: squaremap; pypubsub from AUR |
-| Manjaro | arch | `setup_manjaro.sh` | `build-arch.yml` | pip: squaremap; pypubsub from AUR |
+| Arch Linux | arch | `setup_arch.sh` | `build-arch.yml` | pip: squaremap; pypubsub from AUR |
+| Manjaro | arch | `setup_arch.sh` | `build-arch.yml` | pip: squaremap; pypubsub from AUR |
 | Fedora 39 | fedora39 | `setup_fedora.sh` | `build-rpm.yml` | pip: squaremap, pyparsing |
 | Fedora 40 | fedora40 | `setup_fedora.sh` | `build-rpm.yml` | pip: squaremap, pyparsing |
 | AppImage | appimage | — | `build-appimage.yml` | Self-contained, all deps included |
@@ -461,7 +461,7 @@ Task Coach includes native packaging support for Arch Linux and Manjaro using th
 ### Directory Structure
 
 ```
-build.in/manjaro/
+build.in/arch/
 ├── PKGBUILD           # Arch package build script
 └── taskcoach.install  # Post-install hooks
 ```
@@ -475,7 +475,7 @@ build.in/manjaro/
 sudo pacman -S base-devel python python-setuptools python-distro
 
 # Build package using the build script
-./scripts/build-manjaro.sh
+./scripts/build-arch.sh
 
 # Package will be in build-area/
 ls build-area/*.pkg.tar.zst
@@ -484,13 +484,13 @@ ls build-area/*.pkg.tar.zst
 #### Build and Install
 
 ```bash
-./scripts/build-manjaro.sh --install
+./scripts/build-arch.sh --install
 ```
 
 #### Manual Build with makepkg
 
 ```bash
-cd build.in/manjaro
+cd build.in/arch
 
 # Create source tarball (from project root)
 VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
@@ -565,11 +565,11 @@ paru -S python-pypubsub python-squaremap python-gntp
 For development or running from source:
 
 ```bash
-# Auto-detect and set up (redirects to setup_manjaro.sh on Arch systems)
+# Auto-detect and set up (redirects to setup_arch.sh on Arch systems)
 ./setup.sh
 
-# Or directly use the Manjaro setup script
-./setup_manjaro.sh
+# Or directly use the Arch setup script
+./setup_arch.sh
 ```
 
 The setup script:
@@ -608,10 +608,10 @@ Features:
 |--------------|--------|-------|
 | Arch Linux | ✓ | Primary target |
 | Manjaro | ✓ | Fully supported |
-| EndeavourOS | ✓ | Uses Manjaro setup |
-| Garuda Linux | ✓ | Uses Manjaro setup |
-| Artix Linux | ✓ | Uses Manjaro setup |
-| ArcoLinux | ✓ | Uses Manjaro setup |
+| EndeavourOS | ✓ | Uses Arch setup |
+| Garuda Linux | ✓ | Uses Arch setup |
+| Artix Linux | ✓ | Uses Arch setup |
+| ArcoLinux | ✓ | Uses Arch setup |
 
 ---
 

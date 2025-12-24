@@ -2,12 +2,6 @@
 # TaskCoach Setup Script for Debian 12 (Bookworm)
 # This script automates the setup and testing of TaskCoach on Debian 12
 #
-# For other distributions, see:
-#   - setup_debian13_trixie.sh (Debian 13 Trixie)
-#   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
-#   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
-#   - setup.sh (unified auto-detection script)
-#
 
 set -e  # Exit on error
 
