@@ -99,12 +99,12 @@ install -Dm644 Welcome.tsk \
 
 %files
 %license COPYRIGHT.txt
-%doc README.md CHANGES.txt
+%doc README.md
 %{_bindir}/taskcoach.py
 %{python3_sitelib}/taskcoachlib/
 %{python3_sitelib}/TaskCoach-*.egg-info/
 %{python3_sitelib}/squaremap/
-%{python3_sitelib}/SquareMap-*.dist-info/
+%{python3_sitelib}/squaremap-*.dist-info/
 %{_datadir}/applications/%{name}.desktop
 %{_metainfodir}/%{name}.appdata.xml
 %{_datadir}/pixmaps/%{name}.png
