@@ -80,13 +80,11 @@ package() {
     install -Dm644 Welcome.tsk \
         "$pkgdir/usr/share/taskcoach/Welcome.tsk"
 
-    # Install license
-    install -Dm644 LICENSE.txt \
-        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    # Install license/copyright
+    install -Dm644 COPYRIGHT.txt \
+        "$pkgdir/usr/share/licenses/$pkgname/COPYRIGHT"
 
     # Install documentation
     install -Dm644 README.md \
         "$pkgdir/usr/share/doc/$pkgname/README.md"
-    install -Dm644 CHANGES.txt \
-        "$pkgdir/usr/share/doc/$pkgname/CHANGES.txt"
 }
