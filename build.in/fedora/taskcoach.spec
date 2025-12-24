@@ -11,7 +11,7 @@
 # (at your option) any later version.
 
 Name:           taskcoach
-Version:        1.6.1.73
+Version:        1.6.1.74
 Release:        1%{?dist}
 Summary:        Your friendly task manager
 
@@ -133,7 +133,7 @@ install -Dm644 Welcome.tsk \
 %{_datadir}/%{name}/
 
 %changelog
-* Tue Dec 24 2024 Task Coach Developers <developers@taskcoach.org> - 1.6.1.73-1
+* Tue Dec 24 2024 Task Coach Developers <developers@taskcoach.org> - 1.6.1.74-1
 - Modernized spec file for Fedora 39+
 - Consistent dependency strategy: distro packages first, pip fallback
 - Bundled: squaremap (not in repos), pyparsing>=3.1.3 (version too old)
