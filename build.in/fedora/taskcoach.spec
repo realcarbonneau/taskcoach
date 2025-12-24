@@ -110,7 +110,7 @@ install -Dm644 Welcome.tsk \
 %{python3_sitelib}/taskcoachlib/
 %{python3_sitelib}/TaskCoach-*.egg-info/
 %{python3_sitelib}/squaremap/
-%{python3_sitelib}/squaremap-*.dist-info/
+%{python3_sitelib}/SquareMap-*.dist-info/
 %{_datadir}/applications/%{name}.desktop
 %{_metainfodir}/%{name}.appdata.xml
 %{_datadir}/pixmaps/%{name}.png
