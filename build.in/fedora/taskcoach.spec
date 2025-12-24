@@ -104,7 +104,9 @@ install -Dm644 Welcome.tsk \
 %{python3_sitelib}/taskcoachlib/
 %{python3_sitelib}/TaskCoach-*.egg-info/
 %{python3_sitelib}/squaremap/
-%{python3_sitelib}/squaremap-*.dist-info/
+# squaremap metadata varies by distro: Fedora uses .dist-info, Rocky uses .egg-info
+# Use wildcard to match either format
+%{python3_sitelib}/*quaremap*info/
 %{_datadir}/applications/%{name}.desktop
 %{_metainfodir}/%{name}.appdata.xml
 %{_datadir}/pixmaps/%{name}.png
