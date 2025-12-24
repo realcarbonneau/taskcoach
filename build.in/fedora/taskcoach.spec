@@ -26,19 +26,27 @@ BuildRequires:  python3-pip
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
+# Filter out auto-generated deps not available in Fedora or with version mismatches
+# gntp: Growl notifications (optional, not in Fedora)
+# desktop3: Desktop integration (optional, not in Fedora)
+# squaremap: Bundled via pip at build time
+# pyparsing/python-dateutil: Filter version requirements, use Fedora versions
+%global __requires_exclude ^python3\\.?[0-9]*dist\\((gntp|desktop3|squaremap|pyparsing|python-dateutil)\\)
+%global __provides_exclude ^python3\\.?[0-9]*dist\\((squaremap)\\)
+
 Requires:       python3 >= 3.8
 Requires:       python3-wxpython4 >= 4.2.0
 Requires:       python3-six >= 1.16.0
 Requires:       python3-pypubsub
-Requires:       python3-watchdog >= 3.0
-Requires:       python3-chardet >= 5.2.0
-Requires:       python3-dateutil >= 2.9.0
-Requires:       python3-pyparsing >= 3.1.0
+Requires:       python3-watchdog
+Requires:       python3-chardet
+Requires:       python3-dateutil
+Requires:       python3-pyparsing
 Requires:       python3-lxml
 Requires:       python3-pyxdg
 Requires:       python3-keyring
 Requires:       python3-numpy
-Requires:       python3-fasteners >= 0.19
+Requires:       python3-fasteners
 Requires:       libXScrnSaver
 Requires:       xdg-utils
 
