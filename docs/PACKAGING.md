@@ -461,7 +461,7 @@ Task Coach includes native packaging support for Arch Linux and Manjaro using th
 ### Directory Structure
 
 ```
-build.in/manjaro/
+build.in/arch/
 ├── PKGBUILD           # Arch package build script
 └── taskcoach.install  # Post-install hooks
 ```
@@ -490,7 +490,7 @@ ls build-area/*.pkg.tar.zst
 #### Manual Build with makepkg
 
 ```bash
-cd build.in/manjaro
+cd build.in/arch
 
 # Create source tarball (from project root)
 VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
@@ -608,10 +608,10 @@ Features:
 |--------------|--------|-------|
 | Arch Linux | ✓ | Primary target |
 | Manjaro | ✓ | Fully supported |
-| EndeavourOS | ✓ | Uses Manjaro setup |
-| Garuda Linux | ✓ | Uses Manjaro setup |
-| Artix Linux | ✓ | Uses Manjaro setup |
-| ArcoLinux | ✓ | Uses Manjaro setup |
+| EndeavourOS | ✓ | Uses Arch setup |
+| Garuda Linux | ✓ | Uses Arch setup |
+| Artix Linux | ✓ | Uses Arch setup |
+| ArcoLinux | ✓ | Uses Arch setup |
 
 ---
 

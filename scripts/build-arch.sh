@@ -23,7 +23,7 @@ NC='\033[0m' # No Color
 # Script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BUILD_DIR="$PROJECT_ROOT/build-area/manjaro"
+BUILD_DIR="$PROJECT_ROOT/build-area/arch"
 INSTALL_PKG=false
 
 # Parse arguments
@@ -126,8 +126,8 @@ SHA256=$(sha256sum "taskcoach-$FULL_VERSION.tar.gz" | cut -d' ' -f1)
 echo "SHA256: $SHA256"
 
 # Copy and update PKGBUILD
-cp "$PROJECT_ROOT/build.in/manjaro/PKGBUILD" "$BUILD_DIR/"
-cp "$PROJECT_ROOT/build.in/manjaro/taskcoach.install" "$BUILD_DIR/"
+cp "$PROJECT_ROOT/build.in/arch/PKGBUILD" "$BUILD_DIR/"
+cp "$PROJECT_ROOT/build.in/arch/taskcoach.install" "$BUILD_DIR/"
 
 # Update PKGBUILD with correct version and checksum
 sed -i "s/^pkgver=.*/pkgver=$FULL_VERSION/" "$BUILD_DIR/PKGBUILD"
