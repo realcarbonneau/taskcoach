@@ -10,7 +10,7 @@
 #   - setup_debian13_trixie.sh (Debian 13 Trixie)
 #   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
 #   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
-#   - setup_manjaro.sh (Arch/Manjaro)
+#   - setup_arch.sh (Arch/Manjaro)
 #   - setup.sh (unified auto-detection script)
 #
 

@@ -88,21 +88,21 @@ check_supported() {
             ;;
         manjaro|arch)
             echo -e "${BLUE}Detected Arch-based system: $DISTRO_NAME${NC}"
-            echo -e "${BLUE}Redirecting to Manjaro/Arch setup script...${NC}"
+            echo -e "${BLUE}Redirecting to Arch setup script...${NC}"
             echo
-            if [ -f "$SCRIPT_DIR/setup_manjaro.sh" ]; then
-                exec "$SCRIPT_DIR/setup_manjaro.sh"
+            if [ -f "$SCRIPT_DIR/setup_arch.sh" ]; then
+                exec "$SCRIPT_DIR/setup_arch.sh"
             else
-                echo -e "${RED}✗ setup_manjaro.sh not found${NC}"
+                echo -e "${RED}✗ setup_arch.sh not found${NC}"
                 exit 1
             fi
             ;;
         endeavouros|garuda|artix|arcolinux)
-            echo -e "${YELLOW}Note: $DISTRO_NAME is Arch-based, using Manjaro/Arch setup${NC}"
-            if [ -f "$SCRIPT_DIR/setup_manjaro.sh" ]; then
-                exec "$SCRIPT_DIR/setup_manjaro.sh"
+            echo -e "${YELLOW}Note: $DISTRO_NAME is Arch-based, using Arch setup${NC}"
+            if [ -f "$SCRIPT_DIR/setup_arch.sh" ]; then
+                exec "$SCRIPT_DIR/setup_arch.sh"
             else
-                echo -e "${RED}✗ setup_manjaro.sh not found${NC}"
+                echo -e "${RED}✗ setup_arch.sh not found${NC}"
                 exit 1
             fi
             ;;
