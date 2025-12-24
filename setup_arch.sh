@@ -305,5 +305,5 @@ echo "To see all options:"
 echo -e "  ${BLUE}./taskcoach-run.sh --help${NC}"
 echo
 echo "To build a package for installation:"
-echo -e "  ${BLUE}./scripts/build-manjaro.sh${NC}"
+echo -e "  ${BLUE}./scripts/build-arch.sh${NC}"
 echo

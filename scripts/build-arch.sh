@@ -3,8 +3,8 @@
 # Builds a .pkg.tar.zst package for installation on Arch/Manjaro Linux
 #
 # Usage:
-#   ./scripts/build-manjaro.sh           # Build package from current source
-#   ./scripts/build-manjaro.sh --install # Build and install package
+#   ./scripts/build-arch.sh           # Build package from current source
+#   ./scripts/build-arch.sh --install # Build and install package
 #
 # Requirements:
 #   - base-devel package group installed

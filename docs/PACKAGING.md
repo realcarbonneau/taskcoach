@@ -475,7 +475,7 @@ build.in/manjaro/
 sudo pacman -S base-devel python python-setuptools python-distro
 
 # Build package using the build script
-./scripts/build-manjaro.sh
+./scripts/build-arch.sh
 
 # Package will be in build-area/
 ls build-area/*.pkg.tar.zst
@@ -484,7 +484,7 @@ ls build-area/*.pkg.tar.zst
 #### Build and Install
 
 ```bash
-./scripts/build-manjaro.sh --install
+./scripts/build-arch.sh --install
 ```
 
 #### Manual Build with makepkg
