@@ -8,13 +8,15 @@ Download the package for your system from the [latest release](https://github.co
 
 | Platform | Package |
 |----------|---------|
-| Debian 12 (Bookworm) | `taskcoach_*_debian-12-bookworm_all.deb` |
-| Debian 13 (Trixie) | `taskcoach_*_debian-13-trixie_all.deb` |
-| Debian Sid | `taskcoach_*_debian-sid-sid_all.deb` |
-| Ubuntu 22.04 (Jammy) | `taskcoach_*_ubuntu-22.04-jammy_all.deb` |
-| Ubuntu 24.04 (Noble) | `taskcoach_*_ubuntu-24.04-noble_all.deb` |
-| Manjaro / Arch Linux | `taskcoach-*-any.pkg.tar.zst` |
-| Any Linux (x86_64) | `TaskCoach-*-x86_64.AppImage` |
+| Debian 12 (Bookworm) | `taskcoach_1.6.1.73_debian-12-bookworm_all.deb` |
+| Debian 13 (Trixie) | `taskcoach_1.6.1.73_debian-13-trixie_all.deb` |
+| Debian Sid | `taskcoach_1.6.1.73_debian-sid-sid_all.deb` |
+| Ubuntu 22.04 (Jammy) | `taskcoach_1.6.1.73_ubuntu-22.04-jammy_all.deb` |
+| Ubuntu 24.04 (Noble) | `taskcoach_1.6.1.73_ubuntu-24.04-noble_all.deb` |
+| Arch Linux / Manjaro | `taskcoach-1.6.1.73-1-any.pkg.tar.zst` |
+| Fedora 39/40 | `taskcoach-1.6.1.73-fedora39.noarch.rpm` |
+| Rocky Linux 9 | `taskcoach-1.6.1.73-rocky9.noarch.rpm` |
+| Any Linux (x86_64) | `TaskCoach-1.6.1.73-x86_64.AppImage` |
 
 **Example: Install on Debian 13 (Trixie)**
 
@@ -27,12 +29,21 @@ taskcoach.py
 
 Or launch from **Applications → Office → Task Coach**.
 
-**Example: Install on Manjaro/Arch Linux**
+**Example: Install on Arch Linux / Manjaro**
 
 ```bash
 cd ~/Downloads
 wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-1-any.pkg.tar.zst
 sudo pacman -U taskcoach-1.6.1.73-1-any.pkg.tar.zst
+taskcoach.py
+```
+
+**Example: Install on Fedora**
+
+```bash
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-fedora40.noarch.rpm
+sudo dnf install ./taskcoach-1.6.1.73-fedora40.noarch.rpm
 taskcoach.py
 ```
 
@@ -46,8 +57,9 @@ chmod +x TaskCoach-1.6.1.73-x86_64.AppImage
 ```
 
 To uninstall:
-- Debian/Ubuntu: `sudo apt remove taskcoach`
-- Manjaro/Arch: `sudo pacman -R taskcoach`
+- Debian/Ubuntu: `sudo apt remove taskcoach` (add `--autoremove` to also remove unused dependencies)
+- Arch/Manjaro: `sudo pacman -Rs taskcoach` (use `-Rs` to also remove unused dependencies)
+- Fedora/Rocky: `sudo dnf remove taskcoach` (add `--autoremove` to also remove unused dependencies)
 
 ## Running from Source
 

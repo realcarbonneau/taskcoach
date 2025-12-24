@@ -28,13 +28,14 @@ depends=(
 makedepends=(
     'python-setuptools'
     'python-distro'
+    'python-pip'
 )
 optdepends=(
     'python-zeroconf: iPhone sync service discovery'
-    'python-squaremap: Hierarchical data visualization'
     'python-gntp: Growl notification support'
     'espeak-ng: Spoken reminders'
 )
+# Note: squaremap is not in Arch repos, installed via pip at build time
 provides=('taskcoach')
 conflicts=('taskcoach-git')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v${pkgver%.73}.tar.gz")
@@ -63,6 +64,10 @@ package() {
 
     # Install Python package
     python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1 --skip-build
+
+    # Install squaremap (not available in Arch repos)
+    local _py3ver=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    pip install --no-deps --target="$pkgdir/usr/lib/python${_py3ver}/site-packages/" squaremap
 
     # Install desktop file
     install -Dm644 build.in/linux_common/taskcoach.desktop \
