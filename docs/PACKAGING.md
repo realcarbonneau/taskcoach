@@ -24,11 +24,11 @@ No manual steps required for users installing from packages.
 
 ### What This Means for Each Distro
 
-| Distro | From Distro Repos | From pip |
+| Distro | From Distro Repos | From pip (bundled at build) |
 |--------|-------------------|----------|
 | Debian Bookworm | Most deps | pyparsing, watchdog (version issues) |
 | Debian Trixie/Ubuntu Noble | All dependencies | None |
-| Arch/Manjaro | All except pypubsub, squaremap | pypubsub (AUR), squaremap |
+| Arch/Manjaro | All except pypubsub (AUR), squaremap | squaremap |
 | Fedora 39/40 | Most deps | squaremap, pyparsing (version issues) |
 
 ### How setup.py Works
@@ -49,26 +49,26 @@ The `setup.py` file lists core dependencies with version requirements where need
 
 This table shows how dependencies are handled in **built packages** and **setup scripts**.
 
-| Package | debian12 | ubuntu22 | debian13 | ubuntu24 | arch | fedora40 | windows | macos |
-|---------|:--------:|:--------:|:--------:|:--------:|:----:|:--------:|:-------:|:-----:|
-| wxpython | distro | distro | distro | distro | distro | distro | pip | pip |
-| pypubsub | distro | distro | distro | distro | AUR | distro | pip | pip |
-| pyparsing | **pip** | **pip** | distro | distro | distro | **pip** | pip | pip |
-| watchdog | **pip** | **pip** | distro | distro | distro | distro | pip | pip |
-| squaremap | distro | distro | distro | distro | **pip** | **pip** | pip | pip |
-| six | distro | distro | distro | distro | distro | distro | pip | pip |
-| lxml | distro | distro | distro | distro | distro | distro | pip | pip |
-| numpy | distro | distro | distro | distro | distro | distro | pip | pip |
-| chardet | distro | distro | distro | distro | distro | distro | pip | pip |
-| python-dateutil | distro | distro | distro | distro | distro | distro | pip | pip |
-| keyring | distro | distro | distro | distro | distro | distro | pip | pip |
-| pyxdg | distro | distro | distro | distro | distro | distro | — | — |
-| fasteners | distro | distro | distro | distro | distro | distro | pip | pip |
-| zeroconf | distro | distro | distro | distro | distro | distro | pip | pip |
-| hypertreelist | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** |
-| desktop3 | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** |
-| gntp | — | — | — | — | — | — | pip | pip |
-| WMI | — | — | — | — | — | — | pip | — |
+| Package | debian12 | ubuntu22 | debian13 | ubuntu24 | arch | fedora39 | fedora40 | windows | macos |
+|---------|:--------:|:--------:|:--------:|:--------:|:----:|:--------:|:--------:|:-------:|:-----:|
+| wxpython | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| pypubsub | distro | distro | distro | distro | AUR | distro | distro | pip | pip |
+| pyparsing | **pip** | **pip** | distro | distro | distro | **pip** | **pip** | pip | pip |
+| watchdog | **pip** | **pip** | distro | distro | distro | distro | distro | pip | pip |
+| squaremap | distro | distro | distro | distro | **pip** | **pip** | **pip** | pip | pip |
+| six | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| lxml | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| numpy | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| chardet | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| python-dateutil | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| keyring | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| pyxdg | distro | distro | distro | distro | distro | distro | distro | — | — |
+| fasteners | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| zeroconf | distro | distro | distro | distro | distro | distro | distro | pip | pip |
+| hypertreelist | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** |
+| desktop3 | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** |
+| gntp | — | — | — | — | — | — | — | pip | pip |
+| WMI | — | — | — | — | — | — | — | pip | — |
 
 **Key:**
 - `distro` = Installed from distribution repos (required dependency)
@@ -82,19 +82,19 @@ This table shows how dependencies are handled in **built packages** and **setup 
 
 | Target | ID | Setup Script | GitHub Workflow | Notes |
 |--------|:--:|--------------|-----------------|-------|
-| Debian 12 Bookworm | debian12 | `setup_debian12_bookworm.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
+| Debian 12 Bookworm | debian12 | `setup_debian12_bookworm.sh` | `build-deb.yml` | pip: pyparsing, watchdog |
 | Debian 13 Trixie | debian13 | `setup_debian13_trixie.sh` | `build-deb.yml` | Distro deps sufficient |
-| Ubuntu 22.04 Jammy | ubuntu22 | `setup_ubuntu2204_jammy.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
+| Ubuntu 22.04 Jammy | ubuntu22 | `setup_ubuntu2204_jammy.sh` | `build-deb.yml` | pip: pyparsing, watchdog |
 | Ubuntu 24.04 Noble | ubuntu24 | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | Distro deps sufficient |
-| Arch Linux | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap, pypubsub |
-| Manjaro | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap, pypubsub |
-| Fedora 39 | fedora39 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
-| Fedora 40 | fedora40 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
-| AppImage | appimage | — | `build-appimage.yml` | Self-contained, all deps bundled |
+| Arch Linux | arch | `setup_manjaro.sh` | `build-arch.yml` | pip: squaremap; pypubsub from AUR |
+| Manjaro | arch | `setup_manjaro.sh` | `build-arch.yml` | pip: squaremap; pypubsub from AUR |
+| Fedora 39 | fedora39 | `setup_fedora.sh` | `build-rpm.yml` | pip: squaremap, pyparsing |
+| Fedora 40 | fedora40 | `setup_fedora.sh` | `build-rpm.yml` | pip: squaremap, pyparsing |
+| AppImage | appimage | — | `build-appimage.yml` | Self-contained, all deps included |
 | Windows | windows | — | — | Not currently building |
 | macOS | macos | — | — | Not currently building |
 
-**All bundling is automatic** - users just install the package, scripts handle everything.
+**pip packages are bundled at build time** - users just install the package, no pip runs at install.
 
 ## Estimated Desktop User Base by Distribution
 
