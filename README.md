@@ -8,11 +8,11 @@ Download the package for your system from the [latest release](https://github.co
 
 | Platform | Package |
 |----------|---------|
-| Debian 12 (Bookworm) | `taskcoach_1.6.1.73_debian-12-bookworm_all.deb` |
-| Debian 13 (Trixie) | `taskcoach_1.6.1.73_debian-13-trixie_all.deb` |
-| Debian Sid | `taskcoach_1.6.1.73_debian-sid-sid_all.deb` |
-| Ubuntu 22.04 (Jammy) | `taskcoach_1.6.1.73_ubuntu-22.04-jammy_all.deb` |
-| Ubuntu 24.04 (Noble) | `taskcoach_1.6.1.73_ubuntu-24.04-noble_all.deb` |
+| Debian 12 (Bookworm) | `taskcoach_1.6.1.73_debian-12-bookworm.deb` |
+| Debian 13 (Trixie) | `taskcoach_1.6.1.73_debian-13-trixie.deb` |
+| Debian Sid | `taskcoach_1.6.1.73_debian-sid.deb` |
+| Ubuntu 22.04 (Jammy) | `taskcoach_1.6.1.73_ubuntu-22.04-jammy.deb` |
+| Ubuntu 24.04 (Noble) | `taskcoach_1.6.1.73_ubuntu-24.04-noble.deb` |
 | Linux Mint | Use Ubuntu `.deb` (Mint is Ubuntu-based) |
 | Arch Linux / Manjaro | `taskcoach-1.6.1.73-arch.pkg.tar.zst` |
 | Fedora 39/40 | `taskcoach-1.6.1.73-fedora39.noarch.rpm` |
@@ -22,8 +22,8 @@ Download the package for your system from the [latest release](https://github.co
 
 ```bash
 cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.73_debian-13-trixie_all.deb
-sudo apt install ./taskcoach_1.6.1.73_debian-13-trixie_all.deb
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.73_debian-13-trixie.deb
+sudo apt install ./taskcoach_1.6.1.73_debian-13-trixie.deb
 taskcoach.py
 ```
 
