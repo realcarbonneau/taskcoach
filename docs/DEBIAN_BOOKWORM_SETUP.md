@@ -10,10 +10,10 @@ The easiest way to install TaskCoach on Debian Bookworm is using the pre-built `
 
 ```bash
 # Download the latest .deb from GitHub releases
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1_all.deb
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.73_debian-12-bookworm.deb
 
 # Install it (this will also install dependencies)
-sudo apt install ./taskcoach_1.6.1_all.deb
+sudo apt install ./taskcoach_1.6.1.73_debian-12-bookworm.deb
 
 # Run TaskCoach
 taskcoach
