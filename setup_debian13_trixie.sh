@@ -5,12 +5,6 @@
 # Debian 13 Trixie uses Python 3.13 as default
 # wxPython 4.2.3 is available in repos
 #
-# For other distributions, see:
-#   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
-#   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
-#   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
-#   - setup.sh (unified auto-detection script)
-#
 
 set -e  # Exit on error
 

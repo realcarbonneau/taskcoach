@@ -5,14 +5,6 @@
 # Fedora 39/40 uses Python 3.12 as default
 # All core packages available in repos except squaremap
 #
-# For other distributions, see:
-#   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
-#   - setup_debian13_trixie.sh (Debian 13 Trixie)
-#   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
-#   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
-#   - setup_arch.sh (Arch/Manjaro)
-#   - setup.sh (unified auto-detection script)
-#
 
 set -e  # Exit on error
 
