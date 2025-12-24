@@ -73,10 +73,16 @@ Features:
 %py3_install
 
 # Install wheel to ensure pip creates .dist-info (not .egg-info) on all distros
+echo "=== Installing wheel ==="
 pip3 install wheel
+echo "=== Wheel installed ==="
 
 # Install packages not available in Fedora repos
+echo "=== Installing squaremap to %{buildroot}%{python3_sitelib} ==="
 pip3 install --no-deps --target=%{buildroot}%{python3_sitelib} squaremap
+echo "=== Squaremap installed ==="
+echo "=== Listing squaremap files ==="
+ls -la %{buildroot}%{python3_sitelib}/squaremap* || echo "No squaremap files found!"
 
 # Install desktop file
 install -Dm644 build.in/linux_common/taskcoach.desktop \
