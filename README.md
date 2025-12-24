@@ -18,7 +18,7 @@ Download the package for your system from the [latest release](https://github.co
 | Rocky Linux 9 | `taskcoach-1.6.1.73-rocky9.noarch.rpm` |
 | Any Linux (x86_64) | `TaskCoach-1.6.1.73-x86_64.AppImage` |
 
-**Example: Install on Debian 13 (Trixie)**
+**Example: Install on Debian/Ubuntu**
 
 ```bash
 cd ~/Downloads
@@ -29,6 +29,12 @@ taskcoach.py
 
 Or launch from **Applications → Office → Task Coach**.
 
+To uninstall:
+```bash
+sudo apt remove taskcoach
+sudo apt autoremove  # optional: remove unused dependencies
+```
+
 **Example: Install on Arch Linux / Manjaro**
 
 ```bash
@@ -38,13 +44,25 @@ sudo pacman -U taskcoach-1.6.1.73-1-any.pkg.tar.zst
 taskcoach.py
 ```
 
-**Example: Install on Fedora**
+To uninstall:
+```bash
+sudo pacman -R taskcoach
+sudo pacman -Qdtq | sudo pacman -Rs -  # optional: remove orphaned dependencies
+```
+
+**Example: Install on Fedora / Rocky Linux**
 
 ```bash
 cd ~/Downloads
 wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-fedora40.noarch.rpm
 sudo dnf install ./taskcoach-1.6.1.73-fedora40.noarch.rpm
 taskcoach.py
+```
+
+To uninstall:
+```bash
+sudo dnf remove taskcoach
+sudo dnf autoremove  # optional: remove unused dependencies
 ```
 
 **Or run the AppImage (any Linux, no install needed)**
@@ -56,10 +74,7 @@ chmod +x TaskCoach-1.6.1.73-x86_64.AppImage
 ./TaskCoach-1.6.1.73-x86_64.AppImage
 ```
 
-To uninstall:
-- Debian/Ubuntu: `sudo apt remove taskcoach` (add `--autoremove` to also remove unused dependencies)
-- Arch/Manjaro: `sudo pacman -Rs taskcoach` (use `-Rs` to also remove unused dependencies)
-- Fedora/Rocky: `sudo dnf remove taskcoach` (add `--autoremove` to also remove unused dependencies)
+To remove: simply delete the AppImage file.
 
 ## Running from Source
 
