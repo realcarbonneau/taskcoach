@@ -13,29 +13,41 @@ Download the package for your system from the [latest release](https://github.co
 | Debian Sid | `taskcoach_*_debian-sid-sid_all.deb` |
 | Ubuntu 22.04 (Jammy) | `taskcoach_*_ubuntu-22.04-jammy_all.deb` |
 | Ubuntu 24.04 (Noble) | `taskcoach_*_ubuntu-24.04-noble_all.deb` |
+| Manjaro / Arch Linux | `taskcoach-*-any.pkg.tar.zst` |
 | Any Linux (x86_64) | `TaskCoach-*-x86_64.AppImage` |
 
 **Example: Install on Debian 13 (Trixie)**
 
 ```bash
 cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.68_debian-13-trixie_all.deb
-sudo apt install ./taskcoach_1.6.1.68_debian-13-trixie_all.deb
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.73_debian-13-trixie_all.deb
+sudo apt install ./taskcoach_1.6.1.73_debian-13-trixie_all.deb
 taskcoach.py
 ```
 
 Or launch from **Applications → Office → Task Coach**.
 
+**Example: Install on Manjaro/Arch Linux**
+
+```bash
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-1-any.pkg.tar.zst
+sudo pacman -U taskcoach-1.6.1.73-1-any.pkg.tar.zst
+taskcoach.py
+```
+
 **Or run the AppImage (any Linux, no install needed)**
 
 ```bash
 cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/TaskCoach-1.6.1.68-x86_64.AppImage
-chmod +x TaskCoach-1.6.1.68-x86_64.AppImage
-./TaskCoach-1.6.1.68-x86_64.AppImage
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/TaskCoach-1.6.1.73-x86_64.AppImage
+chmod +x TaskCoach-1.6.1.73-x86_64.AppImage
+./TaskCoach-1.6.1.73-x86_64.AppImage
 ```
 
-To uninstall the .deb: `sudo apt remove taskcoach`
+To uninstall:
+- Debian/Ubuntu: `sudo apt remove taskcoach`
+- Manjaro/Arch: `sudo pacman -R taskcoach`
 
 ## Running from Source
 

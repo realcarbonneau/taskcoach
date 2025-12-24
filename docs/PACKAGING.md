@@ -1,6 +1,6 @@
-# Debian/Ubuntu Packaging Guide for Task Coach
+# Linux Packaging Guide for Task Coach
 
-This document describes the Debian packaging setup for Task Coach and how it relates to official Debian/Ubuntu packaging.
+This document describes the packaging setup for Task Coach on various Linux distributions including Debian, Ubuntu, Manjaro, and Arch Linux.
 
 ## Important: Upstream vs Debian Packaging
 
@@ -327,6 +327,169 @@ jobs:
     # ... build steps
 ```
 
+---
+
+## Manjaro/Arch Linux Packaging
+
+Task Coach includes native packaging support for Manjaro and Arch Linux using the standard PKGBUILD system.
+
+### Directory Structure
+
+```
+build.in/manjaro/
+├── PKGBUILD           # Arch package build script
+└── taskcoach.install  # Post-install hooks
+```
+
+### Building Locally
+
+#### Quick Build
+
+```bash
+# Install build dependencies
+sudo pacman -S base-devel python python-setuptools python-distro
+
+# Build package using the build script
+./scripts/build-manjaro.sh
+
+# Package will be in build-area/
+ls build-area/*.pkg.tar.zst
+```
+
+#### Build and Install
+
+```bash
+./scripts/build-manjaro.sh --install
+```
+
+#### Manual Build with makepkg
+
+```bash
+cd build.in/manjaro
+
+# Create source tarball (from project root)
+VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
+tar -czf "taskcoach-$VERSION.tar.gz" --transform "s,^,taskcoach-$VERSION/," \
+    --exclude='.git' --exclude='build-area' -C ../.. .
+
+# Update PKGBUILD version and checksums
+updpkgsums
+
+# Build package
+makepkg -sf
+
+# Install
+sudo pacman -U taskcoach-*.pkg.tar.zst
+```
+
+### Dependencies
+
+#### Runtime Dependencies (from official repos)
+
+```
+python (>= 3.8)
+python-wxpython (>= 4.2.0)
+python-six
+python-pypubsub (AUR)
+python-watchdog
+python-chardet
+python-dateutil
+python-pyparsing
+python-lxml
+python-pyxdg
+python-keyring
+python-numpy
+python-fasteners
+python-zeroconf
+libxss
+xdg-utils
+```
+
+#### Optional Dependencies
+
+```
+python-squaremap    # Hierarchical data visualization (AUR)
+python-gntp         # Growl notifications (AUR)
+espeak-ng           # Spoken reminders
+```
+
+#### Build Dependencies
+
+```
+base-devel
+python-setuptools
+python-distro
+```
+
+### AUR Package
+
+Some dependencies are only available from the AUR:
+- `python-pypubsub` - Required for pub/sub messaging
+- `python-squaremap` - Optional visualization
+- `python-gntp` - Optional Growl support
+
+Install using an AUR helper:
+```bash
+yay -S python-pypubsub python-squaremap python-gntp
+# or
+paru -S python-pypubsub python-squaremap python-gntp
+```
+
+### Setup Script
+
+For development or running from source:
+
+```bash
+# Auto-detect and set up (redirects to setup_manjaro.sh on Arch systems)
+./setup.sh
+
+# Or directly use the Manjaro setup script
+./setup_manjaro.sh
+```
+
+The setup script:
+1. Installs packages from official Arch repos via pacman
+2. Prompts for AUR packages if yay/paru is available
+3. Creates a virtual environment with system site-packages
+4. Tests the installation
+
+### GitHub Actions CI
+
+The repository includes automated Arch package builds via GitHub Actions:
+
+```yaml
+# .github/workflows/build-manjaro.yml
+name: Build Manjaro/Arch Package
+
+jobs:
+  build-manjaro:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Build package
+        run: makepkg -sf
+```
+
+Features:
+- Builds on every push to `main`, `master`, or `claude/**` branches
+- Tests installation on clean Arch Linux container
+- Tests installation on Manjaro Linux container
+- Uploads packages as artifacts
+- Creates GitHub releases on version tags
+
+### Supported Distributions
+
+| Distribution | Tested | Notes |
+|--------------|--------|-------|
+| Arch Linux | ✓ | Primary target |
+| Manjaro | ✓ | Fully supported |
+| EndeavourOS | ✓ | Uses Manjaro setup |
+| Garuda Linux | ✓ | Uses Manjaro setup |
+| Artix Linux | ✓ | Uses Manjaro setup |
+| ArcoLinux | ✓ | Uses Manjaro setup |
+
+---
+
 ## References
 
 ### Debian Packaging
@@ -343,6 +506,13 @@ jobs:
 ### Ubuntu
 - [Launchpad PPA Documentation](https://help.launchpad.net/Packaging/PPA)
 - [Ubuntu Packaging Guide](https://canonical-ubuntu-packaging-guide.readthedocs-hosted.com/)
+
+### Arch Linux Packaging
+- [Arch Wiki: Creating packages](https://wiki.archlinux.org/title/Creating_packages)
+- [Arch Wiki: PKGBUILD](https://wiki.archlinux.org/title/PKGBUILD)
+- [Arch Wiki: makepkg](https://wiki.archlinux.org/title/Makepkg)
+- [Arch Wiki: AUR](https://wiki.archlinux.org/title/Arch_User_Repository)
+- [Manjaro Wiki: Package Management](https://wiki.manjaro.org/index.php/Pacman_Overview)
 
 ### Desktop Integration
 - [XDG Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
