@@ -55,7 +55,7 @@ This table shows how dependencies are handled in **built packages**. Setup scrip
 | pypubsub | distro | distro | distro | distro | AUR | distro | pip | pip |
 | pyparsing | **pip** | **pip** | distro | distro | distro | **pip** | pip | pip |
 | watchdog | **pip** | **pip** | distro | distro | distro | distro | pip | pip |
-| squaremap | opt | opt | opt | opt | **pip** | **pip** | pip | pip |
+| squaremap | distro | distro | distro | distro | **pip** | **pip** | pip | pip |
 | six | distro | distro | distro | distro | distro | distro | pip | pip |
 | lxml | distro | distro | distro | distro | distro | distro | pip | pip |
 | numpy | distro | distro | distro | distro | distro | distro | pip | pip |
@@ -73,13 +73,10 @@ This table shows how dependencies are handled in **built packages**. Setup scrip
 **Key:**
 - `distro` = Installed from distribution repos (required dependency)
 - `pip` = Bundled via pip in package build (version too old or not in repos)
-- `opt` = Optional - listed as Recommends but not in distro repos (install via pip if needed)
 - `patch` = Bundled patch in `taskcoachlib/patches/` (wxPython hypertreelist fix)
 - `bundled` = Bundled in `taskcoachlib/thirdparty/` (no external dependency)
 - `AUR` = Arch User Repository (rolling release)
 - `—` = Not applicable for this platform
-
-**Note:** `python3-squaremap` does not exist in Debian/Ubuntu repositories. It's listed as Recommends for future availability but must be installed via pip if needed.
 
 ### Build Scripts and Workflows
 

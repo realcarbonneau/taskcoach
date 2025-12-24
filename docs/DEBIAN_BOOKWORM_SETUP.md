@@ -293,8 +293,8 @@ dpkg -l | grep python3-lxml
 - 📦 gntp
 - 📦 distro
 - 📦 pypubsub
-- 📦 zeroconf
-- 📦 squaremap (not in Debian repos)
+- 📦 zeroconf (also in repos, pip used for consistency)
+- 📦 squaremap (also in repos, pip used for consistency)
 - 📦 pyparsing>=3.1.3 (Bookworm's 3.0.9 is too old)
 - 📦 watchdog>=3.0.0 (Bookworm's 2.2.1 is too old)
 
