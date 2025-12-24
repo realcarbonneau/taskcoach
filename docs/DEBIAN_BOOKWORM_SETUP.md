@@ -160,7 +160,7 @@ python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 
 # Install remaining dependencies
-pip install desktop3 fasteners gntp distro pypubsub zeroconf 'pyparsing>=3.1.3' squaremap 'watchdog>=3.0.0'
+pip install desktop3 fasteners gntp distro pypubsub 'pyparsing>=3.1.3' 'watchdog>=3.0.0'
 
 # Deactivate when done
 deactivate
@@ -286,6 +286,8 @@ dpkg -l | grep python3-lxml
 - ✅ python3-keyring (23.13.1)
 - ⚠️ python3-pyparsing (3.0.9) - **Note: requires 3.1.3+, install via pip**
 - ✅ python3-pyxdg (0.28)
+- ✅ python3-zeroconf
+- ✅ python3-squaremap
 
 ### From PyPI (pip in venv, for development):
 - 📦 desktop3
@@ -293,8 +295,6 @@ dpkg -l | grep python3-lxml
 - 📦 gntp
 - 📦 distro
 - 📦 pypubsub
-- 📦 zeroconf (also in repos, pip used for consistency)
-- 📦 squaremap (also in repos, pip used for consistency)
 - 📦 pyparsing>=3.1.3 (Bookworm's 3.0.9 is too old)
 - 📦 watchdog>=3.0.0 (Bookworm's 2.2.1 is too old)
 

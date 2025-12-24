@@ -87,7 +87,9 @@ if command -v sudo &> /dev/null; then
         python3-venv \
         python3-fasteners \
         python3-watchdog \
-        python3-pubsub
+        python3-pubsub \
+        python3-zeroconf \
+        python3-squaremap
     echo -e "${GREEN}✓ System packages installed${NC}"
 else
     echo -e "${YELLOW}⚠ sudo not available, please install packages manually${NC}"
@@ -118,11 +120,11 @@ echo
 
 # Install Python dependencies not available in Ubuntu repos
 echo -e "${BLUE}[4/7] Installing Python dependencies in venv...${NC}"
-# Ubuntu 24.04 has fasteners, watchdog, pubsub in repos
-echo "Installing: desktop3, gntp, distro, pyparsing>=3.1.3, squaremap, zeroconf"
+# Ubuntu 24.04 has most packages in repos, only need a few from pip
+echo "Installing: desktop3, gntp, distro"
 
 source "$VENV_PATH/bin/activate"
-pip install --quiet desktop3 gntp distro 'pyparsing>=3.1.3' squaremap zeroconf
+pip install --quiet desktop3 gntp distro
 deactivate
 
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
@@ -227,9 +229,9 @@ echo -e "${GREEN}Setup completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
 echo "TaskCoach has been set up for Ubuntu 24.04 (Noble) with:"
-echo "  • System packages from Ubuntu repos (wxPython, numpy, lxml, fasteners, watchdog, etc.)"
+echo "  • System packages from Ubuntu repos (wxPython, numpy, lxml, fasteners, watchdog, zeroconf, squaremap, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
-echo "  • Additional packages in venv (desktop3, gntp, distro, squaremap, zeroconf)"
+echo "  • Additional packages in venv (desktop3, gntp, distro)"
 echo "  • wxPython background color patch (for category row coloring)"
 echo
 echo "You can now run TaskCoach with:"

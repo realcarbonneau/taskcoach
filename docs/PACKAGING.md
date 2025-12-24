@@ -47,7 +47,7 @@ The `setup.py` file lists core dependencies with version requirements where need
 
 ## Install Overview by Build Target
 
-This table shows how dependencies are handled in **built packages**. Setup scripts for development may install additional packages.
+This table shows how dependencies are handled in **built packages** and **setup scripts**.
 
 | Package | debian12 | ubuntu22 | debian13 | ubuntu24 | arch | fedora40 | windows | macos |
 |---------|:--------:|:--------:|:--------:|:--------:|:----:|:--------:|:-------:|:-----:|
