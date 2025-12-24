@@ -55,11 +55,10 @@ jobs:
             python3-devel \
             python3-setuptools \
             python3-pip \
-            python3-wheel \
             desktop-file-utils \
             libappstream-glib
 
-          # Install Python dependencies available in repos
+          # Install Python dependencies available in repos (continue on missing packages)
           dnf install -y \
             python3-wxpython4 \
             python3-six \
@@ -74,7 +73,7 @@ jobs:
             python3-numpy \
             python3-fasteners \
             python3-distro \
-            || echo "Some optional packages not available, continuing..."
+            || echo "Some packages not available, continuing..."
 
       - name: Get version info
         id: version
