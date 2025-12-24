@@ -75,6 +75,9 @@ Features:
 # Remove __pycache__ from bin directory if present
 rm -rfv %{buildroot}%{_bindir}/__pycache__
 
+# Install wheel first (needed on Rocky Linux to create dist-info instead of egg-info)
+pip3 install --no-cache-dir wheel
+
 # Install squaremap (not in Fedora repos)
 pip3 install --no-cache-dir --no-deps --target=%{buildroot}%{python3_sitelib} squaremap
 
