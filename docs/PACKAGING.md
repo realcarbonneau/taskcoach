@@ -594,6 +594,26 @@ The following are not in Fedora repos and are installed via pip during build:
 squaremap           # Hierarchical data visualization
 ```
 
+#### Distro-Specific Build Notes
+
+| Distro | Python | Notes |
+|--------|--------|-------|
+| Fedora 39 | 3.12 | `wheel` package available, creates `.dist-info` |
+| Fedora 40 | 3.12 | `wheel` package available, creates `.dist-info` |
+| Rocky Linux 9 | 3.9 | `wheel` not installed by default, spec installs it first |
+
+**Why install wheel?** On Rocky Linux 9, pip uses legacy `setup.py install` without wheel, which creates `.egg-info` instead of `.dist-info` directories. The spec file installs wheel first to ensure consistent behavior:
+
+```spec
+# Install wheel first (needed on Rocky Linux for consistent dist-info creation)
+pip3 install --no-cache-dir wheel
+
+# Then install squaremap
+pip3 install --no-cache-dir --no-deps --target=%{buildroot}%{python3_sitelib} squaremap
+```
+
+**Spec file approach:** We use `%py3_build` and `%py3_install` macros for compatibility with both Fedora and RHEL-based distros. While Fedora's newest guidelines prefer `%pyproject_wheel`/`%pyproject_install`, the older macros work across all target distributions.
+
 ### GitHub Actions CI
 
 The repository includes automated RPM builds via GitHub Actions:
