@@ -6,7 +6,7 @@
 #   - Debian 12 (Bookworm)
 #   - Debian 13 (Trixie)
 #   - Ubuntu 22.04+ (Jammy and later)
-#   - Manjaro/Arch Linux
+#   - Arch/Manjaro Linux
 #   - Fedora 39/40
 #
 

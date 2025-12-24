@@ -1,6 +1,6 @@
 #!/bin/bash
-# TaskCoach Manjaro/Arch Package Build Script
-# Builds a .pkg.tar.zst package for installation on Manjaro/Arch Linux
+# TaskCoach Arch/Manjaro Package Build Script
+# Builds a .pkg.tar.zst package for installation on Arch/Manjaro Linux
 #
 # Usage:
 #   ./scripts/build-manjaro.sh           # Build package from current source
@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}TaskCoach Manjaro/Arch Package Builder${NC}"
+echo -e "${BLUE}TaskCoach Arch/Manjaro Package Builder${NC}"
 echo -e "${BLUE}Version 1.0.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
@@ -58,7 +58,7 @@ echo
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [ "$ID" != "manjaro" ] && [ "$ID" != "arch" ] && [ "$ID_LIKE" != "arch" ]; then
-        echo -e "${YELLOW}Warning: This script is designed for Manjaro/Arch Linux${NC}"
+        echo -e "${YELLOW}Warning: This script is designed for Arch/Manjaro Linux${NC}"
         echo -e "${YELLOW}Detected: $PRETTY_NAME${NC}"
         read -p "Continue anyway? (y/n) " -n 1 -r
         echo
