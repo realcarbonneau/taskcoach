@@ -7,8 +7,9 @@
 #   - Debian 13 (Trixie)
 #   - Ubuntu 22.04+ (Jammy and later)
 #   - Manjaro/Arch Linux
+#   - Fedora 39/40
 #
-# Version: 1.3.0
+# Version: 1.4.0
 # Last Updated: 2025-12-24
 
 set -e  # Exit on error
@@ -107,9 +108,20 @@ check_supported() {
                 exit 1
             fi
             ;;
+        fedora)
+            echo -e "${BLUE}Detected Fedora: $DISTRO_NAME${NC}"
+            echo -e "${BLUE}Redirecting to Fedora setup script...${NC}"
+            echo
+            if [ -f "$SCRIPT_DIR/setup_fedora.sh" ]; then
+                exec "$SCRIPT_DIR/setup_fedora.sh"
+            else
+                echo -e "${RED}✗ setup_fedora.sh not found${NC}"
+                exit 1
+            fi
+            ;;
         *)
             echo -e "${YELLOW}Warning: $DISTRO_NAME is not officially supported${NC}"
-            echo -e "${YELLOW}This script is designed for Debian/Ubuntu/Arch-based systems${NC}"
+            echo -e "${YELLOW}This script is designed for Debian/Ubuntu/Arch/Fedora-based systems${NC}"
             read -p "Continue anyway? (y/n) " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then

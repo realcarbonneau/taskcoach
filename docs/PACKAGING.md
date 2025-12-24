@@ -29,7 +29,7 @@ No manual steps required for users installing from packages.
 | Debian Bookworm | Most deps | pyparsing, watchdog (version issues) |
 | Debian Trixie/Ubuntu Noble | All dependencies | None |
 | Arch/Manjaro | All except pypubsub, squaremap | pypubsub (AUR), squaremap |
-| Fedora 39/40 | All except squaremap | squaremap |
+| Fedora 39/40 | Most deps | squaremap, pyparsing (version issues) |
 
 ### How setup.py Works
 
@@ -49,21 +49,32 @@ The `setup.py` file lists core dependencies with version requirements where need
 
 Each build target (workflow + setup script) handles dependencies automatically:
 
-| Package | Bookworm | Jammy | Trixie/Noble | Arch/Manjaro | Fedora |
-|---------|:--------:|:-----:|:------------:|:------------:|:------:|
-| wxpython | distro | distro | distro | distro | distro |
-| pypubsub | distro | distro | distro | AUR | distro |
-| pyparsing | **pip** | **pip** | distro | distro | distro |
-| watchdog | **pip** | **pip** | distro | distro | distro |
-| squaremap | distro | distro | distro | **pip** | **pip** |
-| hypertreelist | **patch** | **patch** | **patch** | **patch** | **patch** |
-| six, lxml, numpy, etc. | distro | distro | distro | distro | distro |
+| Package | debian12 | ubuntu22 | debian13 | ubuntu24 | arch | fedora40 |
+|---------|:--------:|:--------:|:--------:|:--------:|:----:|:--------:|
+| wxpython | distro | distro | distro | distro | distro | distro |
+| pypubsub | distro | distro | distro | distro | AUR | distro |
+| pyparsing | **pip** | **pip** | distro | distro | distro | **pip** |
+| watchdog | **pip** | **pip** | distro | distro | distro | distro |
+| squaremap | distro | distro | distro | distro | **pip** | **pip** |
+| six | distro | distro | distro | distro | distro | distro |
+| lxml | distro | distro | distro | distro | distro | distro |
+| numpy | distro | distro | distro | distro | distro | distro |
+| chardet | distro | distro | distro | distro | distro | distro |
+| python-dateutil | distro | distro | distro | distro | distro | distro |
+| keyring | distro | distro | distro | distro | distro | distro |
+| pyxdg | distro | distro | distro | distro | distro | distro |
+| fasteners | distro | distro | distro | distro | distro | distro |
+| zeroconf | distro | distro | distro | distro | distro | distro |
+| hypertreelist | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** |
+| desktop3 | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** |
 
 **Key:**
 - `distro` = Installed from distribution repos
 - `pip` = Bundled via pip (version too old or not available in repos)
 - `patch` = Bundled patch in `taskcoachlib/patches/` (wxPython hypertreelist fix)
-- `AUR` = Arch User Repository
+- `bundled` = Bundled in `taskcoachlib/thirdparty/` (no external dependency)
+- `AUR` = Arch User Repository (rolling release, no version)
+- `arch` = Arch Linux / Manjaro (rolling release)
 
 ### Build Scripts and Workflows
 
@@ -74,7 +85,7 @@ Each build target (workflow + setup script) handles dependencies automatically:
 | Debian Trixie | `setup_debian13_trixie.sh` | `build-deb.yml` | All from distro |
 | Ubuntu Noble | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | All from distro |
 | Arch/Manjaro | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap |
-| Fedora 39/40 | — | `build-rpm.yml` | Bundles squaremap |
+| Fedora 39/40 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
 
 **All bundling is automatic** - users just install the package, scripts handle everything.
 

@@ -27,14 +27,14 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
 # Dependency Installation Strategy:
-# 1. Use Fedora packages for all available dependencies (no version specs)
-# 2. Bundle squaremap via pip (not in Fedora repos)
-# 3. Filter auto-generated squaremap dep (we bundle it)
+# 1. Use Fedora packages for all available dependencies
+# 2. Bundle via pip: squaremap (not in repos), pyparsing (version too old)
+# 3. Filter auto-generated deps for bundled packages
 # See docs/PACKAGING.md for full dependency strategy.
-%global __requires_exclude ^python3\\.?[0-9]*dist\\(squaremap\\)
-%global __provides_exclude ^python3\\.?[0-9]*dist\\(squaremap\\)
+%global __requires_exclude ^python3\\.?[0-9]*dist\\((squaremap|pyparsing)\\)
+%global __provides_exclude ^python3\\.?[0-9]*dist\\((squaremap|pyparsing)\\)
 
-# Runtime dependencies - all from Fedora repos
+# Runtime dependencies - from Fedora repos
 Requires:       python3 >= 3.8
 Requires:       python3-wxpython4 >= 4.2.0
 Requires:       python3-six
@@ -42,7 +42,6 @@ Requires:       python3-pypubsub
 Requires:       python3-watchdog
 Requires:       python3-chardet
 Requires:       python3-dateutil
-Requires:       python3-pyparsing
 Requires:       python3-lxml
 Requires:       python3-pyxdg
 Requires:       python3-keyring
@@ -55,7 +54,9 @@ Requires:       xdg-utils
 # Optional dependencies
 Recommends:     espeak-ng
 
-# squaremap bundled via pip (not in Fedora repos)
+# Bundled via pip:
+# - squaremap: not in Fedora repos
+# - pyparsing>=3.1.3: Fedora has older version, need pp.Tag() API
 
 %description
 Task Coach is a simple open source todo manager to keep track of personal
@@ -87,8 +88,12 @@ rm -rfv %{buildroot}%{_bindir}/__pycache__
 # Ensure wheel is available for proper dist-info creation
 pip3 install --no-cache-dir wheel
 
-# Install squaremap (not in Fedora repos)
-pip3 install --no-cache-dir --no-deps --target=%{buildroot}%{python3_sitelib} squaremap
+# Bundle packages not in Fedora repos or with version issues
+# - squaremap: not in Fedora repos
+# - pyparsing>=3.1.3: Fedora 40 has 3.0.x, need 3.1.3+ for pp.Tag() API
+pip3 install --no-cache-dir --no-deps --target=%{buildroot}%{python3_sitelib} \
+    squaremap \
+    "pyparsing>=3.1.3"
 
 # Install desktop file
 install -Dm644 build.in/linux_common/taskcoach.desktop \
@@ -120,6 +125,8 @@ install -Dm644 Welcome.tsk \
 %{python3_sitelib}/TaskCoach-*.egg-info/
 %{python3_sitelib}/squaremap/
 %{python3_sitelib}/SquareMap-*.dist-info/
+%{python3_sitelib}/pyparsing/
+%{python3_sitelib}/pyparsing-*.dist-info/
 %{_datadir}/applications/%{name}.desktop
 %{_metainfodir}/%{name}.appdata.xml
 %{_datadir}/pixmaps/%{name}.png
@@ -128,8 +135,8 @@ install -Dm644 Welcome.tsk \
 %changelog
 * Tue Dec 24 2024 Task Coach Developers <developers@taskcoach.org> - 1.6.1.73-1
 - Modernized spec file for Fedora 39+
-- Consistent dependency strategy: distro packages first, pip fallback for missing
-- Only squaremap bundled via pip (not in Fedora repos)
+- Consistent dependency strategy: distro packages first, pip fallback
+- Bundled: squaremap (not in repos), pyparsing>=3.1.3 (version too old)
 - Added AppStream metadata validation
 
 * Mon Aug 15 2011 Jerome Laheurte <fraca7@free.fr> - 1.2.26-1
