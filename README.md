@@ -8,34 +8,73 @@ Download the package for your system from the [latest release](https://github.co
 
 | Platform | Package |
 |----------|---------|
-| Debian 12 (Bookworm) | `taskcoach_*_debian-12-bookworm_all.deb` |
-| Debian 13 (Trixie) | `taskcoach_*_debian-13-trixie_all.deb` |
-| Debian Sid | `taskcoach_*_debian-sid-sid_all.deb` |
-| Ubuntu 22.04 (Jammy) | `taskcoach_*_ubuntu-22.04-jammy_all.deb` |
-| Ubuntu 24.04 (Noble) | `taskcoach_*_ubuntu-24.04-noble_all.deb` |
-| Any Linux (x86_64) | `TaskCoach-*-x86_64.AppImage` |
+| Debian 12 (Bookworm) | `taskcoach_1.6.1.73_debian-12-bookworm_all.deb` |
+| Debian 13 (Trixie) | `taskcoach_1.6.1.73_debian-13-trixie_all.deb` |
+| Debian Sid | `taskcoach_1.6.1.73_debian-sid-sid_all.deb` |
+| Ubuntu 22.04 (Jammy) | `taskcoach_1.6.1.73_ubuntu-22.04-jammy_all.deb` |
+| Ubuntu 24.04 (Noble) | `taskcoach_1.6.1.73_ubuntu-24.04-noble_all.deb` |
+| Arch Linux / Manjaro | `taskcoach-1.6.1.73-1-any.pkg.tar.zst` |
+| Fedora 39/40 | `taskcoach-1.6.1.73-fedora39.noarch.rpm` |
+| Rocky Linux 9 | `taskcoach-1.6.1.73-rocky9.noarch.rpm` |
+| Any Linux (x86_64) | `TaskCoach-1.6.1.73-x86_64.AppImage` |
 
-**Example: Install on Debian 13 (Trixie)**
+**Example: Install on Debian/Ubuntu**
 
 ```bash
 cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.68_debian-13-trixie_all.deb
-sudo apt install ./taskcoach_1.6.1.68_debian-13-trixie_all.deb
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach_1.6.1.73_debian-13-trixie_all.deb
+sudo apt install ./taskcoach_1.6.1.73_debian-13-trixie_all.deb
 taskcoach.py
 ```
 
 Or launch from **Applications → Office → Task Coach**.
 
+To uninstall:
+```bash
+sudo apt remove taskcoach
+sudo apt autoremove  # optional: remove unused dependencies
+```
+
+**Example: Install on Arch Linux / Manjaro**
+
+```bash
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-1-any.pkg.tar.zst
+sudo pacman -U taskcoach-1.6.1.73-1-any.pkg.tar.zst
+taskcoach.py
+```
+
+To uninstall:
+```bash
+sudo pacman -R taskcoach
+sudo pacman -Qdtq | sudo pacman -Rs -  # optional: remove orphaned dependencies
+```
+
+**Example: Install on Fedora / Rocky Linux**
+
+```bash
+cd ~/Downloads
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-fedora40.noarch.rpm
+sudo dnf install ./taskcoach-1.6.1.73-fedora40.noarch.rpm
+taskcoach.py
+```
+
+To uninstall:
+```bash
+sudo dnf remove taskcoach
+sudo dnf autoremove  # optional: remove unused dependencies
+```
+
 **Or run the AppImage (any Linux, no install needed)**
 
 ```bash
 cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/TaskCoach-1.6.1.68-x86_64.AppImage
-chmod +x TaskCoach-1.6.1.68-x86_64.AppImage
-./TaskCoach-1.6.1.68-x86_64.AppImage
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/TaskCoach-1.6.1.73-x86_64.AppImage
+chmod +x TaskCoach-1.6.1.73-x86_64.AppImage
+./TaskCoach-1.6.1.73-x86_64.AppImage
 ```
 
-To uninstall the .deb: `sudo apt remove taskcoach`
+To remove: simply delete the AppImage file.
 
 ## Running from Source
 

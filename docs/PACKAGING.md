@@ -1,6 +1,31 @@
-# Debian/Ubuntu Packaging Guide for Task Coach
+# Linux Packaging Guide for Task Coach
 
-This document describes the Debian packaging setup for Task Coach and how it relates to official Debian/Ubuntu packaging.
+This document describes the packaging setup for Task Coach on various Linux distributions including Debian, Ubuntu, Arch Linux, Manjaro, Fedora, and Rocky Linux.
+
+## Package Availability by Distribution
+
+Not all Python packages are available in all distribution repositories. The table below shows availability:
+
+| Package | Debian/Ubuntu | Arch/Manjaro | Fedora/Rocky | PyPI |
+|---------|:-------------:|:------------:|:------------:|:----:|
+| python-wxpython | ✓ | ✓ | ✓ | ✓ |
+| python-pypubsub | ✓ | ✓ | ✓ | ✓ |
+| python-igraph | ✓ | ✓ | ✓ | ✓ |
+| **python-squaremap** | ✓ | ✗ | ✗ | ✓ |
+| python-gntp | ✗ | ✗ (AUR) | ✗ | ✓ |
+| python-six | ✓ | ✓ | ✓ | ✓ |
+| python-watchdog | ✓ | ✓ | ✓ | ✓ |
+| python-chardet | ✓ | ✓ | ✓ | ✓ |
+| python-dateutil | ✓ | ✓ | ✓ | ✓ |
+| python-pyparsing | ✓ | ✓ | ✓ | ✓ |
+| python-lxml | ✓ | ✓ | ✓ | ✓ |
+| python-pyxdg | ✓ | ✓ | ✓ | ✓ |
+| python-keyring | ✓ | ✓ | ✓ | ✓ |
+| python-zeroconf | ✓ | ✓ | ✓ | ✓ |
+
+**Key:** ✓ = Available in official repos, ✗ = Not available (use pip), (AUR) = Available in Arch User Repository
+
+**Note:** For packages not in distribution repos (like `squaremap` on Arch/Fedora), the package build scripts automatically install them via pip during the build process.
 
 ## Important: Upstream vs Debian Packaging
 
@@ -327,6 +352,289 @@ jobs:
     # ... build steps
 ```
 
+---
+
+## Arch Linux / Manjaro Packaging
+
+Task Coach includes native packaging support for Arch Linux and Manjaro using the standard PKGBUILD system.
+
+### Directory Structure
+
+```
+build.in/manjaro/
+├── PKGBUILD           # Arch package build script
+└── taskcoach.install  # Post-install hooks
+```
+
+### Building Locally
+
+#### Quick Build
+
+```bash
+# Install build dependencies
+sudo pacman -S base-devel python python-setuptools python-distro
+
+# Build package using the build script
+./scripts/build-manjaro.sh
+
+# Package will be in build-area/
+ls build-area/*.pkg.tar.zst
+```
+
+#### Build and Install
+
+```bash
+./scripts/build-manjaro.sh --install
+```
+
+#### Manual Build with makepkg
+
+```bash
+cd build.in/manjaro
+
+# Create source tarball (from project root)
+VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
+tar -czf "taskcoach-$VERSION.tar.gz" --transform "s,^,taskcoach-$VERSION/," \
+    --exclude='.git' --exclude='build-area' -C ../.. .
+
+# Update PKGBUILD version and checksums
+updpkgsums
+
+# Build package
+makepkg -sf
+
+# Install
+sudo pacman -U taskcoach-*.pkg.tar.zst
+```
+
+### Dependencies
+
+#### Runtime Dependencies (from official repos)
+
+```
+python (>= 3.8)
+python-wxpython (>= 4.2.0)
+python-six
+python-pypubsub (AUR)
+python-watchdog
+python-chardet
+python-dateutil
+python-pyparsing
+python-lxml
+python-pyxdg
+python-keyring
+python-numpy
+python-fasteners
+python-zeroconf
+libxss
+xdg-utils
+```
+
+#### Optional Dependencies
+
+```
+python-squaremap    # Hierarchical data visualization (AUR)
+python-gntp         # Growl notifications (AUR)
+espeak-ng           # Spoken reminders
+```
+
+#### Build Dependencies
+
+```
+base-devel
+python-setuptools
+python-distro
+```
+
+### AUR Package
+
+Some dependencies are only available from the AUR:
+- `python-pypubsub` - Required for pub/sub messaging
+- `python-squaremap` - Optional visualization
+- `python-gntp` - Optional Growl support
+
+Install using an AUR helper:
+```bash
+yay -S python-pypubsub python-squaremap python-gntp
+# or
+paru -S python-pypubsub python-squaremap python-gntp
+```
+
+### Setup Script
+
+For development or running from source:
+
+```bash
+# Auto-detect and set up (redirects to setup_manjaro.sh on Arch systems)
+./setup.sh
+
+# Or directly use the Manjaro setup script
+./setup_manjaro.sh
+```
+
+The setup script:
+1. Installs packages from official Arch repos via pacman
+2. Prompts for AUR packages if yay/paru is available
+3. Creates a virtual environment with system site-packages
+4. Tests the installation
+
+### GitHub Actions CI
+
+The repository includes automated Arch package builds via GitHub Actions:
+
+```yaml
+# .github/workflows/build-arch.yml
+name: Build Arch/Manjaro Package
+
+jobs:
+  build-arch:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Build package
+        run: makepkg -sf
+```
+
+Features:
+- Builds on every push to `main`, `master`, or `claude/**` branches
+- Tests installation on clean Arch Linux container
+- Tests installation on Manjaro Linux container
+- Uploads packages as artifacts
+- Creates GitHub releases on version tags
+
+### Supported Distributions
+
+| Distribution | Tested | Notes |
+|--------------|--------|-------|
+| Arch Linux | ✓ | Primary target |
+| Manjaro | ✓ | Fully supported |
+| EndeavourOS | ✓ | Uses Manjaro setup |
+| Garuda Linux | ✓ | Uses Manjaro setup |
+| Artix Linux | ✓ | Uses Manjaro setup |
+| ArcoLinux | ✓ | Uses Manjaro setup |
+
+---
+
+## Fedora / Rocky Linux / CentOS Packaging
+
+Task Coach includes native RPM packaging support for Fedora, Rocky Linux, and CentOS Stream using the standard spec file format.
+
+### Directory Structure
+
+```
+build.in/fedora/
+└── taskcoach.spec     # RPM spec file
+```
+
+### Building Locally
+
+#### Quick Build
+
+```bash
+# Install build dependencies
+sudo dnf install rpm-build rpmdevtools python3-devel python3-setuptools
+
+# Set up RPM build tree
+rpmdev-setuptree
+
+# Copy spec file
+cp build.in/fedora/taskcoach.spec ~/rpmbuild/SPECS/
+
+# Create source tarball
+VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
+tar -czf ~/rpmbuild/SOURCES/taskcoach-$VERSION.tar.gz \
+    --transform "s,^,taskcoach-main/," --exclude='.git' .
+
+# Build RPM
+rpmbuild -bb ~/rpmbuild/SPECS/taskcoach.spec
+
+# Package will be in ~/rpmbuild/RPMS/noarch/
+ls ~/rpmbuild/RPMS/noarch/*.rpm
+```
+
+#### Install
+
+```bash
+sudo dnf install ~/rpmbuild/RPMS/noarch/taskcoach-*.rpm
+```
+
+### Dependencies
+
+#### Runtime Dependencies (from official repos)
+
+```
+python3 (>= 3.8)
+python3-wxpython4 (>= 4.2.0)
+python3-six
+python3-pypubsub
+python3-watchdog
+python3-chardet
+python3-dateutil
+python3-pyparsing
+python3-lxml
+python3-pyxdg
+python3-keyring
+python3-numpy
+python3-fasteners
+libXScrnSaver
+xdg-utils
+```
+
+#### Optional Dependencies
+
+```
+python3-zeroconf     # iPhone sync service discovery
+espeak-ng            # Spoken reminders
+```
+
+#### Pip-installed Dependencies
+
+The following are not in Fedora repos and are installed via pip during build:
+```
+squaremap           # Hierarchical data visualization
+```
+
+### GitHub Actions CI
+
+The repository includes automated RPM builds via GitHub Actions:
+
+```yaml
+# .github/workflows/build-rpm.yml
+name: Build RPM Package
+
+jobs:
+  build-rpm:
+    strategy:
+      matrix:
+        include:
+          - distro: fedora:39
+          - distro: fedora:40
+          - distro: rockylinux:9
+    runs-on: ubuntu-latest
+    container: ${{ matrix.distro }}
+    steps:
+      - name: Build package
+        run: rpmbuild -bb taskcoach.spec
+```
+
+Features:
+- Builds on Fedora 39, Fedora 40, and Rocky Linux 9
+- Tests installation on clean containers
+- Uploads packages as artifacts
+- Creates GitHub releases on version tags
+
+### Supported Distributions
+
+| Distribution | Version | Tested | Notes |
+|--------------|---------|--------|-------|
+| Fedora | 39, 40 | ✓ | Primary target |
+| Rocky Linux | 9 | ✓ | RHEL compatible |
+| CentOS Stream | 9 | ✓ | RHEL preview |
+| AlmaLinux | 9 | ~ | Should work (untested) |
+| RHEL | 9 | ~ | Should work (untested) |
+
+---
+
 ## References
 
 ### Debian Packaging
@@ -343,6 +651,19 @@ jobs:
 ### Ubuntu
 - [Launchpad PPA Documentation](https://help.launchpad.net/Packaging/PPA)
 - [Ubuntu Packaging Guide](https://canonical-ubuntu-packaging-guide.readthedocs-hosted.com/)
+
+### Arch Linux Packaging
+- [Arch Wiki: Creating packages](https://wiki.archlinux.org/title/Creating_packages)
+- [Arch Wiki: PKGBUILD](https://wiki.archlinux.org/title/PKGBUILD)
+- [Arch Wiki: makepkg](https://wiki.archlinux.org/title/Makepkg)
+- [Arch Wiki: AUR](https://wiki.archlinux.org/title/Arch_User_Repository)
+- [Manjaro Wiki: Package Management](https://wiki.manjaro.org/index.php/Pacman_Overview)
+
+### Fedora/RPM Packaging
+- [Fedora Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/)
+- [RPM Packaging Guide](https://rpm-packaging-guide.github.io/)
+- [Fedora Python Packaging](https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/)
+- [Rocky Linux Documentation](https://docs.rockylinux.org/)
 
 ### Desktop Integration
 - [XDG Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
