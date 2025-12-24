@@ -46,7 +46,14 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          # Install base build tools (required)
+          # ============================================================
+          # Fedora Dependency Installation
+          # Strategy: Use Fedora packages for everything available,
+          #           pip only for packages not in Fedora repos.
+          # See docs/PACKAGING.md for dependency availability matrix.
+          # ============================================================
+
+          # Build tools (required)
           dnf install -y \
             python3-devel \
             python3-setuptools \
@@ -55,7 +62,7 @@ jobs:
             desktop-file-utils \
             libappstream-glib
 
-          # Install Python dependencies available in repos (optional, continue on missing)
+          # Runtime dependencies - ALL from Fedora repos
           dnf install -y \
             python3-wxpython4 \
             python3-six \
@@ -69,7 +76,10 @@ jobs:
             python3-keyring \
             python3-numpy \
             python3-fasteners \
-            || echo "Some optional packages not available, continuing..."
+            python3-zeroconf
+
+          # NOT in Fedora repos - install via pip during RPM build:
+          # - squaremap (bundled in RPM via pip install in spec file)
 
       - name: Get version info
         id: version
@@ -106,15 +116,12 @@ jobs:
         run: |
           cd ~/rpmbuild/SPECS
 
-          # Build the RPM (allow some dependency issues since we pip install missing ones)
+          # Build the RPM
+          # Note: --nodeps used because build deps are handled by dnf above,
+          # and squaremap is bundled via pip in the spec file
           rpmbuild -bb taskcoach.spec \
             --define "_topdir $HOME/rpmbuild" \
-            --nodeps \
-            || {
-              echo "RPM build failed, checking logs..."
-              cat ~/rpmbuild/BUILD/*/build.log 2>/dev/null || true
-              exit 1
-            }
+            --nodeps
 
           echo "Build complete!"
           ls -la ~/rpmbuild/RPMS/noarch/

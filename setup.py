@@ -49,34 +49,48 @@ def majorAndMinorPythonVersion():
         return info[0], info[1]
 
 
+# Dependency Installation Strategy
+# ================================
+# On Linux distros: Use distro packages where available, pip fallback for missing.
+# On Windows/macOS: Use pip for all dependencies.
+#
+# Core dependencies (no version specs - distros provide appropriate versions):
+# - Version requirements only for packages NOT in distro repos
+# - See docs/PACKAGING.md for per-distro package availability
+#
+# Optional dependencies (in extras_require):
+# - squaremap: Hierarchic data visualization (not in Fedora/Arch repos)
+# - gntp: Growl notifications (Windows/Mac only)
+# - desktop3: Removed - bundled in taskcoachlib/thirdparty/desktop
+
 install_requires = [
-    "six>=1.16.0",
-    # NOTE: desktop3 removed - bundled in taskcoachlib/thirdparty/desktop
+    "six",
     "pypubsub",
-    # NOTE (Twisted Removal - 2024): Twisted has been removed and replaced with:
-    # - wx.CallLater for scheduling (was reactor.callLater)
-    # - watchdog for file monitoring (was Twisted INotify)
-    # - socketserver for iPhone sync (was Twisted Protocol/ServerFactory)
-    # - concurrent.futures for async threading (was deferToThread)
-    "watchdog>=3.0.0",  # For file system monitoring (replaces Twisted INotify)
-    "chardet>=5.2.0",
-    "python-dateutil>=2.9.0",
-    "pyparsing>=3.1.3",
+    "watchdog",
+    "chardet",
+    "python-dateutil",
+    "pyparsing",
     "lxml",
     "pyxdg",
     "keyring",
     "numpy",
-    "fasteners>=0.19",  # Cross-platform file locking (replaces deprecated lockfile)
-    "zeroconf>=0.50.0",  # For iPhone sync service discovery
-    "squaremap>=1.0.5",  # Hierarchic data visualization for wxPython
+    "fasteners",
+    "zeroconf",
 ]
+
+# Optional/platform-specific dependencies
+extras_require = {
+    "squaremap": ["squaremap>=1.0.5"],  # Not in Fedora/Arch repos
+    "growl": ["gntp>=1.0.3"],            # Growl notifications (Mac/Windows)
+    "all": ["squaremap>=1.0.5", "gntp>=1.0.3"],
+}
 
 system = platform.system()
 if system == "Windows":
-    install_requires.append("WMI>=1.5.1")
-    install_requires.append("gntp>=1.0.3")  # Growl notifications (Windows/Mac only)
+    install_requires.append("WMI")
+    install_requires.append("gntp")  # Growl notifications
 elif system == "Darwin":
-    install_requires.append("gntp>=1.0.3")  # Growl notifications (Windows/Mac only)
+    install_requires.append("gntp")  # Growl notifications
 
 setup_requires = ["distro"]
 
@@ -92,6 +106,7 @@ setupOptions = {
     "url": meta.url,
     "license": meta.license,
     "install_requires": install_requires,
+    "extras_require": extras_require,
     "tests_require": tests_requires,
     "setup_requires": setup_requires,
     "packages": findPackages("taskcoachlib") + findPackages("buildlib"),

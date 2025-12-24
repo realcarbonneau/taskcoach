@@ -26,17 +26,18 @@ BuildRequires:  python3-pip
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
-# Filter out auto-generated deps with version mismatches or bundled packages
-# squaremap: Bundled via pip at build time (not in Fedora repos)
-# pyparsing/python-dateutil: Filter version requirements, use Fedora versions
-# NOTE: gntp and desktop3 removed from setup.py (gntp is Mac/Windows only,
-#       desktop3 is bundled in taskcoachlib/thirdparty/desktop)
-%global __requires_exclude ^python3\\.?[0-9]*dist\\((squaremap|pyparsing|python-dateutil)\\)
-%global __provides_exclude ^python3\\.?[0-9]*dist\\((squaremap)\\)
+# Dependency Installation Strategy:
+# 1. Use Fedora packages for all available dependencies (no version specs)
+# 2. Bundle squaremap via pip (not in Fedora repos)
+# 3. Filter auto-generated squaremap dep (we bundle it)
+# See docs/PACKAGING.md for full dependency strategy.
+%global __requires_exclude ^python3\\.?[0-9]*dist\\(squaremap\\)
+%global __provides_exclude ^python3\\.?[0-9]*dist\\(squaremap\\)
 
+# Runtime dependencies - all from Fedora repos
 Requires:       python3 >= 3.8
 Requires:       python3-wxpython4 >= 4.2.0
-Requires:       python3-six >= 1.16.0
+Requires:       python3-six
 Requires:       python3-pypubsub
 Requires:       python3-watchdog
 Requires:       python3-chardet
@@ -47,14 +48,14 @@ Requires:       python3-pyxdg
 Requires:       python3-keyring
 Requires:       python3-numpy
 Requires:       python3-fasteners
+Requires:       python3-zeroconf
 Requires:       libXScrnSaver
 Requires:       xdg-utils
 
 # Optional dependencies
-Recommends:     python3-zeroconf
 Recommends:     espeak-ng
 
-# squaremap and gntp not in Fedora repos - installed via pip at build time
+# squaremap bundled via pip (not in Fedora repos)
 
 %description
 Task Coach is a simple open source todo manager to keep track of personal
@@ -127,11 +128,9 @@ install -Dm644 Welcome.tsk \
 %changelog
 * Tue Dec 24 2024 Task Coach Developers <developers@taskcoach.org> - 1.6.1.73-1
 - Modernized spec file for Fedora 39+
-- Added Python 3 support
-- Added pip installation of squaremap (not in Fedora repos)
-- Added squaremap dist-info to %files section
+- Consistent dependency strategy: distro packages first, pip fallback for missing
+- Only squaremap bundled via pip (not in Fedora repos)
 - Added AppStream metadata validation
-- Simplified dependency filtering (gntp/desktop3 now handled in setup.py)
 
 * Mon Aug 15 2011 Jerome Laheurte <fraca7@free.fr> - 1.2.26-1
 - Legacy: Apply patch from Oleg Tsarev for x64 systems

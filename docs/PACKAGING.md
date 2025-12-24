@@ -2,30 +2,61 @@
 
 This document describes the packaging setup for Task Coach on various Linux distributions including Debian, Ubuntu, Linux Mint, Arch Linux, Manjaro, and Fedora.
 
+## Dependency Installation Strategy
+
+All build scripts follow the same simple strategy:
+
+1. **Distro packages first**: Install all available dependencies from distro repos
+2. **Pip fallback**: Only use pip for packages not in distro repos
+3. **No version pinning**: Let distros provide their tested versions
+
+### What This Means for Each Distro
+
+| Distro | From Distro Repos | From pip |
+|--------|-------------------|----------|
+| Debian/Ubuntu/Mint | All dependencies | None |
+| Arch/Manjaro | All except pypubsub, squaremap | pypubsub (AUR), squaremap |
+| Fedora | All except squaremap | squaremap |
+
+### How setup.py Works
+
+The `setup.py` file lists core dependencies **without version requirements**:
+- Distro packages provide appropriate versions
+- Version specs only used for packages not in distro repos
+- Optional features in `extras_require` (e.g., `squaremap`, `gntp`)
+
+### Platform-Specific Dependencies
+
+| Package | Platform | Notes |
+|---------|----------|-------|
+| gntp | Windows/macOS only | Growl notifications |
+| WMI | Windows only | System information |
+| desktop3 | None (bundled) | Already in `taskcoachlib/thirdparty/` |
+
 ## Package Availability by Distribution
 
 Not all Python packages are available in all distribution repositories. The table below shows availability:
 
-| Package | Debian/Ubuntu/Mint | Arch/Manjaro | Fedora | PyPI |
-|---------|:-------------:|:------------:|:------------:|:----:|
-| python-wxpython | ✓ | ✓ | ✓ | ✓ |
-| python-pypubsub | ✓ | ✓ | ✓ | ✓ |
-| python-igraph | ✓ | ✓ | ✓ | ✓ |
-| **python-squaremap** | ✓ | ✗ | ✗ | ✓ |
-| python-gntp | ✗ | ✗ (AUR) | ✗ | ✓ |
-| python-six | ✓ | ✓ | ✓ | ✓ |
-| python-watchdog | ✓ | ✓ | ✓ | ✓ |
-| python-chardet | ✓ | ✓ | ✓ | ✓ |
-| python-dateutil | ✓ | ✓ | ✓ | ✓ |
-| python-pyparsing | ✓ | ✓ | ✓ | ✓ |
-| python-lxml | ✓ | ✓ | ✓ | ✓ |
-| python-pyxdg | ✓ | ✓ | ✓ | ✓ |
-| python-keyring | ✓ | ✓ | ✓ | ✓ |
-| python-zeroconf | ✓ | ✓ | ✓ | ✓ |
+| Package | Debian/Ubuntu/Mint | Arch/Manjaro | Fedora | Install Method |
+|---------|:------------------:|:------------:|:------:|----------------|
+| python-wxpython | ✓ | ✓ | ✓ | Distro package |
+| python-pypubsub | ✓ | AUR | ✓ | Distro or AUR |
+| python-six | ✓ | ✓ | ✓ | Distro package |
+| python-watchdog | ✓ | ✓ | ✓ | Distro package |
+| python-chardet | ✓ | ✓ | ✓ | Distro package |
+| python-dateutil | ✓ | ✓ | ✓ | Distro package |
+| python-pyparsing | ✓ | ✓ | ✓ | Distro package |
+| python-lxml | ✓ | ✓ | ✓ | Distro package |
+| python-pyxdg | ✓ | ✓ | ✓ | Distro package |
+| python-keyring | ✓ | ✓ | ✓ | Distro package |
+| python-zeroconf | ✓ | ✓ | ✓ | Distro package |
+| python-numpy | ✓ | ✓ | ✓ | Distro package |
+| python-fasteners | ✓ | ✓ | ✓ | Distro package |
+| **python-squaremap** | ✓ | ✗ | ✗ | pip (Arch/Fedora) |
 
-**Key:** ✓ = Available in official repos, ✗ = Not available (use pip), (AUR) = Available in Arch User Repository
+**Key:** ✓ = In official repos, ✗ = Not available, AUR = Arch User Repository
 
-**Note:** For packages not in distribution repos (like `squaremap` on Arch/Fedora), the package build scripts automatically install them via pip during the build process.
+**Build scripts handle this automatically** - they install from distro repos first, then pip for missing packages.
 
 ## Estimated Desktop User Base by Distribution
 
