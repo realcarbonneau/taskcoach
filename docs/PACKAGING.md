@@ -27,6 +27,34 @@ Not all Python packages are available in all distribution repositories. The tabl
 
 **Note:** For packages not in distribution repos (like `squaremap` on Arch/Fedora), the package build scripts automatically install them via pip during the build process.
 
+## Estimated Desktop User Base by Distribution
+
+The following table provides rough estimates of desktop users for each supported distribution. These numbers help prioritize packaging efforts.
+
+| Distribution | Est. Desktop Users | % of Linux Desktop | Priority | Notes |
+|--------------|-------------------:|-------------------:|:--------:|-------|
+| **Ubuntu** (all flavors) | 13-17 million | ~34% | High | Most popular desktop distro |
+| **Debian** | 6-8 million | ~16% | High | Stability-focused users |
+| **Linux Mint** | 4-6 million | ~10-12% | High | Ubuntu-based, beginner-friendly |
+| **Arch Linux** | 1.5-2.5 million | ~4-5% | Medium | Power users, rolling release |
+| **Manjaro** | 1-1.5 million | ~2-3% | Medium | Arch-based, user-friendly |
+| **Fedora** | 0.8-1.2 million | ~2-3% | Medium | Cutting-edge, developer-focused |
+| **Pop!_OS** | 0.5-1 million | ~1-2% | Low | Ubuntu-based, System76 |
+| **Rocky Linux** | < 100,000 | < 0.5% | Low | Primarily server OS |
+
+*Estimates as of Q4 2024. Based on ~40-50 million total Linux desktop users worldwide (4-4.5% of ~1 billion PCs).*
+
+**Data sources:**
+- [StatCounter Global Stats](https://gs.statcounter.com/os-market-share/desktop/worldwide/) - OS market share
+- [Steam Hardware Survey](https://store.steampowered.com/hwsurvey?platform=linux) - Gaming distro breakdown
+- [Enterprise Apps Today](https://www.enterpriseappstoday.com/stats/linux-statistics.html) - Linux statistics 2024
+
+**Important caveats:**
+- Linux users often block tracking, so actual numbers may be higher
+- Steam data skews toward gaming-focused distros (Arch, SteamOS)
+- Rocky/AlmaLinux are enterprise server distros with minimal desktop use
+- Numbers are approximate and vary by data source
+
 ## Important: Upstream vs Debian Packaging
 
 This repository contains an **upstream** `debian/` directory for local builds only. This is **NOT** the official Debian package.
