@@ -51,7 +51,7 @@ def majorAndMinorPythonVersion():
 
 install_requires = [
     "six>=1.16.0",
-    "desktop3",
+    # NOTE: desktop3 removed - bundled in taskcoachlib/thirdparty/desktop
     "pypubsub",
     # NOTE (Twisted Removal - 2024): Twisted has been removed and replaced with:
     # - wx.CallLater for scheduling (was reactor.callLater)
@@ -67,7 +67,6 @@ install_requires = [
     "keyring",
     "numpy",
     "fasteners>=0.19",  # Cross-platform file locking (replaces deprecated lockfile)
-    "gntp>=1.0.3",
     "zeroconf>=0.50.0",  # For iPhone sync service discovery
     "squaremap>=1.0.5",  # Hierarchic data visualization for wxPython
 ]
@@ -75,6 +74,9 @@ install_requires = [
 system = platform.system()
 if system == "Windows":
     install_requires.append("WMI>=1.5.1")
+    install_requires.append("gntp>=1.0.3")  # Growl notifications (Windows/Mac only)
+elif system == "Darwin":
+    install_requires.append("gntp>=1.0.3")  # Growl notifications (Windows/Mac only)
 
 setup_requires = ["distro"]
 

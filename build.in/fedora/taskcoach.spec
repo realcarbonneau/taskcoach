@@ -26,12 +26,12 @@ BuildRequires:  python3-pip
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
-# Filter out auto-generated deps not available in Fedora or with version mismatches
-# gntp: Growl notifications (optional, not in Fedora)
-# desktop3: Desktop integration (optional, not in Fedora)
-# squaremap: Bundled via pip at build time
+# Filter out auto-generated deps with version mismatches or bundled packages
+# squaremap: Bundled via pip at build time (not in Fedora repos)
 # pyparsing/python-dateutil: Filter version requirements, use Fedora versions
-%global __requires_exclude ^python3\\.?[0-9]*dist\\((gntp|desktop3|squaremap|pyparsing|python-dateutil)\\)
+# NOTE: gntp and desktop3 removed from setup.py (gntp is Mac/Windows only,
+#       desktop3 is bundled in taskcoachlib/thirdparty/desktop)
+%global __requires_exclude ^python3\\.?[0-9]*dist\\((squaremap|pyparsing|python-dateutil)\\)
 %global __provides_exclude ^python3\\.?[0-9]*dist\\((squaremap)\\)
 
 Requires:       python3 >= 3.8
@@ -131,6 +131,7 @@ install -Dm644 Welcome.tsk \
 - Added pip installation of squaremap (not in Fedora repos)
 - Added squaremap dist-info to %files section
 - Added AppStream metadata validation
+- Simplified dependency filtering (gntp/desktop3 now handled in setup.py)
 
 * Mon Aug 15 2011 Jerome Laheurte <fraca7@free.fr> - 1.2.26-1
 - Legacy: Apply patch from Oleg Tsarev for x64 systems
