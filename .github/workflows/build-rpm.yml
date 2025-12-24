@@ -50,15 +50,16 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          # Install base build tools
+          # Install base build tools (required)
           dnf install -y \
             python3-devel \
             python3-setuptools \
             python3-pip \
+            python3-distro \
             desktop-file-utils \
             libappstream-glib
 
-          # Install Python dependencies available in repos (continue on missing packages)
+          # Install Python dependencies available in repos (optional, continue on missing)
           dnf install -y \
             python3-wxpython4 \
             python3-six \
@@ -72,8 +73,7 @@ jobs:
             python3-keyring \
             python3-numpy \
             python3-fasteners \
-            python3-distro \
-            || echo "Some packages not available, continuing..."
+            || echo "Some optional packages not available, continuing..."
 
       - name: Get version info
         id: version
