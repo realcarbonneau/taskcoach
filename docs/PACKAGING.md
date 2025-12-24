@@ -19,8 +19,8 @@ All build scripts follow the same simple strategy:
 | fasteners | >=0.19 | File locking API | — |
 | zeroconf | >=0.50.0 | iPhone sync | — |
 
-**Debian Bookworm users**: Must pip install `pyparsing>=3.1.3` and `watchdog>=3.0.0`.
-See [DEBIAN_BOOKWORM_SETUP.md](DEBIAN_BOOKWORM_SETUP.md) for details.
+**Handled automatically**: Build scripts bundle newer versions for distros with old packages.
+No manual steps required for users installing from packages.
 
 ### What This Means for Each Distro
 
@@ -45,30 +45,38 @@ The `setup.py` file lists core dependencies with version requirements where need
 | WMI | Windows only | System information |
 | desktop3 | None (bundled) | Already in `taskcoachlib/thirdparty/` |
 
-## Package Availability by Distribution
+## Install Overview by Build Target
 
-Not all Python packages are available in all distribution repositories. The table below shows availability:
+Each build target (workflow + setup script) handles dependencies automatically:
 
-| Package | Debian/Ubuntu/Mint | Arch/Manjaro | Fedora | Install Method |
-|---------|:------------------:|:------------:|:------:|----------------|
-| python-wxpython | ✓ | ✓ | ✓ | Distro package |
-| python-pypubsub | ✓ | AUR | ✓ | Distro or AUR |
-| python-six | ✓ | ✓ | ✓ | Distro package |
-| python-watchdog | ✓ | ✓ | ✓ | Distro package |
-| python-chardet | ✓ | ✓ | ✓ | Distro package |
-| python-dateutil | ✓ | ✓ | ✓ | Distro package |
-| python-pyparsing | ✓ | ✓ | ✓ | Distro package |
-| python-lxml | ✓ | ✓ | ✓ | Distro package |
-| python-pyxdg | ✓ | ✓ | ✓ | Distro package |
-| python-keyring | ✓ | ✓ | ✓ | Distro package |
-| python-zeroconf | ✓ | ✓ | ✓ | Distro package |
-| python-numpy | ✓ | ✓ | ✓ | Distro package |
-| python-fasteners | ✓ | ✓ | ✓ | Distro package |
-| **python-squaremap** | ✓ | ✗ | ✗ | pip (Arch/Fedora) |
+| Package | Bookworm | Jammy | Trixie/Noble | Arch/Manjaro | Fedora |
+|---------|:--------:|:-----:|:------------:|:------------:|:------:|
+| wxpython | distro | distro | distro | distro | distro |
+| pypubsub | distro | distro | distro | AUR | distro |
+| pyparsing | **pip** | **pip** | distro | distro | distro |
+| watchdog | **pip** | **pip** | distro | distro | distro |
+| squaremap | distro | distro | distro | **pip** | **pip** |
+| hypertreelist | **patch** | **patch** | **patch** | **patch** | **patch** |
+| six, lxml, numpy, etc. | distro | distro | distro | distro | distro |
 
-**Key:** ✓ = In official repos, ✗ = Not available, AUR = Arch User Repository
+**Key:**
+- `distro` = Installed from distribution repos
+- `pip` = Bundled via pip (version too old or not available in repos)
+- `patch` = Bundled patch in `taskcoachlib/patches/` (wxPython hypertreelist fix)
+- `AUR` = Arch User Repository
 
-**Build scripts handle this automatically** - they install from distro repos first, then pip for missing packages.
+### Build Scripts and Workflows
+
+| Target | Setup Script | GitHub Workflow | Notes |
+|--------|--------------|-----------------|-------|
+| Debian Bookworm | `setup_debian12_bookworm.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
+| Ubuntu Jammy | `setup_ubuntu2204_jammy.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
+| Debian Trixie | `setup_debian13_trixie.sh` | `build-deb.yml` | All from distro |
+| Ubuntu Noble | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | All from distro |
+| Arch/Manjaro | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap |
+| Fedora 39/40 | — | `build-rpm.yml` | Bundles squaremap |
+
+**All bundling is automatic** - users just install the package, scripts handle everything.
 
 ## Estimated Desktop User Base by Distribution
 
