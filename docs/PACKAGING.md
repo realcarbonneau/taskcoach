@@ -7,22 +7,34 @@ This document describes the packaging setup for Task Coach on various Linux dist
 All build scripts follow the same simple strategy:
 
 1. **Distro packages first**: Install all available dependencies from distro repos
-2. **Pip fallback**: Only use pip for packages not in distro repos
-3. **No version pinning**: Let distros provide their tested versions
+2. **Pip fallback**: Only use pip for packages not in distro repos or with version issues
+3. **Version requirements**: Some packages have minimum version requirements
+
+### Minimum Version Requirements
+
+| Package | Min Version | Why Required | Distros with Old Versions |
+|---------|-------------|--------------|---------------------------|
+| pyparsing | >=3.1.3 | `pp.Tag()` API | Debian Bookworm (3.0.9) |
+| watchdog | >=3.0.0 | File monitoring API | Debian Bookworm (2.2.1) |
+| fasteners | >=0.19 | File locking API | — |
+| zeroconf | >=0.50.0 | iPhone sync | — |
+
+**Debian Bookworm users**: Must pip install `pyparsing>=3.1.3` and `watchdog>=3.0.0`.
+See [DEBIAN_BOOKWORM_SETUP.md](DEBIAN_BOOKWORM_SETUP.md) for details.
 
 ### What This Means for Each Distro
 
 | Distro | From Distro Repos | From pip |
 |--------|-------------------|----------|
-| Debian/Ubuntu/Mint | All dependencies | None |
+| Debian Bookworm | Most deps | pyparsing, watchdog (version issues) |
+| Debian Trixie/Ubuntu Noble | All dependencies | None |
 | Arch/Manjaro | All except pypubsub, squaremap | pypubsub (AUR), squaremap |
-| Fedora | All except squaremap | squaremap |
+| Fedora 39/40 | All except squaremap | squaremap |
 
 ### How setup.py Works
 
-The `setup.py` file lists core dependencies **without version requirements**:
-- Distro packages provide appropriate versions
-- Version specs only used for packages not in distro repos
+The `setup.py` file lists core dependencies with version requirements where needed:
+- Packages with API requirements have version specs (pyparsing, watchdog, etc.)
 - Optional features in `extras_require` (e.g., `squaremap`, `gntp`)
 
 ### Platform-Specific Dependencies

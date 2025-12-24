@@ -54,9 +54,14 @@ def majorAndMinorPythonVersion():
 # On Linux distros: Use distro packages where available, pip fallback for missing.
 # On Windows/macOS: Use pip for all dependencies.
 #
-# Core dependencies (no version specs - distros provide appropriate versions):
-# - Version requirements only for packages NOT in distro repos
-# - See docs/PACKAGING.md for per-distro package availability
+# IMPORTANT: Some packages have minimum version requirements:
+# - pyparsing>=3.1.3: Required for pp.Tag() in delta_time.py
+# - watchdog>=3.0.0: Required for file monitoring API
+# - fasteners>=0.19: Required for file locking API
+# - zeroconf>=0.50.0: Required for iPhone sync
+#
+# Debian Bookworm note: pyparsing (3.0.9) and watchdog (2.2.1) are too old,
+# must pip install newer versions. See docs/DEBIAN_BOOKWORM_SETUP.md
 #
 # Optional dependencies (in extras_require):
 # - squaremap: Hierarchic data visualization (not in Fedora/Arch repos)
@@ -66,16 +71,16 @@ def majorAndMinorPythonVersion():
 install_requires = [
     "six",
     "pypubsub",
-    "watchdog",
+    "watchdog>=3.0.0",  # File monitoring - Bookworm too old, needs pip
     "chardet",
     "python-dateutil",
-    "pyparsing",
+    "pyparsing>=3.1.3",  # For pp.Tag() - Bookworm too old, needs pip
     "lxml",
     "pyxdg",
     "keyring",
     "numpy",
-    "fasteners",
-    "zeroconf",
+    "fasteners>=0.19",  # File locking
+    "zeroconf>=0.50.0",  # iPhone sync
 ]
 
 # Optional/platform-specific dependencies
