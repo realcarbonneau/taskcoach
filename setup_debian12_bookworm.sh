@@ -69,9 +69,6 @@ echo
 # Install system dependencies
 echo -e "${BLUE}[2/7] Installing system dependencies...${NC}"
 echo "This will install system packages from Debian repos."
-echo "Packages: python3-wxgtk4.0, python3-lxml, python3-numpy,"
-echo "          python3-six, python3-dateutil, python3-chardet, python3-keyring,"
-echo "          python3-pyparsing, python3-pyxdg, python3-venv"
 echo "Requires sudo privileges."
 
 if command -v sudo &> /dev/null; then
@@ -86,7 +83,9 @@ if command -v sudo &> /dev/null; then
         python3-keyring \
         python3-pyparsing \
         python3-pyxdg \
-        python3-venv
+        python3-venv \
+        python3-zeroconf \
+        python3-squaremap
     echo -e "${GREEN}✓ System packages installed${NC}"
 else
     echo -e "${YELLOW}⚠ sudo not available, please install packages manually${NC}"
@@ -115,16 +114,15 @@ else
 fi
 echo
 
-# Install Python dependencies not available in Debian repos
+# Install Python dependencies not available in Debian repos or with version issues
 echo -e "${BLUE}[4/7] Installing Python dependencies in venv...${NC}"
-echo "Installing: desktop3, fasteners, gntp, distro, pypubsub, zeroconf, pyparsing>=3.1.3, squaremap, watchdog>=3.0.0"
+echo "Installing: desktop3, fasteners, gntp, distro, pypubsub, pyparsing>=3.1.3, watchdog>=3.0.0"
 
 source "$VENV_PATH/bin/activate"
 # Note: pyparsing>=3.1.3 required for deltaTime.py (Debian Bookworm only has 3.0.9)
-# Note: squaremap provides hierarchic data visualization for effort viewer
-# Note: watchdog>=3.0.0 for file system monitoring (replaced Twisted INotify)
+# Note: watchdog>=3.0.0 for file system monitoring (Bookworm has 2.2.1)
 # Note: fasteners replaces deprecated lockfile for cross-platform file locking
-pip install --quiet desktop3 fasteners gntp distro pypubsub zeroconf 'pyparsing>=3.1.3' squaremap 'watchdog>=3.0.0'
+pip install --quiet desktop3 fasteners gntp distro pypubsub 'pyparsing>=3.1.3' 'watchdog>=3.0.0'
 deactivate
 
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
@@ -254,9 +252,9 @@ echo -e "${GREEN}Setup completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
 echo "TaskCoach has been set up with:"
-echo "  • System packages from Debian repos (wxPython, numpy, lxml, etc.)"
+echo "  • System packages from Debian repos (wxPython, numpy, lxml, zeroconf, squaremap, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
-echo "  • Additional packages in venv (desktop3, fasteners, gntp, distro, pypubsub, zeroconf, squaremap, watchdog)"
+echo "  • Additional packages in venv (desktop3, fasteners, gntp, distro, pypubsub, pyparsing, watchdog)"
 echo "  • wxPython background color patch (for category row coloring)"
 echo
 echo "You can now run TaskCoach with:"

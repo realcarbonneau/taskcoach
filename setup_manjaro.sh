@@ -1,15 +1,17 @@
 #!/bin/bash
-# TaskCoach Setup Script for Ubuntu 22.04 (Jammy Jellyfish)
-# This script automates the setup and testing of TaskCoach on Ubuntu 22.04
+# TaskCoach Setup Script for Manjaro/Arch Linux
+# This script automates the setup and testing of TaskCoach on Manjaro/Arch
 #
 # For other distributions, see:
 #   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
 #   - setup_debian13_trixie.sh (Debian 13 Trixie)
+#   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
 #   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
+#   - setup_fedora.sh (Fedora 39/40)
 #   - setup.sh (unified auto-detection script)
 #
-# Version: 1.2.0
-# Last Updated: 2025-12-20
+# Version: 1.0.0
+# Last Updated: 2025-12-24
 
 set -e  # Exit on error
 
@@ -24,16 +26,16 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}TaskCoach Setup for Ubuntu 22.04 (Jammy)${NC}"
-echo -e "${BLUE}Version 1.2.0${NC}"
+echo -e "${BLUE}TaskCoach Setup for Manjaro/Arch Linux${NC}"
+echo -e "${BLUE}Version 1.0.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
 
-# Check if running on Ubuntu Jammy
+# Check if running on Manjaro or Arch
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    if [ "$ID" != "ubuntu" ] || [ "$VERSION_CODENAME" != "jammy" ]; then
-        echo -e "${YELLOW}Warning: This script is designed for Ubuntu 22.04 (Jammy)${NC}"
+    if [ "$ID" != "manjaro" ] && [ "$ID" != "arch" ] && [ "$ID_LIKE" != "arch" ]; then
+        echo -e "${YELLOW}Warning: This script is designed for Manjaro/Arch Linux${NC}"
         echo -e "${YELLOW}Detected: $PRETTY_NAME${NC}"
         read -p "Continue anyway? (y/n) " -n 1 -r
         echo
@@ -51,7 +53,7 @@ else
 fi
 
 # Check Python version
-echo -e "${BLUE}[1/7] Checking Python version...${NC}"
+echo -e "${BLUE}[1/8] Checking Python version...${NC}"
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
@@ -67,25 +69,32 @@ fi
 echo
 
 # Install system dependencies
-echo -e "${BLUE}[2/7] Installing system dependencies...${NC}"
-echo "This will install system packages from Ubuntu repos."
+echo -e "${BLUE}[2/8] Installing system dependencies...${NC}"
+echo "This will install system packages from Manjaro/Arch repos."
 echo "Requires sudo privileges."
 
 if command -v sudo &> /dev/null; then
-    sudo apt-get update -qq
-    sudo apt-get install -y \
-        python3-wxgtk4.0 \
-        python3-six \
-        python3-lxml \
-        python3-numpy \
-        python3-dateutil \
-        python3-chardet \
-        python3-keyring \
-        python3-pyparsing \
-        python3-xdg \
-        python3-venv \
-        python3-zeroconf \
-        python3-squaremap
+    # Update package database
+    sudo pacman -Sy --noconfirm
+
+    # Install core dependencies from official repos
+    sudo pacman -S --needed --noconfirm \
+        python \
+        python-wxpython \
+        python-six \
+        python-lxml \
+        python-numpy \
+        python-dateutil \
+        python-chardet \
+        python-keyring \
+        python-pyparsing \
+        python-pyxdg \
+        python-watchdog \
+        python-fasteners \
+        python-zeroconf \
+        libxss \
+        xdg-utils
+
     echo -e "${GREEN}✓ System packages installed${NC}"
 else
     echo -e "${YELLOW}⚠ sudo not available, please install packages manually${NC}"
@@ -93,8 +102,52 @@ else
 fi
 echo
 
+# Check for AUR packages
+echo -e "${BLUE}[3/8] Checking AUR packages...${NC}"
+AUR_PACKAGES=""
+
+# Check for python-pypubsub
+if ! pacman -Q python-pypubsub &>/dev/null; then
+    AUR_PACKAGES="$AUR_PACKAGES python-pypubsub"
+fi
+
+# Check for python-squaremap (optional)
+if ! pacman -Q python-squaremap &>/dev/null; then
+    echo -e "${YELLOW}Note: python-squaremap is optional (for hierarchical visualization)${NC}"
+fi
+
+# Check for python-gntp (optional)
+if ! pacman -Q python-gntp &>/dev/null; then
+    echo -e "${YELLOW}Note: python-gntp is optional (for Growl notifications)${NC}"
+fi
+
+if [ -n "$AUR_PACKAGES" ]; then
+    echo -e "${YELLOW}The following packages need to be installed from AUR:${NC}"
+    echo "  $AUR_PACKAGES"
+    echo
+
+    # Check for yay or paru
+    if command -v yay &> /dev/null; then
+        echo "Installing with yay..."
+        yay -S --needed --noconfirm $AUR_PACKAGES
+    elif command -v paru &> /dev/null; then
+        echo "Installing with paru..."
+        paru -S --needed --noconfirm $AUR_PACKAGES
+    else
+        echo -e "${YELLOW}No AUR helper found. Please install the following manually:${NC}"
+        echo "  $AUR_PACKAGES"
+        echo
+        echo "You can install an AUR helper with:"
+        echo "  sudo pacman -S yay  # or paru"
+        echo "Then run: yay -S $AUR_PACKAGES"
+    fi
+else
+    echo -e "${GREEN}✓ All AUR packages already installed${NC}"
+fi
+echo
+
 # Create virtual environment
-echo -e "${BLUE}[3/7] Creating virtual environment...${NC}"
+echo -e "${BLUE}[4/8] Creating virtual environment...${NC}"
 VENV_PATH="$SCRIPT_DIR/.venv"
 
 if [ -d "$VENV_PATH" ]; then
@@ -114,22 +167,37 @@ else
 fi
 echo
 
-# Install Python dependencies not available in Ubuntu repos or with version issues
-echo -e "${BLUE}[4/7] Installing Python dependencies in venv...${NC}"
-echo "Installing: desktop3, fasteners, gntp, distro, pypubsub, pyparsing>=3.1.3, watchdog>=3.0.0"
+# Install Python dependencies not available in Arch repos
+echo -e "${BLUE}[5/8] Installing Python dependencies in venv...${NC}"
+# Most packages are available in Arch repos, only install what's missing
+echo "Installing: desktop3, distro"
 
 source "$VENV_PATH/bin/activate"
-# Note: pyparsing>=3.1.3 required (Jammy has 3.0.7)
-# Note: watchdog>=3.0.0 for file system monitoring (Jammy has 2.1.6)
-# Note: fasteners replaces deprecated lockfile for cross-platform file locking
-pip install --quiet desktop3 fasteners gntp distro pypubsub 'pyparsing>=3.1.3' 'watchdog>=3.0.0'
+pip install --quiet desktop3 distro
+
+# Install optional packages if not available from system
+if ! python3 -c "from pubsub import pub" 2>/dev/null; then
+    echo "Installing pypubsub from pip..."
+    pip install --quiet pypubsub
+fi
+
+if ! python3 -c "import squaremap" 2>/dev/null; then
+    echo "Installing squaremap from pip (optional)..."
+    pip install --quiet squaremap || echo -e "${YELLOW}squaremap install failed (optional)${NC}"
+fi
+
+if ! python3 -c "import gntp" 2>/dev/null; then
+    echo "Installing gntp from pip (optional)..."
+    pip install --quiet gntp || echo -e "${YELLOW}gntp install failed (optional)${NC}"
+fi
+
 deactivate
 
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
 echo
 
 # Check launch script
-echo -e "${BLUE}[5/7] Checking launch script...${NC}"
+echo -e "${BLUE}[6/8] Checking launch script...${NC}"
 if [ -f "$SCRIPT_DIR/taskcoach-run.sh" ]; then
     chmod +x "$SCRIPT_DIR/taskcoach-run.sh"
     echo -e "${GREEN}✓ Launch script is ready: taskcoach-run.sh${NC}"
@@ -140,8 +208,18 @@ else
 fi
 echo
 
+# Apply wxPython patch
+echo -e "${BLUE}[7/8] Applying wxPython patch...${NC}"
+if [ -f "$SCRIPT_DIR/apply-wxpython-patch.sh" ]; then
+    "$SCRIPT_DIR/apply-wxpython-patch.sh"
+else
+    echo -e "${YELLOW}⚠ Warning: apply-wxpython-patch.sh not found${NC}"
+    echo "  Category row background coloring may not work correctly"
+fi
+echo
+
 # Test installation
-echo -e "${BLUE}Testing installation...${NC}"
+echo -e "${BLUE}[8/8] Testing installation...${NC}"
 echo "===================="
 echo
 
@@ -163,7 +241,7 @@ if WX_VERSION=$(python3 -c "import wx; print(wx.__version__)" 2>/dev/null); then
     echo -e "${GREEN}✓ (version $WX_VERSION)${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
-    echo "Please check python3-wxgtk4.0 installation"
+    echo "Please check python-wxpython installation"
     deactivate
     exit 1
 fi
@@ -172,7 +250,7 @@ fi
 echo "Testing key packages..."
 FAILED=0
 
-for pkg in "fasteners" "desktop" "gntp" "distro" "zeroconf"; do
+for pkg in "fasteners" "desktop" "distro" "zeroconf" "watchdog"; do
     echo -n "  - $pkg... "
     if python3 -c "import $pkg" 2>/dev/null; then
         echo -e "${GREEN}✓${NC}"
@@ -208,33 +286,26 @@ else
 fi
 
 echo
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}[6/7] Applying wxPython patch...${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo
-
-# Apply the wxPython background color patch automatically
-if [ -f "$SCRIPT_DIR/apply-wxpython-patch.sh" ]; then
-    "$SCRIPT_DIR/apply-wxpython-patch.sh"
-else
-    echo -e "${YELLOW}⚠ Warning: apply-wxpython-patch.sh not found${NC}"
-    echo "  Category row background coloring may not work correctly"
-fi
-
-echo
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
-echo "TaskCoach has been set up for Ubuntu 22.04 (Jammy) with:"
-echo "  • System packages from Ubuntu repos (wxPython, numpy, lxml, zeroconf, squaremap, etc.)"
+echo "TaskCoach has been set up for Manjaro/Arch Linux with:"
+echo "  • System packages from official repos (wxPython, numpy, lxml, fasteners, watchdog, etc.)"
 echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
-echo "  • Additional packages in venv (desktop3, fasteners, gntp, distro, pypubsub, pyparsing, watchdog)"
+echo "  • Additional packages in venv (desktop3, distro)"
 echo "  • wxPython background color patch (for category row coloring)"
+echo
+echo "Optional packages (install from AUR if needed):"
+echo "  • python-squaremap: Hierarchical data visualization"
+echo "  • python-gntp: Growl notification support"
 echo
 echo "You can now run TaskCoach with:"
 echo -e "  ${BLUE}./taskcoach-run.sh${NC}"
 echo
 echo "To see all options:"
 echo -e "  ${BLUE}./taskcoach-run.sh --help${NC}"
+echo
+echo "To build a package for installation:"
+echo -e "  ${BLUE}./scripts/build-manjaro.sh${NC}"
 echo

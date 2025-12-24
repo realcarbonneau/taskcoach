@@ -148,7 +148,7 @@ sudo apt-get install -y \
 
 #### Step 2: Create Virtual Environment
 
-For packages not available in Debian repos (desktop3, fasteners, gntp, distro, pypubsub, watchdog):
+For packages not available in Debian repos or with version requirements:
 
 ```bash
 cd /path/to/taskcoach
@@ -160,7 +160,7 @@ python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 
 # Install remaining dependencies
-pip install desktop3 fasteners gntp distro pypubsub 'watchdog>=3.0.0'
+pip install desktop3 fasteners gntp distro pypubsub 'pyparsing>=3.1.3' 'watchdog>=3.0.0'
 
 # Deactivate when done
 deactivate
@@ -286,6 +286,8 @@ dpkg -l | grep python3-lxml
 - ✅ python3-keyring (23.13.1)
 - ⚠️ python3-pyparsing (3.0.9) - **Note: requires 3.1.3+, install via pip**
 - ✅ python3-pyxdg (0.28)
+- ✅ python3-zeroconf
+- ✅ python3-squaremap
 
 ### From PyPI (pip in venv, for development):
 - 📦 desktop3

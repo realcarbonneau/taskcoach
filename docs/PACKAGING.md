@@ -1,6 +1,127 @@
-# Debian/Ubuntu Packaging Guide for Task Coach
+# Linux Packaging Guide for Task Coach
 
-This document describes the Debian packaging setup for Task Coach and how it relates to official Debian/Ubuntu packaging.
+This document describes the packaging setup for Task Coach on various Linux distributions including Debian, Ubuntu, Linux Mint, Arch Linux, Manjaro, and Fedora.
+
+## Dependency Installation Strategy
+
+All build scripts follow the same simple strategy:
+
+1. **Distro packages first**: Install all available dependencies from distro repos
+2. **Pip fallback**: Only use pip for packages not in distro repos or with version issues
+3. **Version requirements**: Some packages have minimum version requirements
+
+### Minimum Version Requirements
+
+| Package | Min Version | Why Required | Distros with Old Versions |
+|---------|-------------|--------------|---------------------------|
+| pyparsing | >=3.1.3 | `pp.Tag()` API | Debian Bookworm (3.0.9) |
+| watchdog | >=3.0.0 | File monitoring API | Debian Bookworm (2.2.1) |
+| fasteners | >=0.19 | File locking API | — |
+| zeroconf | >=0.50.0 | iPhone sync | — |
+
+**Handled automatically**: Build scripts bundle newer versions for distros with old packages.
+No manual steps required for users installing from packages.
+
+### What This Means for Each Distro
+
+| Distro | From Distro Repos | From pip |
+|--------|-------------------|----------|
+| Debian Bookworm | Most deps | pyparsing, watchdog (version issues) |
+| Debian Trixie/Ubuntu Noble | All dependencies | None |
+| Arch/Manjaro | All except pypubsub, squaremap | pypubsub (AUR), squaremap |
+| Fedora 39/40 | Most deps | squaremap, pyparsing (version issues) |
+
+### How setup.py Works
+
+The `setup.py` file lists core dependencies with version requirements where needed:
+- Packages with API requirements have version specs (pyparsing, watchdog, etc.)
+- Optional features in `extras_require` (e.g., `squaremap`, `gntp`)
+
+### Platform-Specific Dependencies
+
+| Package | Platform | Notes |
+|---------|----------|-------|
+| gntp | Windows/macOS only | Growl notifications |
+| WMI | Windows only | System information |
+| desktop3 | None (bundled) | Already in `taskcoachlib/thirdparty/` |
+
+## Install Overview by Build Target
+
+This table shows how dependencies are handled in **built packages** and **setup scripts**.
+
+| Package | debian12 | ubuntu22 | debian13 | ubuntu24 | arch | fedora40 | windows | macos |
+|---------|:--------:|:--------:|:--------:|:--------:|:----:|:--------:|:-------:|:-----:|
+| wxpython | distro | distro | distro | distro | distro | distro | pip | pip |
+| pypubsub | distro | distro | distro | distro | AUR | distro | pip | pip |
+| pyparsing | **pip** | **pip** | distro | distro | distro | **pip** | pip | pip |
+| watchdog | **pip** | **pip** | distro | distro | distro | distro | pip | pip |
+| squaremap | distro | distro | distro | distro | **pip** | **pip** | pip | pip |
+| six | distro | distro | distro | distro | distro | distro | pip | pip |
+| lxml | distro | distro | distro | distro | distro | distro | pip | pip |
+| numpy | distro | distro | distro | distro | distro | distro | pip | pip |
+| chardet | distro | distro | distro | distro | distro | distro | pip | pip |
+| python-dateutil | distro | distro | distro | distro | distro | distro | pip | pip |
+| keyring | distro | distro | distro | distro | distro | distro | pip | pip |
+| pyxdg | distro | distro | distro | distro | distro | distro | — | — |
+| fasteners | distro | distro | distro | distro | distro | distro | pip | pip |
+| zeroconf | distro | distro | distro | distro | distro | distro | pip | pip |
+| hypertreelist | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** | **patch** |
+| desktop3 | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** | **bundled** |
+| gntp | — | — | — | — | — | — | pip | pip |
+| WMI | — | — | — | — | — | — | pip | — |
+
+**Key:**
+- `distro` = Installed from distribution repos (required dependency)
+- `pip` = Bundled via pip in package build (version too old or not in repos)
+- `patch` = Bundled patch in `taskcoachlib/patches/` (wxPython hypertreelist fix)
+- `bundled` = Bundled in `taskcoachlib/thirdparty/` (no external dependency)
+- `AUR` = Arch User Repository (rolling release)
+- `—` = Not applicable for this platform
+
+### Build Scripts and Workflows
+
+| Target | ID | Setup Script | GitHub Workflow | Notes |
+|--------|:--:|--------------|-----------------|-------|
+| Debian 12 Bookworm | debian12 | `setup_debian12_bookworm.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
+| Debian 13 Trixie | debian13 | `setup_debian13_trixie.sh` | `build-deb.yml` | Distro deps sufficient |
+| Ubuntu 22.04 Jammy | ubuntu22 | `setup_ubuntu2204_jammy.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
+| Ubuntu 24.04 Noble | ubuntu24 | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | Distro deps sufficient |
+| Arch Linux | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap, pypubsub |
+| Manjaro | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap, pypubsub |
+| Fedora 39 | fedora39 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
+| Fedora 40 | fedora40 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
+| AppImage | appimage | — | `build-appimage.yml` | Self-contained, all deps bundled |
+| Windows | windows | — | — | Not currently building |
+| macOS | macos | — | — | Not currently building |
+
+**All bundling is automatic** - users just install the package, scripts handle everything.
+
+## Estimated Desktop User Base by Distribution
+
+The following table provides rough estimates of desktop users for each supported distribution. These numbers help prioritize packaging efforts.
+
+| Distribution | Est. Desktop Users | % of Linux Desktop | Priority | Notes |
+|--------------|-------------------:|-------------------:|:--------:|-------|
+| **Ubuntu** (all flavors) | 13-17 million | ~34% | High | Most popular desktop distro |
+| **Debian** | 6-8 million | ~16% | High | Stability-focused users |
+| **Linux Mint** | 4-6 million | ~10-12% | High | Uses Ubuntu/Debian `.deb` packages |
+| **Arch Linux** | 1.5-2.5 million | ~4-5% | Medium | Power users, rolling release |
+| **Manjaro** | 1-1.5 million | ~2-3% | Medium | Arch-based, user-friendly |
+| **Fedora** | 0.8-1.2 million | ~2-3% | Medium | Cutting-edge, developer-focused |
+| **Pop!_OS** | 0.5-1 million | ~1-2% | — | Uses Ubuntu `.deb` packages |
+
+*Estimates as of Q4 2024. Based on ~40-50 million total Linux desktop users worldwide (4-4.5% of ~1 billion PCs).*
+
+**Data sources:**
+- [StatCounter Global Stats](https://gs.statcounter.com/os-market-share/desktop/worldwide/) - OS market share
+- [Steam Hardware Survey](https://store.steampowered.com/hwsurvey?platform=linux) - Gaming distro breakdown
+- [Enterprise Apps Today](https://www.enterpriseappstoday.com/stats/linux-statistics.html) - Linux statistics 2024
+
+**Important caveats:**
+- Linux users often block tracking, so actual numbers may be higher
+- Steam data skews toward gaming-focused distros (Arch, SteamOS)
+- Linux Mint and Pop!_OS users can use Ubuntu/Debian packages directly
+- Numbers are approximate and vary by data source
 
 ## Important: Upstream vs Debian Packaging
 
@@ -327,6 +448,293 @@ jobs:
     # ... build steps
 ```
 
+---
+
+## Arch Linux / Manjaro Packaging
+
+Task Coach includes native packaging support for Arch Linux and Manjaro using the standard PKGBUILD system.
+
+### Directory Structure
+
+```
+build.in/manjaro/
+├── PKGBUILD           # Arch package build script
+└── taskcoach.install  # Post-install hooks
+```
+
+### Building Locally
+
+#### Quick Build
+
+```bash
+# Install build dependencies
+sudo pacman -S base-devel python python-setuptools python-distro
+
+# Build package using the build script
+./scripts/build-manjaro.sh
+
+# Package will be in build-area/
+ls build-area/*.pkg.tar.zst
+```
+
+#### Build and Install
+
+```bash
+./scripts/build-manjaro.sh --install
+```
+
+#### Manual Build with makepkg
+
+```bash
+cd build.in/manjaro
+
+# Create source tarball (from project root)
+VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
+tar -czf "taskcoach-$VERSION.tar.gz" --transform "s,^,taskcoach-$VERSION/," \
+    --exclude='.git' --exclude='build-area' -C ../.. .
+
+# Update PKGBUILD version and checksums
+updpkgsums
+
+# Build package
+makepkg -sf
+
+# Install
+sudo pacman -U taskcoach-*.pkg.tar.zst
+```
+
+### Dependencies
+
+#### Runtime Dependencies (from official repos)
+
+```
+python (>= 3.8)
+python-wxpython (>= 4.2.0)
+python-six
+python-pypubsub (AUR)
+python-watchdog
+python-chardet
+python-dateutil
+python-pyparsing
+python-lxml
+python-pyxdg
+python-keyring
+python-numpy
+python-fasteners
+python-zeroconf
+libxss
+xdg-utils
+```
+
+#### Optional Dependencies
+
+```
+python-squaremap    # Hierarchical data visualization (AUR)
+python-gntp         # Growl notifications (AUR)
+espeak-ng           # Spoken reminders
+```
+
+#### Build Dependencies
+
+```
+base-devel
+python-setuptools
+python-distro
+```
+
+### AUR Package
+
+Some dependencies are only available from the AUR:
+- `python-pypubsub` - Required for pub/sub messaging
+- `python-squaremap` - Optional visualization
+- `python-gntp` - Optional Growl support
+
+Install using an AUR helper:
+```bash
+yay -S python-pypubsub python-squaremap python-gntp
+# or
+paru -S python-pypubsub python-squaremap python-gntp
+```
+
+### Setup Script
+
+For development or running from source:
+
+```bash
+# Auto-detect and set up (redirects to setup_manjaro.sh on Arch systems)
+./setup.sh
+
+# Or directly use the Manjaro setup script
+./setup_manjaro.sh
+```
+
+The setup script:
+1. Installs packages from official Arch repos via pacman
+2. Prompts for AUR packages if yay/paru is available
+3. Creates a virtual environment with system site-packages
+4. Tests the installation
+
+### GitHub Actions CI
+
+The repository includes automated Arch package builds via GitHub Actions:
+
+```yaml
+# .github/workflows/build-arch.yml
+name: Build Arch/Manjaro Package
+
+jobs:
+  build-arch:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Build package
+        run: makepkg -sf
+```
+
+Features:
+- Builds on every push to `main`, `master`, or `claude/**` branches
+- Tests installation on clean Arch Linux container
+- Tests installation on Manjaro Linux container
+- Uploads packages as artifacts
+- Creates GitHub releases on version tags
+
+### Supported Distributions
+
+| Distribution | Tested | Notes |
+|--------------|--------|-------|
+| Arch Linux | ✓ | Primary target |
+| Manjaro | ✓ | Fully supported |
+| EndeavourOS | ✓ | Uses Manjaro setup |
+| Garuda Linux | ✓ | Uses Manjaro setup |
+| Artix Linux | ✓ | Uses Manjaro setup |
+| ArcoLinux | ✓ | Uses Manjaro setup |
+
+---
+
+## Fedora Packaging
+
+Task Coach includes native RPM packaging support for Fedora using the standard spec file format.
+
+### Directory Structure
+
+```
+build.in/fedora/
+└── taskcoach.spec     # RPM spec file
+```
+
+### Building Locally
+
+#### Quick Build
+
+```bash
+# Install build dependencies
+sudo dnf install rpm-build rpmdevtools python3-devel python3-setuptools
+
+# Set up RPM build tree
+rpmdev-setuptree
+
+# Copy spec file
+cp build.in/fedora/taskcoach.spec ~/rpmbuild/SPECS/
+
+# Create source tarball
+VERSION=$(python3 -c "from taskcoachlib.meta import data; print(data.version_full)")
+tar -czf ~/rpmbuild/SOURCES/taskcoach-$VERSION.tar.gz \
+    --transform "s,^,taskcoach-main/," --exclude='.git' .
+
+# Build RPM
+rpmbuild -bb ~/rpmbuild/SPECS/taskcoach.spec
+
+# Package will be in ~/rpmbuild/RPMS/noarch/
+ls ~/rpmbuild/RPMS/noarch/*.rpm
+```
+
+#### Install
+
+```bash
+sudo dnf install ~/rpmbuild/RPMS/noarch/taskcoach-*.rpm
+```
+
+### Dependencies
+
+#### Runtime Dependencies (from official repos)
+
+```
+python3 (>= 3.8)
+python3-wxpython4 (>= 4.2.0)
+python3-six
+python3-pypubsub
+python3-watchdog
+python3-chardet
+python3-dateutil
+python3-pyparsing
+python3-lxml
+python3-pyxdg
+python3-keyring
+python3-numpy
+python3-fasteners
+libXScrnSaver
+xdg-utils
+```
+
+#### Optional Dependencies
+
+```
+python3-zeroconf     # iPhone sync service discovery
+espeak-ng            # Spoken reminders
+```
+
+#### Pip-installed Dependencies
+
+The following are not in Fedora repos and are installed via pip during build:
+```
+squaremap           # Hierarchical data visualization
+```
+
+#### Build Notes
+
+| Distro | Python | Notes |
+|--------|--------|-------|
+| Fedora 39 | 3.12 | Current stable release |
+| Fedora 40 | 3.12 | Current stable release |
+
+**Spec file approach:** We use `%py3_build` and `%py3_install` macros. While Fedora's newest guidelines prefer `%pyproject_wheel`/`%pyproject_install`, the older macros provide broader compatibility.
+
+### GitHub Actions CI
+
+The repository includes automated RPM builds via GitHub Actions:
+
+```yaml
+# .github/workflows/build-rpm.yml
+name: Build RPM Package
+
+jobs:
+  build-rpm:
+    strategy:
+      matrix:
+        include:
+          - distro: fedora:39
+          - distro: fedora:40
+    runs-on: ubuntu-latest
+    container: ${{ matrix.distro }}
+    steps:
+      - name: Build package
+        run: rpmbuild -bb taskcoach.spec
+```
+
+Features:
+- Builds on Fedora 39 and Fedora 40
+- Tests installation on clean containers
+- Uploads packages as artifacts
+- Creates GitHub releases on version tags
+
+### Supported Distributions
+
+| Distribution | Version | Tested | Notes |
+|--------------|---------|--------|-------|
+| Fedora | 39, 40 | ✓ | Primary target |
+
+---
+
 ## References
 
 ### Debian Packaging
@@ -343,6 +751,18 @@ jobs:
 ### Ubuntu
 - [Launchpad PPA Documentation](https://help.launchpad.net/Packaging/PPA)
 - [Ubuntu Packaging Guide](https://canonical-ubuntu-packaging-guide.readthedocs-hosted.com/)
+
+### Arch Linux Packaging
+- [Arch Wiki: Creating packages](https://wiki.archlinux.org/title/Creating_packages)
+- [Arch Wiki: PKGBUILD](https://wiki.archlinux.org/title/PKGBUILD)
+- [Arch Wiki: makepkg](https://wiki.archlinux.org/title/Makepkg)
+- [Arch Wiki: AUR](https://wiki.archlinux.org/title/Arch_User_Repository)
+- [Manjaro Wiki: Package Management](https://wiki.manjaro.org/index.php/Pacman_Overview)
+
+### Fedora/RPM Packaging
+- [Fedora Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/)
+- [RPM Packaging Guide](https://rpm-packaging-guide.github.io/)
+- [Fedora Python Packaging](https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/)
 
 ### Desktop Integration
 - [XDG Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)

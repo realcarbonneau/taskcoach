@@ -574,14 +574,20 @@ class ViewViewerMenu(Menu):
                 viewerClass=taskcoachlib.gui.viewer.TaskStatsViewer,
                 **kwargs
             ),
-            ViewViewer(
-                menuText=_("Task &square map"),
-                helpText=_(
-                    "Open a new tab with a viewer that displays tasks in a square map"
-                ),
-                viewerClass=taskcoachlib.gui.viewer.SquareTaskViewer,
-                **kwargs
-            ),
+        ]
+        # Add square map viewer only if squaremap is available
+        if taskcoachlib.gui.viewer.SquareTaskViewer is not None:
+            viewViewerCommands.append(
+                ViewViewer(
+                    menuText=_("Task &square map"),
+                    helpText=_(
+                        "Open a new tab with a viewer that displays tasks in a square map"
+                    ),
+                    viewerClass=taskcoachlib.gui.viewer.SquareTaskViewer,
+                    **kwargs
+                )
+            )
+        viewViewerCommands += [
             ViewViewer(
                 menuText=_("T&imeline"),
                 helpText=_(

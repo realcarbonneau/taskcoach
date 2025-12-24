@@ -6,9 +6,11 @@
 #   - Debian 12 (Bookworm)
 #   - Debian 13 (Trixie)
 #   - Ubuntu 22.04+ (Jammy and later)
+#   - Manjaro/Arch Linux
+#   - Fedora 39/40
 #
-# Version: 1.2.0
-# Last Updated: 2025-12-20
+# Version: 1.4.0
+# Last Updated: 2025-12-24
 
 set -e  # Exit on error
 
@@ -86,9 +88,40 @@ check_supported() {
             DISTRO_ID="ubuntu"
             return 0
             ;;
+        manjaro|arch)
+            echo -e "${BLUE}Detected Arch-based system: $DISTRO_NAME${NC}"
+            echo -e "${BLUE}Redirecting to Manjaro/Arch setup script...${NC}"
+            echo
+            if [ -f "$SCRIPT_DIR/setup_manjaro.sh" ]; then
+                exec "$SCRIPT_DIR/setup_manjaro.sh"
+            else
+                echo -e "${RED}✗ setup_manjaro.sh not found${NC}"
+                exit 1
+            fi
+            ;;
+        endeavouros|garuda|artix|arcolinux)
+            echo -e "${YELLOW}Note: $DISTRO_NAME is Arch-based, using Manjaro/Arch setup${NC}"
+            if [ -f "$SCRIPT_DIR/setup_manjaro.sh" ]; then
+                exec "$SCRIPT_DIR/setup_manjaro.sh"
+            else
+                echo -e "${RED}✗ setup_manjaro.sh not found${NC}"
+                exit 1
+            fi
+            ;;
+        fedora)
+            echo -e "${BLUE}Detected Fedora: $DISTRO_NAME${NC}"
+            echo -e "${BLUE}Redirecting to Fedora setup script...${NC}"
+            echo
+            if [ -f "$SCRIPT_DIR/setup_fedora.sh" ]; then
+                exec "$SCRIPT_DIR/setup_fedora.sh"
+            else
+                echo -e "${RED}✗ setup_fedora.sh not found${NC}"
+                exit 1
+            fi
+            ;;
         *)
             echo -e "${YELLOW}Warning: $DISTRO_NAME is not officially supported${NC}"
-            echo -e "${YELLOW}This script is designed for Debian/Ubuntu-based systems${NC}"
+            echo -e "${YELLOW}This script is designed for Debian/Ubuntu/Arch/Fedora-based systems${NC}"
             read -p "Continue anyway? (y/n) " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -150,7 +183,7 @@ get_pip_packages() {
 main() {
     echo -e "${BLUE}========================================${NC}"
     echo -e "${BLUE}TaskCoach Unified Setup Script${NC}"
-    echo -e "${BLUE}Version 1.2.0${NC}"
+    echo -e "${BLUE}Version 1.3.0${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
 

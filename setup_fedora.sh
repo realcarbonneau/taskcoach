@@ -1,18 +1,20 @@
 #!/bin/bash
-# TaskCoach Setup Script for Debian 13 (Trixie)
-# This script automates the setup and testing of TaskCoach on Debian 13
+# TaskCoach Setup Script for Fedora 39/40
+# This script automates the setup and testing of TaskCoach on Fedora
 #
-# Debian 13 Trixie uses Python 3.13 as default
-# wxPython 4.2.3 is available in repos
+# Fedora 39/40 uses Python 3.12 as default
+# All core packages available in repos except squaremap
 #
 # For other distributions, see:
 #   - setup_debian12_bookworm.sh (Debian 12 Bookworm)
+#   - setup_debian13_trixie.sh (Debian 13 Trixie)
 #   - setup_ubuntu2204_jammy.sh (Ubuntu 22.04 Jammy)
 #   - setup_ubuntu2404_noble.sh (Ubuntu 24.04 Noble)
+#   - setup_manjaro.sh (Arch/Manjaro)
 #   - setup.sh (unified auto-detection script)
 #
-# Version: 1.2.1
-# Last Updated: 2025-12-20
+# Version: 1.0.0
+# Last Updated: 2024-12-24
 
 set -e  # Exit on error
 
@@ -27,16 +29,16 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}TaskCoach Setup for Debian 13 (Trixie)${NC}"
-echo -e "${BLUE}Version 1.2.0${NC}"
+echo -e "${BLUE}TaskCoach Setup for Fedora 39/40${NC}"
+echo -e "${BLUE}Version 1.0.0${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo
 
-# Check if running on Debian Trixie
+# Check if running on Fedora
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    if [ "$ID" != "debian" ] || ( [ "$VERSION_CODENAME" != "trixie" ] && [ "$VERSION_CODENAME" != "sid" ] ); then
-        echo -e "${YELLOW}Warning: This script is designed for Debian 13 (Trixie/Sid)${NC}"
+    if [ "$ID" != "fedora" ]; then
+        echo -e "${YELLOW}Warning: This script is designed for Fedora 39/40${NC}"
         echo -e "${YELLOW}Detected: $PRETTY_NAME${NC}"
         read -p "Continue anyway? (y/n) " -n 1 -r
         echo
@@ -44,8 +46,8 @@ if [ -f /etc/os-release ]; then
             exit 1
         fi
     fi
-elif [ ! -f /etc/debian_version ]; then
-    echo -e "${YELLOW}Warning: This doesn't appear to be Debian${NC}"
+else
+    echo -e "${YELLOW}Warning: Cannot detect distribution${NC}"
     read -p "Continue anyway? (y/n) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -53,10 +55,8 @@ elif [ ! -f /etc/debian_version ]; then
     fi
 fi
 
-# Check Python version - Trixie uses Python 3.13
+# Check Python version
 echo -e "${BLUE}[1/7] Checking Python version...${NC}"
-
-# On Trixie, use the default python3 (which is 3.13)
 PYTHON_CMD="python3"
 
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
@@ -75,16 +75,15 @@ echo
 
 # Install system dependencies
 echo -e "${BLUE}[2/7] Installing system dependencies...${NC}"
-echo "This will install system packages from Debian repos."
-echo "Trixie has more packages available than Bookworm."
+echo "This will install system packages from Fedora repos."
+echo "Fedora has all core packages available."
 echo "Requires sudo privileges."
 
 if command -v sudo &> /dev/null; then
-    sudo apt-get update -qq
-    sudo apt-get install -y \
+    sudo dnf install -y \
         python3 \
-        python3-venv \
-        python3-wxgtk4.0 \
+        python3-virtualenv \
+        python3-wxpython4 \
         python3-six \
         python3-lxml \
         python3-numpy \
@@ -95,9 +94,10 @@ if command -v sudo &> /dev/null; then
         python3-pyxdg \
         python3-fasteners \
         python3-watchdog \
-        python3-pubsub \
+        python3-pypubsub \
         python3-zeroconf \
-        python3-squaremap
+        libXScrnSaver \
+        xdg-utils
     echo -e "${GREEN}✓ System packages installed${NC}"
 else
     echo -e "${YELLOW}⚠ sudo not available, please install packages manually${NC}"
@@ -126,13 +126,15 @@ else
 fi
 echo
 
-# Install Python dependencies not available in Debian repos
+# Install Python dependencies not available in Fedora repos or too old
 echo -e "${BLUE}[4/7] Installing Python dependencies in venv...${NC}"
-# Trixie has most packages in repos, only need a few from pip
-echo "Installing: desktop3, gntp, distro"
+echo "Fedora has most packages, pip install for:"
+echo "  - squaremap: Not in Fedora repos"
+echo "  - pyparsing>=3.1.3: Fedora has older version, need pp.Tag() API"
+echo "  - distro: Distribution detection"
 
 source "$VENV_PATH/bin/activate"
-pip install --quiet desktop3 gntp distro
+pip install --quiet squaremap "pyparsing>=3.1.3" distro
 deactivate
 
 echo -e "${GREEN}✓ Python dependencies installed in virtual environment${NC}"
@@ -173,8 +175,7 @@ if WX_VERSION=$($PYTHON_CMD -c "import wx; print(wx.__version__)" 2>/dev/null); 
     echo -e "${GREEN}✓ (version $WX_VERSION)${NC}"
 else
     echo -e "${RED}✗ Failed${NC}"
-    echo "Please check python3-wxgtk4.0 installation"
-    echo "Make sure you're using python3.12 (wxPython on Trixie requires it)"
+    echo "Please check python3-wxpython4 installation"
     deactivate
     exit 1
 fi
@@ -183,7 +184,7 @@ fi
 echo "Testing key packages..."
 FAILED=0
 
-for pkg in "fasteners" "desktop" "gntp" "distro" "zeroconf" "watchdog"; do
+for pkg in "fasteners" "distro" "zeroconf" "watchdog" "squaremap"; do
     echo -n "  - $pkg... "
     if $PYTHON_CMD -c "import $pkg" 2>/dev/null; then
         echo -e "${GREEN}✓${NC}"
@@ -249,12 +250,12 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
-echo "TaskCoach has been set up for Debian 13 (Trixie) with:"
-echo "  • Python: $PYTHON_CMD ($PYTHON_VERSION)"
-echo "  • System packages from Debian repos (wxPython, numpy, lxml, fasteners, watchdog, zeroconf, squaremap, etc.)"
-echo "  • Virtual environment at: $SCRIPT_DIR/.venv"
-echo "  • Additional packages in venv (desktop3, gntp, distro)"
-echo "  • wxPython background color patch (for category row coloring)"
+echo "TaskCoach has been set up for Fedora with:"
+echo "  - Python: $PYTHON_CMD ($PYTHON_VERSION)"
+echo "  - System packages from Fedora repos (wxPython, numpy, lxml, etc.)"
+echo "  - Virtual environment at: $SCRIPT_DIR/.venv"
+echo "  - Additional packages in venv (squaremap, distro)"
+echo "  - wxPython background color patch (for category row coloring)"
 echo
 echo "You can now run TaskCoach with:"
 echo -e "  ${BLUE}./taskcoach-run.sh${NC}"
@@ -262,5 +263,5 @@ echo
 echo "To see all options:"
 echo -e "  ${BLUE}./taskcoach-run.sh --help${NC}"
 echo
-echo "For more information, see docs/DEBIAN_TRIXIE_PLANNING.md"
+echo "For more information, see docs/PACKAGING.md"
 echo
