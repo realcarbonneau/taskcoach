@@ -14,10 +14,14 @@ All build scripts follow the same simple strategy:
 
 | Package | Min Version | Why Required | Distros with Old Versions |
 |---------|-------------|--------------|---------------------------|
+| wxPython | >=4.2.4 | hypertreelist row background fix (PR #2088) | All current (Bookworm 4.2.0, Trixie 4.2.3) |
 | pyparsing | >=3.1.3 | `pp.Tag()` API | Debian Bookworm (3.0.9) |
 | watchdog | >=3.0.0 | File monitoring API | Debian Bookworm (2.2.1) |
 | fasteners | >=0.19 | File locking API | — |
 | zeroconf | >=0.50.0 | iPhone sync | — |
+
+**Note**: wxPython 4.2.4 was released October 28, 2025 but is not yet packaged for any distro.
+Until then, a bundled patch in `taskcoachlib/patches/` is used (see [CRITICAL_WXPYTHON_PATCH.md](CRITICAL_WXPYTHON_PATCH.md)).
 
 **Handled automatically**: Build scripts bundle newer versions for distros with old packages.
 No manual steps required for users installing from packages.
