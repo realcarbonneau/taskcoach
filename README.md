@@ -14,7 +14,7 @@ Download the package for your system from the [latest release](https://github.co
 | Ubuntu 22.04 (Jammy) | `taskcoach_1.6.1.73_ubuntu-22.04-jammy_all.deb` |
 | Ubuntu 24.04 (Noble) | `taskcoach_1.6.1.73_ubuntu-24.04-noble_all.deb` |
 | Linux Mint | Use Ubuntu `.deb` (Mint is Ubuntu-based) |
-| Arch Linux / Manjaro | `taskcoach-1.6.1.73-1-any.pkg.tar.zst` |
+| Arch Linux / Manjaro | `taskcoach-1.6.1.73-arch.pkg.tar.zst` |
 | Fedora 39/40 | `taskcoach-1.6.1.73-fedora39.noarch.rpm` |
 | Any Linux (x86_64) | `TaskCoach-1.6.1.73-x86_64.AppImage` |
 
@@ -39,8 +39,8 @@ sudo apt autoremove  # optional: remove unused dependencies
 
 ```bash
 cd ~/Downloads
-wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-1-any.pkg.tar.zst
-sudo pacman -U taskcoach-1.6.1.73-1-any.pkg.tar.zst
+wget https://github.com/realcarbonneau/taskcoach/releases/latest/download/taskcoach-1.6.1.73-arch.pkg.tar.zst
+sudo pacman -U taskcoach-1.6.1.73-arch.pkg.tar.zst
 taskcoach.py
 ```
 

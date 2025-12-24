@@ -145,13 +145,14 @@ jobs:
           mkdir -p artifacts
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Copy and rename package with descriptive name
+          # Rename package to match other distro naming pattern
           for pkg in build-area/manjaro/*.pkg.tar.*; do
             if [ -f "$pkg" ]; then
-              BASENAME=$(basename "$pkg")
-              # Keep original name but also create a copy with arch-linux prefix
-              cp "$pkg" "artifacts/$BASENAME"
-              echo "Package: $BASENAME"
+              # Extract extension (pkg.tar.zst or pkg.tar.xz)
+              EXT="${pkg#*.pkg.}"
+              NEWNAME="taskcoach-${VERSION}-arch.pkg.${EXT}"
+              cp "$pkg" "artifacts/$NEWNAME"
+              echo "Package: $NEWNAME"
             fi
           done
 
