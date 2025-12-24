@@ -47,7 +47,7 @@ The `setup.py` file lists core dependencies with version requirements where need
 
 ## Install Overview by Build Target
 
-Each build target (workflow + setup script) handles dependencies automatically:
+This table shows how dependencies are handled in **built packages**. Setup scripts for development may install additional packages.
 
 | Package | debian12 | ubuntu22 | debian13 | ubuntu24 | arch | fedora40 | windows | macos |
 |---------|:--------:|:--------:|:--------:|:--------:|:----:|:--------:|:-------:|:-----:|
@@ -55,7 +55,7 @@ Each build target (workflow + setup script) handles dependencies automatically:
 | pypubsub | distro | distro | distro | distro | AUR | distro | pip | pip |
 | pyparsing | **pip** | **pip** | distro | distro | distro | **pip** | pip | pip |
 | watchdog | **pip** | **pip** | distro | distro | distro | distro | pip | pip |
-| squaremap | distro | distro | distro | distro | **pip** | **pip** | pip | pip |
+| squaremap | opt | opt | opt | opt | **pip** | **pip** | pip | pip |
 | six | distro | distro | distro | distro | distro | distro | pip | pip |
 | lxml | distro | distro | distro | distro | distro | distro | pip | pip |
 | numpy | distro | distro | distro | distro | distro | distro | pip | pip |
@@ -71,26 +71,29 @@ Each build target (workflow + setup script) handles dependencies automatically:
 | WMI | — | — | — | — | — | — | pip | — |
 
 **Key:**
-- `distro` = Installed from distribution repos
-- `pip` = Installed via pip (no distro packages on Windows/macOS)
+- `distro` = Installed from distribution repos (required dependency)
+- `pip` = Bundled via pip in package build (version too old or not in repos)
+- `opt` = Optional - listed as Recommends but not in distro repos (install via pip if needed)
 - `patch` = Bundled patch in `taskcoachlib/patches/` (wxPython hypertreelist fix)
 - `bundled` = Bundled in `taskcoachlib/thirdparty/` (no external dependency)
-- `AUR` = Arch User Repository (rolling release, no version)
-- `arch` = Arch Linux / Manjaro (rolling release)
+- `AUR` = Arch User Repository (rolling release)
 - `—` = Not applicable for this platform
+
+**Note:** `python3-squaremap` does not exist in Debian/Ubuntu repositories. It's listed as Recommends for future availability but must be installed via pip if needed.
 
 ### Build Scripts and Workflows
 
 | Target | ID | Setup Script | GitHub Workflow | Notes |
 |--------|:--:|--------------|-----------------|-------|
 | Debian 12 Bookworm | debian12 | `setup_debian12_bookworm.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
-| Debian 13 Trixie | debian13 | `setup_debian13_trixie.sh` | `build-deb.yml` | All from distro |
+| Debian 13 Trixie | debian13 | `setup_debian13_trixie.sh` | `build-deb.yml` | Distro deps sufficient |
 | Ubuntu 22.04 Jammy | ubuntu22 | `setup_ubuntu2204_jammy.sh` | `build-deb.yml` | Bundles pyparsing, watchdog |
-| Ubuntu 24.04 Noble | ubuntu24 | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | All from distro |
-| Arch Linux | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap |
-| Manjaro | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap |
+| Ubuntu 24.04 Noble | ubuntu24 | `setup_ubuntu2404_noble.sh` | `build-deb.yml` | Distro deps sufficient |
+| Arch Linux | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap, pypubsub |
+| Manjaro | arch | `setup_manjaro.sh` | `build-arch.yml` | Bundles squaremap, pypubsub |
 | Fedora 39 | fedora39 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
 | Fedora 40 | fedora40 | `setup_fedora.sh` | `build-rpm.yml` | Bundles squaremap, pyparsing |
+| AppImage | appimage | — | `build-appimage.yml` | Self-contained, all deps bundled |
 | Windows | windows | — | — | Not currently building |
 | macOS | macos | — | — | Not currently building |
 
