@@ -30,10 +30,6 @@ jobs:
             name: Fedora 40
             os: fedora
             osver: "40"
-          - distro: rockylinux:9
-            name: Rocky Linux 9
-            os: rocky
-            osver: "9"
 
     container:
       image: ${{ matrix.distro }}
@@ -166,10 +162,6 @@ jobs:
             name: Fedora 40
             os: fedora
             osver: "40"
-          - distro: rockylinux:9
-            name: Rocky Linux 9
-            os: rocky
-            osver: "9"
 
     steps:
       - name: Download artifact

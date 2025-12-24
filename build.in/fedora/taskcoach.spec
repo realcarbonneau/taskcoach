@@ -1,5 +1,5 @@
 # Task Coach - Your friendly task manager
-# Fedora/RHEL/CentOS RPM Spec File
+# Fedora RPM Spec File
 #
 # Copyright (C) 2004-2016 Task Coach developers <developers@taskcoach.org>
 # Copyright (C) 2008 Marcin Zajaczkowski <mszpak@wp.pl>
@@ -75,7 +75,7 @@ Features:
 # Remove __pycache__ from bin directory if present
 rm -rfv %{buildroot}%{_bindir}/__pycache__
 
-# Install wheel first (needed on Rocky Linux to create dist-info instead of egg-info)
+# Ensure wheel is available for proper dist-info creation
 pip3 install --no-cache-dir wheel
 
 # Install squaremap (not in Fedora repos)
@@ -118,7 +118,7 @@ install -Dm644 Welcome.tsk \
 
 %changelog
 * Tue Dec 24 2024 Task Coach Developers <developers@taskcoach.org> - 1.6.1.73-1
-- Modernized spec file for Fedora 39+/RHEL 9+/CentOS Stream 9+
+- Modernized spec file for Fedora 39+
 - Added Python 3 support
 - Added pip installation of squaremap (not in Fedora repos)
 - Added squaremap dist-info to %files section

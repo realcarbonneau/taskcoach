@@ -13,9 +13,9 @@ Download the package for your system from the [latest release](https://github.co
 | Debian Sid | `taskcoach_1.6.1.73_debian-sid-sid_all.deb` |
 | Ubuntu 22.04 (Jammy) | `taskcoach_1.6.1.73_ubuntu-22.04-jammy_all.deb` |
 | Ubuntu 24.04 (Noble) | `taskcoach_1.6.1.73_ubuntu-24.04-noble_all.deb` |
+| Linux Mint | Use Ubuntu `.deb` (Mint is Ubuntu-based) |
 | Arch Linux / Manjaro | `taskcoach-1.6.1.73-1-any.pkg.tar.zst` |
 | Fedora 39/40 | `taskcoach-1.6.1.73-fedora39.noarch.rpm` |
-| Rocky Linux 9 | `taskcoach-1.6.1.73-rocky9.noarch.rpm` |
 | Any Linux (x86_64) | `TaskCoach-1.6.1.73-x86_64.AppImage` |
 
 **Example: Install on Debian/Ubuntu**
@@ -50,7 +50,7 @@ sudo pacman -R taskcoach
 sudo pacman -Qdtq | sudo pacman -Rs -  # optional: remove orphaned dependencies
 ```
 
-**Example: Install on Fedora / Rocky Linux**
+**Example: Install on Fedora**
 
 ```bash
 cd ~/Downloads

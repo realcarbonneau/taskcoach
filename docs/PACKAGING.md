@@ -1,12 +1,12 @@
 # Linux Packaging Guide for Task Coach
 
-This document describes the packaging setup for Task Coach on various Linux distributions including Debian, Ubuntu, Arch Linux, Manjaro, Fedora, and Rocky Linux.
+This document describes the packaging setup for Task Coach on various Linux distributions including Debian, Ubuntu, Linux Mint, Arch Linux, Manjaro, and Fedora.
 
 ## Package Availability by Distribution
 
 Not all Python packages are available in all distribution repositories. The table below shows availability:
 
-| Package | Debian/Ubuntu | Arch/Manjaro | Fedora/Rocky | PyPI |
+| Package | Debian/Ubuntu/Mint | Arch/Manjaro | Fedora | PyPI |
 |---------|:-------------:|:------------:|:------------:|:----:|
 | python-wxpython | ✓ | ✓ | ✓ | ✓ |
 | python-pypubsub | ✓ | ✓ | ✓ | ✓ |
@@ -35,12 +35,11 @@ The following table provides rough estimates of desktop users for each supported
 |--------------|-------------------:|-------------------:|:--------:|-------|
 | **Ubuntu** (all flavors) | 13-17 million | ~34% | High | Most popular desktop distro |
 | **Debian** | 6-8 million | ~16% | High | Stability-focused users |
-| **Linux Mint** | 4-6 million | ~10-12% | High | Ubuntu-based, beginner-friendly |
+| **Linux Mint** | 4-6 million | ~10-12% | High | Uses Ubuntu/Debian `.deb` packages |
 | **Arch Linux** | 1.5-2.5 million | ~4-5% | Medium | Power users, rolling release |
 | **Manjaro** | 1-1.5 million | ~2-3% | Medium | Arch-based, user-friendly |
 | **Fedora** | 0.8-1.2 million | ~2-3% | Medium | Cutting-edge, developer-focused |
-| **Pop!_OS** | 0.5-1 million | ~1-2% | Low | Ubuntu-based, System76 |
-| **Rocky Linux** | < 100,000 | < 0.5% | Low | Primarily server OS |
+| **Pop!_OS** | 0.5-1 million | ~1-2% | — | Uses Ubuntu `.deb` packages |
 
 *Estimates as of Q4 2024. Based on ~40-50 million total Linux desktop users worldwide (4-4.5% of ~1 billion PCs).*
 
@@ -52,7 +51,7 @@ The following table provides rough estimates of desktop users for each supported
 **Important caveats:**
 - Linux users often block tracking, so actual numbers may be higher
 - Steam data skews toward gaming-focused distros (Arch, SteamOS)
-- Rocky/AlmaLinux are enterprise server distros with minimal desktop use
+- Linux Mint and Pop!_OS users can use Ubuntu/Debian packages directly
 - Numbers are approximate and vary by data source
 
 ## Important: Upstream vs Debian Packaging
@@ -543,9 +542,9 @@ Features:
 
 ---
 
-## Fedora / Rocky Linux / CentOS Packaging
+## Fedora Packaging
 
-Task Coach includes native RPM packaging support for Fedora, Rocky Linux, and CentOS Stream using the standard spec file format.
+Task Coach includes native RPM packaging support for Fedora using the standard spec file format.
 
 ### Directory Structure
 
@@ -622,25 +621,14 @@ The following are not in Fedora repos and are installed via pip during build:
 squaremap           # Hierarchical data visualization
 ```
 
-#### Distro-Specific Build Notes
+#### Build Notes
 
 | Distro | Python | Notes |
 |--------|--------|-------|
-| Fedora 39 | 3.12 | `wheel` package available, creates `.dist-info` |
-| Fedora 40 | 3.12 | `wheel` package available, creates `.dist-info` |
-| Rocky Linux 9 | 3.9 | `wheel` not installed by default, spec installs it first |
+| Fedora 39 | 3.12 | Current stable release |
+| Fedora 40 | 3.12 | Current stable release |
 
-**Why install wheel?** On Rocky Linux 9, pip uses legacy `setup.py install` without wheel, which creates `.egg-info` instead of `.dist-info` directories. The spec file installs wheel first to ensure consistent behavior:
-
-```spec
-# Install wheel first (needed on Rocky Linux for consistent dist-info creation)
-pip3 install --no-cache-dir wheel
-
-# Then install squaremap
-pip3 install --no-cache-dir --no-deps --target=%{buildroot}%{python3_sitelib} squaremap
-```
-
-**Spec file approach:** We use `%py3_build` and `%py3_install` macros for compatibility with both Fedora and RHEL-based distros. While Fedora's newest guidelines prefer `%pyproject_wheel`/`%pyproject_install`, the older macros work across all target distributions.
+**Spec file approach:** We use `%py3_build` and `%py3_install` macros. While Fedora's newest guidelines prefer `%pyproject_wheel`/`%pyproject_install`, the older macros provide broader compatibility.
 
 ### GitHub Actions CI
 
@@ -657,7 +645,6 @@ jobs:
         include:
           - distro: fedora:39
           - distro: fedora:40
-          - distro: rockylinux:9
     runs-on: ubuntu-latest
     container: ${{ matrix.distro }}
     steps:
@@ -666,7 +653,7 @@ jobs:
 ```
 
 Features:
-- Builds on Fedora 39, Fedora 40, and Rocky Linux 9
+- Builds on Fedora 39 and Fedora 40
 - Tests installation on clean containers
 - Uploads packages as artifacts
 - Creates GitHub releases on version tags
@@ -676,10 +663,6 @@ Features:
 | Distribution | Version | Tested | Notes |
 |--------------|---------|--------|-------|
 | Fedora | 39, 40 | ✓ | Primary target |
-| Rocky Linux | 9 | ✓ | RHEL compatible |
-| CentOS Stream | 9 | ✓ | RHEL preview |
-| AlmaLinux | 9 | ~ | Should work (untested) |
-| RHEL | 9 | ~ | Should work (untested) |
 
 ---
 
@@ -711,7 +694,6 @@ Features:
 - [Fedora Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/)
 - [RPM Packaging Guide](https://rpm-packaging-guide.github.io/)
 - [Fedora Python Packaging](https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/)
-- [Rocky Linux Documentation](https://docs.rockylinux.org/)
 
 ### Desktop Integration
 - [XDG Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
